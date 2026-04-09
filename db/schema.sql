@@ -292,6 +292,31 @@ CREATE INDEX failed_jobs_unresolved_idx   ON failed_jobs (failed_at DESC)
 CREATE INDEX failed_jobs_payload_idx      ON failed_jobs USING GIN (payload);
 
 -- =============================================================================
+-- TABLE: competitor_snapshots
+-- Stores a SHA-256 hash of each competitor homepage fetch.
+-- A hash change since the last check triggers a market_signals row.
+-- First-time checks store the snapshot only (no signal).
+-- =============================================================================
+CREATE TABLE competitor_snapshots (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id      UUID        NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    url             TEXT        NOT NULL,
+    content_hash    TEXT        NOT NULL,   -- SHA-256 hex of normalised page text
+    content_summary TEXT,                   -- extracted keywords/sentences
+    checked_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT competitor_snapshots_hash_len CHECK (length(content_hash) = 64)
+);
+
+COMMENT ON TABLE  competitor_snapshots              IS 'Homepage content snapshots for change detection.';
+COMMENT ON COLUMN competitor_snapshots.content_hash IS 'SHA-256 hex of normalised page text. Change triggers market_signals.';
+COMMENT ON COLUMN competitor_snapshots.content_summary IS 'Sentences/fragments containing monitored keywords.';
+
+-- Latest snapshot per company (most common query)
+CREATE INDEX competitor_snapshots_company_checked_idx
+    ON competitor_snapshots (company_id, checked_at DESC);
+
+-- =============================================================================
 -- VIEW: llm_cost_summary
 -- Per-table, per-model cost rollup for monitoring token spend.
 -- =============================================================================
