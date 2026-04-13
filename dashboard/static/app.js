@@ -494,7 +494,7 @@ function _renderPriceSummaryTable(data) {
     const famCls  = m.fam === 'polyester' ? 'fam-polyester'
                   : m.fam === 'nylon'     ? 'fam-nylon' : '';
     const minCls  = isMinimal ? 'row-minimal' : '';
-    const tooltip = isMinimal ? ' title="7'den az veri noktası — metrikler devre dışı"' : '';
+    const tooltip = isMinimal ? ` title="7'den az veri noktası — metrikler devre dışı"` : "";
 
     return `<tr class="${famCls} ${minCls}"${tooltip}>
       <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
