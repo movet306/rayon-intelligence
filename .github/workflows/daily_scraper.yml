@@ -12,7 +12,10 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL:          ${{ secrets.DATABASE_URL }}
+      OPENAI_API_KEY:        ${{ secrets.OPENAI_API_KEY }}
+      TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
       - name: Checkout
@@ -32,3 +35,9 @@ jobs:
 
       - name: Run just_style scraper
         run: python scrapers/just_style.py --pages 2
+
+      - name: Run LLM analyzer
+        run: python scrapers/llm_analyzer.py --limit 50
+
+      - name: Send Telegram report
+        run: python scrapers/telegram_reporter.py

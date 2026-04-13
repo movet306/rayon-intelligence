@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scrapers/llm_analyzer.py --dry-run --limit 5)",
+      "Bash(pip install:*)",
+      "Bash(python scrapers/fibre2fashion.py --backfill)",
+      "Bash(python scrapers/just_style.py --backfill)",
+      "Bash(python scrapers/llm_analyzer.py --limit 20)",
+      "Bash(python -c ':*)",
+      "Bash(python scrapers/telegram_reporter.py --dry-run)",
+      "Bash(python scrapers/telegram_reporter.py)"
+    ]
+  }
+}
