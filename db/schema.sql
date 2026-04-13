@@ -422,4 +422,120 @@ CREATE INDEX IF NOT EXISTS fair_exhibitors_fair_idx
 CREATE INDEX IF NOT EXISTS fair_exhibitors_name_idx
     ON fair_exhibitors USING GIN (to_tsvector('simple', name));
 
+-- ---------------------------------------------------------------------------
+-- lkp_yarn_taxonomy — lookup table of distinct yarn/fabric types
+-- Derived programmatically from the yarn cost records.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS lkp_yarn_taxonomy (
+    id          SERIAL      PRIMARY KEY,
+    yarn_type   TEXT        NOT NULL UNIQUE,   -- e.g. '150/48 PES EKRU', 'FULGAR PA 78/68'
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  lkp_yarn_taxonomy           IS 'Lookup of distinct yarn/fabric types found in yarn cost records.';
+COMMENT ON COLUMN lkp_yarn_taxonomy.yarn_type IS 'Exact KUMAŞ CİNSİ value from source Excel.';
+
+-- ---------------------------------------------------------------------------
+-- yarn_costs — internal yarn cost records (2015–2025)
+-- Source: EMİNE BİRİM MALİYET KDV SİZ-SON .xls, sheet İPLİK
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS yarn_costs (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    factory_entry_date  DATE,                          -- FABR.GİDİŞ SIRALI
+    yarn_type           TEXT,                          -- KUMAŞ CİNSİ (FK to lkp_yarn_taxonomy)
+    boxes               NUMERIC(10, 2),                -- KUTU
+    qty_kg              NUMERIC(14, 3),                -- KG
+    cost_tl             NUMERIC(16, 2),                -- ALPER MASRAFLARI TL
+    exchange_rate       NUMERIC(10, 4),                -- KUR (TL/USD)
+    cost_usd_ratio      NUMERIC(16, 2),                -- ALPER MASRAFI USD KARŞILIĞI
+    cost_usd            NUMERIC(16, 2),                -- ALPER MASRAFLARI USD
+    total_cost_usd      NUMERIC(16, 2),                -- TOPLAM MASRAF USD
+    invoice_usd         NUMERIC(16, 2),                -- FATURA USD TUTARI
+    unit_cost_usd       NUMERIC(12, 4),                -- HAM MALİYET USD/MT
+    invoice_no          TEXT,                          -- FATURA NO
+    invoice_date        DATE,                          -- FATURA TARİHİ
+    price               NUMERIC(12, 4),                -- FİYAT
+    supplier            TEXT,                          -- KİMDEN
+    source_file         TEXT,                          -- original Excel filename
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  yarn_costs                 IS 'Internal yarn cost records 2015–2025. Source: EMİNE BİRİM MALİYET .xls';
+COMMENT ON COLUMN yarn_costs.factory_entry_date IS 'Date the yarn entered the factory (FABR.GİDİŞ SIRALI).';
+COMMENT ON COLUMN yarn_costs.unit_cost_usd      IS 'Raw material cost in USD per metric tonne (HAM MALİYET USD/MT).';
+COMMENT ON COLUMN yarn_costs.exchange_rate       IS 'TL/USD exchange rate on invoice date.';
+
+CREATE INDEX IF NOT EXISTS yarn_costs_date_idx     ON yarn_costs (factory_entry_date);
+CREATE INDEX IF NOT EXISTS yarn_costs_supplier_idx ON yarn_costs (supplier);
+CREATE INDEX IF NOT EXISTS yarn_costs_yarn_type_idx ON yarn_costs (yarn_type);
+
+-- ---------------------------------------------------------------------------
+-- orders — completed purchase orders (internal)
+-- Source: siparis_biten_CLEANED_expert_corrected.xlsx, sheet siparis_biten_clean
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS orders (
+    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id             TEXT        NOT NULL UNIQUE,   -- business key e.g. '24-0001'
+    order_date           DATE,
+    supplier_raw         TEXT,
+    supplier_clean       TEXT,
+    item_raw             TEXT,
+    product_clean        TEXT,
+    product_group        TEXT,
+    product_group_expert TEXT,
+    ordered_qty          NUMERIC(14, 3),
+    qty_numeric          NUMERIC(14, 3),
+    unit_raw             TEXT,
+    unit_standard        TEXT,
+    invoice_date         DATE,
+    invoice_no           TEXT,
+    received_qty         NUMERIC(14, 3),
+    remaining_qty        NUMERIC(14, 3),
+    unit_price_raw       TEXT,
+    price_numeric        NUMERIC(12, 4),
+    currency_raw         TEXT,
+    currency_clean       TEXT,
+    transaction_type     TEXT,
+    record_status        TEXT,
+    notes_cleaning       TEXT,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  orders          IS 'Completed purchase orders. Source: siparis_biten_CLEANED_expert_corrected.xlsx';
+COMMENT ON COLUMN orders.order_id IS 'Business key from source file (e.g. 24-0001). UNIQUE.';
+
+CREATE INDEX IF NOT EXISTS orders_order_date_idx       ON orders (order_date);
+CREATE INDEX IF NOT EXISTS orders_supplier_clean_idx   ON orders (supplier_clean);
+CREATE INDEX IF NOT EXISTS orders_product_group_idx    ON orders (product_group_expert);
+CREATE INDEX IF NOT EXISTS orders_currency_clean_idx   ON orders (currency_clean);
+
+-- ---------------------------------------------------------------------------
+-- order_invoices — invoice sub-records linked to orders
+-- Source: siparis_biten_CLEANED_expert_corrected.xlsx, sheet fatura_detay
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS order_invoices (
+    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_order_id      TEXT        NOT NULL,          -- matches orders.order_id
+    invoice_date         DATE,
+    invoice_no           TEXT,
+    unit_price           NUMERIC(12, 4),
+    currency             TEXT,
+    received_qty         NUMERIC(14, 3),
+    unit                 TEXT,
+    transaction_type     TEXT,
+    notes                TEXT,
+    product_group_expert TEXT,
+    product_group_review TEXT,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT order_invoices_order_fk FOREIGN KEY (parent_order_id)
+        REFERENCES orders(order_id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE  order_invoices                IS 'Invoice sub-records linked to orders. Source: fatura_detay sheet.';
+COMMENT ON COLUMN order_invoices.parent_order_id IS 'FK to orders.order_id.';
+
+CREATE INDEX IF NOT EXISTS order_invoices_parent_idx    ON order_invoices (parent_order_id);
+CREATE INDEX IF NOT EXISTS order_invoices_invoice_date_idx ON order_invoices (invoice_date);
+
 COMMIT;
