@@ -39,6 +39,9 @@ jobs:
       - name: Run tekstil_teknik scraper
         run: python scrapers/tekstil_teknik.py --pages 3
 
+      - name: Run textilegence scraper
+        run: python scrapers/textilegence.py --pages 5
+
       - name: Run price signals scraper
         run: python scrapers/price_signals.py --months 12
 
