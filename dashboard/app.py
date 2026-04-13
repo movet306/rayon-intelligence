@@ -82,13 +82,16 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
 /* ── Plotly chart border ── */
 .js-plotly-plot { border: 1px solid #e2e8f0; border-radius: 8px; }
 
-/* ── st.table styling ── */
+/* ── table styling (st.table + .dataframe HTML tables) ── */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead tr { background: #f1f5f9; }
 th { padding: 8px 12px; text-align: left; font-weight: 600;
      color: #475569; border-bottom: 2px solid #e2e8f0; }
 td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
 tr:hover td { background: #f8fafc; }
+.dataframe { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dataframe th { background: #f0f2f6; padding: 6px 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+.dataframe td { padding: 5px 10px; border-bottom: 1px solid #f0f2f6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -643,7 +646,7 @@ def tab_price_intelligence():
                 table_data["Price"].append(f"{price:,.2f}")
                 table_data["Unit"].append(r["unit"])
                 table_data["USD equiv./ton"].append(usd_eq)
-        st.table(pd.DataFrame(table_data))
+        st.markdown(pd.DataFrame(table_data).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
 
 # ── Tab 3: Export Intelligence ─────────────────────────────────────────────────
@@ -787,10 +790,10 @@ def tab_internal_data():
             prod_rows = q_lescon_top_products()
             if prod_rows:
                 st.markdown("**Top 10 products by transaction count**")
-                st.table(pd.DataFrame(
+                st.markdown(pd.DataFrame(
                     [(r[0], r[1], f"${r[2]:,.0f}") for r in prod_rows],
                     columns=["Product", "Transactions", "Revenue (USD)"],
-                ))
+                ).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
     # ── Yarn Costs ───────────────────────────────────────────────────────────────
     with inner2:
@@ -830,10 +833,10 @@ def tab_internal_data():
             st.plotly_chart(fig_yarn, use_container_width=True)
 
             with st.expander("Data by year"):
-                st.table(pd.DataFrame(
+                st.markdown(pd.DataFrame(
                     [(r[0], f"${r[1]:.4f}", r[2]) for r in yarn_rows],
                     columns=["Year", "Avg cost (USD/MT)", "Records"],
-                ))
+                ).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
     # ── Orders ──────────────────────────────────────────────────────────────────
     with inner3:
@@ -853,13 +856,13 @@ def tab_internal_data():
             st.plotly_chart(fig_sup, use_container_width=True)
 
             with st.expander("Full supplier table"):
-                st.table(pd.DataFrame(
+                st.markdown(pd.DataFrame(
                     [(r[0], r[1], r[2],
                       f"{r[3]:,.0f}" if r[3] else "—",
                       f"{r[4]:.4f}" if r[4] else "—")
                      for r in sup_rows],
                     columns=["Supplier","Currency","# Orders","Total KG","Avg price"],
-                ))
+                ).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
