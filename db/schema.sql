@@ -151,6 +151,9 @@ CREATE TABLE trade_flows (
     period           DATE        NOT NULL,           -- first day of the reported period
     period_type      period_granularity NOT NULL,
 
+    -- HS description (denormalised for convenience)
+    hs_description   TEXT,
+
     -- Values
     value_usd        NUMERIC(18, 2),
     quantity_kg      NUMERIC(18, 3),

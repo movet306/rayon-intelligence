@@ -12,7 +12,8 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL:       ${{ secrets.DATABASE_URL }}
+      COMTRADE_API_KEY:   ${{ secrets.COMTRADE_API_KEY }}
 
     steps:
       - name: Checkout
@@ -29,3 +30,8 @@ jobs:
 
       - name: Run competitor monitor
         run: python scrapers/competitor_monitor.py
+
+      - name: Run Comtrade trade flows scraper
+        run: python scrapers/trade_flows.py --months 3
+        # Fetches the 3 most recent available months; Comtrade lags ~5-15 months.
+        # ON CONFLICT DO UPDATE so re-runs are safe.
