@@ -374,4 +374,22 @@ CREATE TABLE IF NOT EXISTS lescon_sales (
 CREATE INDEX IF NOT EXISTS lescon_sales_tarih_idx   ON lescon_sales (tarih);
 CREATE INDEX IF NOT EXISTS lescon_sales_fabric_idx  ON lescon_sales (fabric_type);
 
+-- ---------------------------------------------------------------------------
+-- price_signals — scraped fiber/yarn/commodity price data
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS price_signals (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    material   TEXT        NOT NULL,          -- e.g. 'cotton', 'coarse_wool'
+    price_usd  NUMERIC(14,4),                 -- price in source unit (see unit col)
+    unit       TEXT        NOT NULL,          -- e.g. 'USD/kg', 'USc/kg'
+    source     TEXT        NOT NULL,          -- e.g. 'indexmundi'
+    period     DATE        NOT NULL,          -- first day of the price month
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (material, source, period)
+);
+
+CREATE INDEX IF NOT EXISTS price_signals_period_idx   ON price_signals (period);
+CREATE INDEX IF NOT EXISTS price_signals_material_idx ON price_signals (material);
+
 COMMIT;
