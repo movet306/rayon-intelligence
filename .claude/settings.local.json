@@ -8,7 +8,16 @@
       "Bash(python scrapers/llm_analyzer.py --limit 20)",
       "Bash(python -c ':*)",
       "Bash(python scrapers/telegram_reporter.py --dry-run)",
-      "Bash(python scrapers/telegram_reporter.py)"
+      "Bash(python scrapers/telegram_reporter.py)",
+      "Read(//mnt/user-data/**)",
+      "Bash(find /tmp -name \"*.xls\")",
+      "Bash(ls /tmp/*.xls)",
+      "Read(//c/Users/ASUS/Downloads/**)",
+      "Read(//mnt/c/Users/ASUS/**)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

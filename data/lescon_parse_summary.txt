@@ -1,0 +1,29 @@
+Lescon XLS Parse Summary
+========================================
+
+Source : lescon_orme
+Total  : 612 strings
+  evrak          : 366
+  price_product  : 144
+  kur_farki      : 80
+  toplam         : 1
+  tarih          : 0
+  diger          : 21
+
+Source : lescon_dokuma
+Total  : 84 strings
+  evrak          : 41
+  price_product  : 19
+  kur_farki      : 8
+  toplam         : 1
+  tarih          : 0
+  diger          : 15
+
+GRAND TOTAL
+Total  : 696 strings
+  evrak          : 407
+  price_product  : 163
+  kur_farki      : 88
+  toplam         : 2
+  tarih          : 0
+  diger          : 36

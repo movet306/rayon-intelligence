@@ -353,4 +353,25 @@ UNION ALL
 
 COMMENT ON VIEW llm_cost_summary IS 'Per-table, per-model LLM token and cost rollup.';
 
+-- ---------------------------------------------------------------------------
+-- lescon_sales — internal Lescon account-statement sales data
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS lescon_sales (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    evrak_no        TEXT        NOT NULL,
+    tarih           DATE,
+    urun_aciklamasi TEXT,
+    unit_price_usd  NUMERIC(10,2),
+    miktar          NUMERIC(12,3),
+    miktar_unit     TEXT,
+    fabric_type     TEXT,
+    fabric_subtype  TEXT,
+    is_return       BOOLEAN     DEFAULT FALSE,
+    source_file     TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lescon_sales_tarih_idx   ON lescon_sales (tarih);
+CREATE INDEX IF NOT EXISTS lescon_sales_fabric_idx  ON lescon_sales (fabric_type);
+
 COMMIT;
