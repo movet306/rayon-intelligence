@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rayon Intelligence Platform</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">⬡ Rayon</div>
+    <div class="logo-sub">Intelligence Platform</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-label">Analytics</div>
+    <div class="nav-item active" data-section="signals">
+      <span class="nav-icon">📡</span> Market Signals
+    </div>
+    <div class="nav-item" data-section="prices">
+      <span class="nav-icon">💹</span> Price Intelligence
+    </div>
+    <div class="nav-item" data-section="exports">
+      <span class="nav-icon">🌍</span> Export Intelligence
+    </div>
+    <div class="nav-item" data-section="internal">
+      <span class="nav-icon">🏭</span> Internal Data
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div id="last-refresh">Loading…</div>
+    <div class="refresh-btn" id="refresh-btn">
+      <span>↺</span> Refresh data
+    </div>
+  </div>
+</aside>
+
+<!-- ── Header ───────────────────────────────────────────────────────────────── -->
+<header id="header">
+  <div class="header-title">Rayon Intelligence Platform</div>
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-label">Signals (30d)</div>
+      <div class="kpi-value" id="kpi-signals">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Competitors</div>
+      <div class="kpi-value" id="kpi-competitors">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Polyester (RMB/t)</div>
+      <div class="kpi-value" id="kpi-polyester">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">HS5407 Export</div>
+      <div class="kpi-value" id="kpi-hs5407">—</div>
+      <div class="kpi-sub" id="kpi-hs5407-period"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ─────────────────────────────────────────────────────────────────── -->
+<main id="main">
+
+  <!-- 1. Market Signals -->
+  <section id="section-signals" class="section active">
+    <div class="section-title">Market Signals</div>
+
+    <div class="filter-bar">
+      <label>Window</label>
+      <select id="filter-days">
+        <option value="7">Last 7 days</option>
+        <option value="14">Last 14 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="60">Last 60 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last year</option>
+      </select>
+
+      <label>Type</label>
+      <select id="filter-type">
+        <option value="all">All types</option>
+        <option value="competitor_mention">Competitor mention</option>
+        <option value="price_move">Price move</option>
+        <option value="price_signal">Price signal</option>
+        <option value="trend">Trend</option>
+        <option value="regulation">Regulation</option>
+        <option value="capacity_change">Capacity change</option>
+        <option value="fair_participation">Fair participation</option>
+        <option value="other">Other</option>
+      </select>
+
+      <label>Severity</label>
+      <select id="filter-severity">
+        <option value="all">All severities</option>
+        <option value="alert">Alert</option>
+        <option value="warning">Warning</option>
+        <option value="info">Info</option>
+      </select>
+
+      <span class="signal-count" id="signal-count"></span>
+    </div>
+
+    <div id="signals-list">
+      <div class="loading">Loading signals…</div>
+    </div>
+  </section>
+
+  <!-- 2. Price Intelligence -->
+  <section id="section-prices" class="section">
+    <div class="section-title">Commodity Price Intelligence</div>
+    <div class="price-grid" id="price-grid">
+      <div class="loading">Loading price data…</div>
+    </div>
+  </section>
+
+  <!-- 3. Export Intelligence -->
+  <section id="section-exports" class="section">
+    <div class="section-title">Turkey Textile Export Intelligence</div>
+
+    <div class="kpi-row" id="export-kpis">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="hs-selector">
+      <label>HS Code</label>
+      <select id="hs-select">
+        <option value="5407">HS 5407 — Woven synthetic filament</option>
+        <option value="5512">HS 5512 — Woven ≥85% synth. staple</option>
+        <option value="5515">HS 5515 — Other woven synth. staple</option>
+        <option value="6006">HS 6006 — Technical knit</option>
+        <option value="6001">HS 6001 — Pile/velour knit</option>
+        <option value="5402">HS 5402 — Filament yarn</option>
+        <option value="5509">HS 5509 — Staple yarn</option>
+      </select>
+    </div>
+
+    <div class="two-col">
+      <div class="chart-panel">
+        <div class="chart-panel-title" id="dest-chart-title">Top 10 Destinations</div>
+        <div class="chart-wrap" id="chart-destinations"></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-title">Monthly Trend — HS 5407 + HS 6006</div>
+        <div class="chart-wrap" id="chart-trend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Internal Data -->
+  <section id="section-internal" class="section">
+    <div class="section-title">Internal Business Data</div>
+
+    <div class="sub-nav">
+      <div class="sub-nav-btn active" data-sub="lescon">📦 Lescon Sales</div>
+      <div class="sub-nav-btn" data-sub="yarn">🧶 Yarn Costs</div>
+      <div class="sub-nav-btn" data-sub="orders">🛒 Orders</div>
+    </div>
+
+    <!-- Lescon Sales -->
+    <div id="sub-lescon" class="sub-section active">
+      <div class="metric-row" id="lescon-metrics"></div>
+      <div class="two-col">
+        <div class="chart-panel">
+          <div class="chart-panel-title">Revenue by Fabric Type (USD)</div>
+          <div class="chart-wrap" id="chart-lescon-fabric"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">Monthly Revenue Trend</div>
+          <div class="chart-wrap" id="chart-lescon-monthly"></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-title">Top 10 Products by Transaction Count</div>
+        <div id="lescon-products-table"></div>
+      </div>
+    </div>
+
+    <!-- Yarn Costs -->
+    <div id="sub-yarn" class="sub-section">
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Average Yarn Unit Cost (USD/MT) by Year</div>
+        <div class="chart-wrap" id="chart-yarn"></div>
+      </div>
+    </div>
+
+    <!-- Orders -->
+    <div id="sub-orders" class="sub-section">
+      <div class="two-col">
+        <div class="chart-panel">
+          <div class="chart-panel-title">Top Suppliers by Order Count</div>
+          <div class="chart-wrap" id="chart-suppliers"></div>
+        </div>
+        <div class="table-wrap" style="border-radius:10px; overflow:hidden;">
+          <div class="table-title">All Suppliers</div>
+          <div id="suppliers-table"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
