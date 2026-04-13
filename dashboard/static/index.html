@@ -54,7 +54,7 @@
       <div class="kpi-value" id="kpi-competitors">—</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Polyester (RMB/t)</div>
+      <div class="kpi-label">Polyester (USD/t)</div>
       <div class="kpi-value" id="kpi-polyester">—</div>
     </div>
     <div class="kpi-card">
@@ -119,6 +119,15 @@
     <!-- 1. Auto-signals bar -->
     <div id="price-signals-bar" class="price-signals-bar">
       <span class="price-signal-badge badge-neutral">Sinyaller yükleniyor…</span>
+    </div>
+
+    <!-- 1b. Currency toggle -->
+    <div class="currency-toggle-row">
+      <div class="chart-toggle" id="currency-toggle">
+        <button class="toggle-btn" data-currency="rmb">RMB/t</button>
+        <button class="toggle-btn active" data-currency="usd">USD/t</button>
+      </div>
+      <span class="currency-rate-note" id="currency-rate-note"></span>
     </div>
 
     <!-- 2. Polyester family -->

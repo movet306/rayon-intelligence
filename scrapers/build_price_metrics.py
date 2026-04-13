@@ -38,6 +38,7 @@ import os
 
 import psycopg2
 import psycopg2.extras
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +49,29 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Exchange rate helper
+# ---------------------------------------------------------------------------
+
+def get_rmb_usd_rate() -> float:
+    """
+    Fetch live CNY→USD rate from frankfurter.app (no API key required).
+    Falls back to 0.138 if the request fails.
+    """
+    try:
+        resp = requests.get(
+            "https://api.frankfurter.app/latest?from=CNY&to=USD",
+            timeout=5,
+        )
+        rate = resp.json()["rates"]["USD"]
+        log.info("Live CNY/USD rate: %.6f", rate)
+        return float(rate)
+    except Exception as exc:
+        log.warning("Could not fetch live CNY/USD rate (%s) — using fallback 0.138", exc)
+        return 0.138
+
 
 # ---------------------------------------------------------------------------
 # Threshold constants
@@ -162,11 +186,12 @@ def _price_at_offset(prev_dates, prev_prices, ref_dt, days_back, window_days):
 # Core builders
 # ---------------------------------------------------------------------------
 
-def build_daily_metrics(rows):
+def build_daily_metrics(rows, rmb_usd_rate: float = 0.138):
     """
     Compute threshold-enforced metrics for a sorted daily price series.
 
-    `rows` — list of dicts with keys: period, price_usd.
+    `rows`         — list of dicts with keys: period, price_usd (RMB/ton from SunSirs).
+    `rmb_usd_rate` — live CNY→USD conversion rate.
     Returns list of metric dicts ready for upsert.
 
     For each row, data_points = i+1 (accumulates through the series).
@@ -176,7 +201,7 @@ def build_daily_metrics(rows):
     Changes use date-based lookback (not index-based) so sparse Wayback
     Machine series do not produce spurious multi-month "7-day" changes.
     """
-    prices = [float(r["price_usd"]) for r in rows]
+    prices = [float(r["price_usd"]) for r in rows]   # RMB/ton
     dates  = [r["period"] for r in rows]
 
     if not prices:
@@ -225,6 +250,7 @@ def build_daily_metrics(rows):
             "metric_date":     dt,
             "frequency":       "daily",
             "price":           price,
+            "price_usd":       round(price * rmb_usd_rate, 4),
             "change_1d":       change_1d,
             "change_7d":       change_7d,
             "change_30d":      change_30d,
@@ -241,14 +267,14 @@ def build_daily_metrics(rows):
     return results
 
 
-def build_monthly_metrics(rows):
+def build_monthly_metrics(rows, rmb_usd_rate: float = 0.138):
     """
     Compute metrics for a sorted monthly price series.
 
     Monthly series: only change_30d (prev-month delta), MA7/MA30 where data
     allows, normalized_idx, trend. No 1d/7d changes, no volatility.
     """
-    prices = [float(r["price_usd"]) for r in rows]
+    prices = [float(r["price_usd"]) for r in rows]   # RMB/ton
     dates  = [r["period"] for r in rows]
 
     if not prices:
@@ -267,6 +293,7 @@ def build_monthly_metrics(rows):
             "metric_date":     dt,
             "frequency":       "monthly",
             "price":           price,
+            "price_usd":       round(price * rmb_usd_rate, 4),
             "change_1d":       None,   # not applicable for monthly
             "change_7d":       None,   # not applicable for monthly
             "change_30d":      _pct_change(price, prices[i - 1]) if n >= 2 else None,
@@ -289,19 +316,20 @@ def build_monthly_metrics(rows):
 
 UPSERT_SQL = """
 INSERT INTO price_metrics_daily
-    (material, metric_date, frequency, price,
+    (material, metric_date, frequency, price, price_usd,
      change_1d, change_7d, change_30d,
      ma7, ma30, volatility_7d, volatility_30d,
      normalized_idx, trend_direction,
      data_points, confidence_level)
 VALUES
-    (%(material)s, %(metric_date)s, %(frequency)s, %(price)s,
+    (%(material)s, %(metric_date)s, %(frequency)s, %(price)s, %(price_usd)s,
      %(change_1d)s, %(change_7d)s, %(change_30d)s,
      %(ma7)s, %(ma30)s, %(volatility_7d)s, %(volatility_30d)s,
      %(normalized_idx)s, %(trend_direction)s,
      %(data_points)s, %(confidence_level)s)
 ON CONFLICT (material, metric_date, frequency) DO UPDATE SET
     price            = EXCLUDED.price,
+    price_usd        = EXCLUDED.price_usd,
     change_1d        = EXCLUDED.change_1d,
     change_7d        = EXCLUDED.change_7d,
     change_30d       = EXCLUDED.change_30d,
@@ -335,6 +363,9 @@ def main():
     args = parser.parse_args()
 
     conn = get_connection()
+
+    # ── Fetch live exchange rate ───────────────────────────────────────────
+    rmb_usd_rate = get_rmb_usd_rate()
 
     # ── Load source frequency map ──────────────────────────────────────────
     source_freq = {
@@ -383,11 +414,11 @@ def main():
         conf_total = _confidence_level(n_total)
 
         if freq == "daily":
-            metric_rows = build_daily_metrics(rows)
+            metric_rows = build_daily_metrics(rows, rmb_usd_rate)
             daily_mats.add(material)
             daily_total += len(metric_rows)
         else:
-            metric_rows = build_monthly_metrics(rows)
+            metric_rows = build_monthly_metrics(rows, rmb_usd_rate)
             monthly_mats.add(material)
             monthly_total += len(metric_rows)
 
@@ -422,6 +453,7 @@ def main():
     print(SEP)
     print("  PRICE METRICS BUILD SUMMARY")
     print(SEP)
+    print(f"  CNY/USD rate  : {rmb_usd_rate:.6f} (live from frankfurter.app)")
     print(f"  Daily series  : {len(daily_mats):>3} materials, {daily_total:>5} rows{mode}")
     print(f"  Monthly series: {len(monthly_mats):>3} materials, {monthly_total:>5} rows{mode}")
     print(f"  Total         : {len(daily_mats)+len(monthly_mats):>3} materials, "

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg2
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
@@ -20,7 +21,33 @@ load_dotenv()
 DB_URL = os.environ.get("DATABASE_URL", "")
 STATIC_DIR = Path(__file__).parent / "static"
 
-RMB_USD_RATE = float(os.getenv("RMB_USD_RATE", "0.138"))
+# ── Live CNY/USD rate with 1-hour in-process cache ───────────────────────────
+_rate_cache: dict = {"rate": None, "date": None, "fetched_at": None}
+_RATE_FALLBACK = float(os.getenv("RMB_USD_RATE", "0.138"))
+
+
+def get_rmb_usd_rate() -> tuple[float, str | None]:
+    """Return (rate, rate_date). Refreshes at most once per hour."""
+    import logging
+    log = logging.getLogger(__name__)
+    now = datetime.now(timezone.utc)
+    cached = _rate_cache
+    if cached["fetched_at"] and (now - cached["fetched_at"]).total_seconds() < 3600:
+        return cached["rate"], cached["date"]
+    try:
+        resp = requests.get(
+            "https://api.frankfurter.app/latest?from=CNY&to=USD",
+            timeout=5,
+        )
+        data = resp.json()
+        rate = float(data["rates"]["USD"])
+        date_str = data.get("date")
+        _rate_cache.update({"rate": rate, "date": date_str, "fetched_at": now})
+        return rate, date_str
+    except Exception as exc:
+        log.warning("Could not fetch live CNY/USD rate (%s) — using fallback %.4f", exc, _RATE_FALLBACK)
+        _rate_cache.update({"rate": _RATE_FALLBACK, "date": None, "fetched_at": now})
+        return _RATE_FALLBACK, None
 
 # Turkish display labels for auto-signal texts
 MATERIAL_LABELS = {
@@ -75,7 +102,7 @@ def stats():
     ).get("n", 0)
 
     latest_poly = _one(
-        """SELECT price::float AS price, 'RMB/ton' AS unit
+        """SELECT price::float AS price_rmb, price_usd::float AS price_usd
            FROM price_metrics_daily
            WHERE material = 'polyester_staple_fiber' AND frequency = 'daily'
            ORDER BY metric_date DESC LIMIT 1""",
@@ -92,13 +119,16 @@ def stats():
            GROUP BY period""",
     )
 
+    rate, rate_date = get_rmb_usd_rate()
     return {
         "signal_count_30d": signal_count,
         "competitor_count": competitor_count,
-        "polyester_price_rmb": latest_poly.get("price"),
-        "polyester_price_unit": latest_poly.get("unit", "RMB/ton"),
+        "polyester_price_rmb": latest_poly.get("price_rmb"),
+        "polyester_price_usd": latest_poly.get("price_usd"),
         "hs5407_export_mn": hs5407_export.get("value_mn"),
         "hs5407_period": hs5407_export.get("period"),
+        "rmb_usd_rate": rate,
+        "rmb_usd_rate_date": rate_date,
     }
 
 
@@ -146,13 +176,19 @@ def signals(
 def prices():
     """
     Query price_metrics_daily (gold layer) for all daily-frequency materials.
-    Returns JSON keyed by material slug:
-      { material: { latest: {...}, series: [{date, price, ma7, ma30, normalized_idx}] } }
+    Returns JSON:
+      {
+        meta: { rmb_usd_rate, rate_date },
+        <material>: { latest: {...}, series: [{date, price, price_usd, ma7, ma30, normalized_idx}] }
+      }
     """
+    rate, rate_date = get_rmb_usd_rate()
+
     rows = _rows("""
         SELECT material,
                to_char(metric_date, 'YYYY-MM-DD') AS metric_date,
                price::float,
+               price_usd::float,
                change_1d::float,
                change_7d::float,
                change_30d::float,
@@ -169,26 +205,30 @@ def prices():
         ORDER BY material, metric_date
     """)
 
-    grouped: dict = {}
+    grouped: dict = {
+        "meta": {"rmb_usd_rate": rate, "rate_date": rate_date},
+    }
     for r in rows:
         m = r["material"]
         if m not in grouped:
             grouped[m] = {"latest": None, "series": []}
         grouped[m]["series"].append({
-            "date":          r["metric_date"],
-            "price":         r["price"],
-            "ma7":           r["ma7"],
-            "ma30":          r["ma30"],
+            "date":           r["metric_date"],
+            "price":          r["price"],
+            "price_usd":      r["price_usd"],
+            "ma7":            r["ma7"],
+            "ma30":           r["ma30"],
             "normalized_idx": r["normalized_idx"],
         })
         grouped[m]["latest"] = {
-            "price":           r["price"],
-            "change_1d":       r["change_1d"],
-            "change_7d":       r["change_7d"],
-            "change_30d":      r["change_30d"],
-            "volatility_7d":   r["volatility_7d"],
-            "trend_direction": r["trend_direction"],
-            "data_points":     r["data_points"],
+            "price":            r["price"],
+            "price_usd":        r["price_usd"],
+            "change_1d":        r["change_1d"],
+            "change_7d":        r["change_7d"],
+            "change_30d":       r["change_30d"],
+            "volatility_7d":    r["volatility_7d"],
+            "trend_direction":  r["trend_direction"],
+            "data_points":      r["data_points"],
             "confidence_level": r["confidence_level"],
         }
 

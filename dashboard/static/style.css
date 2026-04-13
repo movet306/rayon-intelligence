@@ -318,6 +318,18 @@ html, body {
 .badge-info    { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.3); }
 .badge-neutral { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid rgba(139,148,158,0.25); }
 
+/* Currency toggle row */
+.currency-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.currency-rate-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* Polyester family block */
 .price-block {
   background: var(--card);

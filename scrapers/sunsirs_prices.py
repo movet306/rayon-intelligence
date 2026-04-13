@@ -121,6 +121,28 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Exchange rate helper
+# ---------------------------------------------------------------------------
+
+def get_rmb_usd_rate() -> float:
+    """
+    Fetch live CNY→USD rate from frankfurter.app (no API key required).
+    Falls back to 0.138 if the request fails.
+    """
+    try:
+        resp = requests.get(
+            "https://api.frankfurter.app/latest?from=CNY&to=USD",
+            timeout=5,
+        )
+        rate = resp.json()["rates"]["USD"]
+        log.info("Live CNY/USD rate: %.6f", rate)
+        return float(rate)
+    except Exception as exc:
+        log.warning("Could not fetch live CNY/USD rate (%s) — using fallback 0.138", exc)
+        return 0.138
+
+
+# ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
 

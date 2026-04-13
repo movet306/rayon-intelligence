@@ -83,6 +83,7 @@ let _internalData = null;
 let _exportData   = {};
 let _priceData    = null;
 let _polyMode     = 'price';
+let _currency     = 'usd';   // 'rmb' | 'usd'
 
 /* ── API helpers ───────────────────────────────────────────────────────────── */
 async function api(path) {
@@ -131,9 +132,10 @@ async function loadStats() {
     const d = await api('/api/stats');
     setText('kpi-signals',    d.signal_count_30d ?? '—');
     setText('kpi-competitors', d.competitor_count ?? '—');
-    setText('kpi-polyester',  d.polyester_price_rmb != null
-      ? d.polyester_price_rmb.toLocaleString('en', {maximumFractionDigits:0})
-      : '—');
+    const polyUsd = d.polyester_price_usd ?? (d.polyester_price_rmb != null && d.rmb_usd_rate
+      ? d.polyester_price_rmb * d.rmb_usd_rate : null);
+    setText('kpi-polyester', polyUsd != null
+      ? `$${polyUsd.toLocaleString('en', {maximumFractionDigits:0})}` : '—');
     setText('kpi-hs5407',     d.hs5407_export_mn != null
       ? `$${d.hs5407_export_mn.toFixed(1)}M`
       : '—');
@@ -263,10 +265,42 @@ function _renderPriceSignalsBar(bar, response) {
 }
 
 function _renderPriceDashboard(data) {
+  _updateRateNote(data);
   _renderPolyesterFamily(data, _polyMode);
   _renderPolyMetricCards(data);
   _renderSecondaryCharts(data);
   _renderPriceSummaryTable(data);
+}
+
+function _priceVal(point) {
+  // Pick price_usd or price (RMB) depending on current currency selection.
+  // Spread mode always uses raw values (both legs same currency).
+  if (_currency === 'usd') return point.price_usd ?? point.price;
+  return point.price;
+}
+
+function _latestPrice(latest) {
+  if (_currency === 'usd') return latest?.price_usd ?? latest?.price;
+  return latest?.price;
+}
+
+function _priceFmt(v) {
+  if (v == null) return '—';
+  if (_currency === 'usd') return `$${v.toLocaleString('en', {maximumFractionDigits: 2})}`;
+  return v.toLocaleString('en', {maximumFractionDigits: 0});
+}
+
+function _updateRateNote(data) {
+  const el = document.getElementById('currency-rate-note');
+  if (!el) return;
+  const meta = data?.meta;
+  if (meta?.rmb_usd_rate && meta?.rate_date) {
+    el.textContent = `1 CNY = ${meta.rmb_usd_rate.toFixed(4)} USD (${meta.rate_date})`;
+  } else if (meta?.rmb_usd_rate) {
+    el.textContent = `1 CNY = ${meta.rmb_usd_rate.toFixed(4)} USD`;
+  } else {
+    el.textContent = '';
+  }
 }
 
 // ── Polyester family chart ────────────────────────────────────────────────────
@@ -274,22 +308,23 @@ function _renderPriceDashboard(data) {
 function _renderPolyesterFamily(data, mode) {
   const traces = [];
 
+  const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
+
   if (mode === 'price') {
     POLY_MATS.forEach(m => {
       const d = data[m.key];
       if (!d || !d.series.length) return;
       const conf = d.latest?.confidence_level || 'minimal';
       const x = d.series.map(p => p.date);
-      const y = d.series.map(p => p.price);
+      const y = d.series.map(p => _priceVal(p));
 
       if (conf === 'minimal') {
-        // Dotted dim line — insufficient data
         traces.push({
           x, y, name: `${m.label} (yetersiz veri)`,
           type: 'scatter', mode: 'lines',
           line: { color: m.color, width: 1.5, dash: 'dot' },
           opacity: 0.3,
-          hovertemplate: `${m.label}: %{y:,.0f} (yetersiz veri)<extra></extra>`,
+          hovertemplate: `${m.label}: %{y:${hoverFmt}} (yetersiz veri)<extra></extra>`,
         });
         return;
       }
@@ -297,10 +332,14 @@ function _renderPolyesterFamily(data, mode) {
       traces.push({
         x, y, name: m.label, type: 'scatter', mode: 'lines',
         line: { color: m.color, width: 2.5 },
-        hovertemplate: `${m.label}: %{y:,.0f}<extra></extra>`,
+        hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
       });
-      // MA7 as dashed line (same color, 50% opacity)
-      const yMa7 = d.series.map(p => p.ma7);
+      // MA7: scale MA7 (RMB) by same rate if in USD mode
+      const rate = data.meta?.rmb_usd_rate ?? 1;
+      const yMa7 = d.series.map(p => {
+        if (p.ma7 == null) return null;
+        return _currency === 'usd' ? p.ma7 * rate : p.ma7;
+      });
       if (yMa7.some(v => v != null)) {
         traces.push({
           x, y: yMa7, name: `${m.label} MA7`,
@@ -312,17 +351,16 @@ function _renderPolyesterFamily(data, mode) {
     });
 
   } else if (mode === 'normalize') {
-    // Rebase each series so first point = 100; only confidence >= low
     POLY_MATS.forEach(m => {
       const d = data[m.key];
       if (!d || !d.series.length) return;
       const conf = d.latest?.confidence_level || 'minimal';
-      if (conf === 'minimal') return;   // skip in normalize mode
-      const first = d.series[0].price;
+      if (conf === 'minimal') return;
+      const first = _priceVal(d.series[0]);
       if (!first) return;
       traces.push({
         x: d.series.map(p => p.date),
-        y: d.series.map(p => p.price != null ? (p.price / first) * 100 : null),
+        y: d.series.map(p => { const v = _priceVal(p); return v != null ? (v / first) * 100 : null; }),
         name: m.label, type: 'scatter', mode: 'lines',
         line: { color: m.color, width: 2.5 },
         hovertemplate: `${m.label}: %{y:.1f}<extra></extra>`,
@@ -330,7 +368,7 @@ function _renderPolyesterFamily(data, mode) {
     });
 
   } else if (mode === 'spread') {
-    // FDY − PSF and DTY − POY spreads as area charts
+    // Always use RMB prices for spreads (consistent basis; USD just scales both legs equally)
     const pairs = [
       { matA: 'polyester_staple_fiber', matB: 'polyester_fdy',  label: 'FDY − PSF', color: C.orange },
       { matA: 'polyester_poy',          matB: 'polyester_dty',  label: 'DTY − POY', color: '#a371f7' },
@@ -338,10 +376,10 @@ function _renderPolyesterFamily(data, mode) {
     pairs.forEach(({ matA, matB, label, color }) => {
       const dA = data[matA], dB = data[matB];
       if (!dA || !dB) return;
-      const mapA = Object.fromEntries(dA.series.map(p => [p.date, p.price]));
+      const mapA = Object.fromEntries(dA.series.map(p => [p.date, _priceVal(p)]));
       const pts = dB.series
-        .filter(p => p.price != null && mapA[p.date] != null)
-        .map(p => ({ date: p.date, val: p.price - mapA[p.date] }));
+        .filter(p => _priceVal(p) != null && mapA[p.date] != null)
+        .map(p => ({ date: p.date, val: _priceVal(p) - mapA[p.date] }));
       if (!pts.length) return;
       traces.push({
         x: pts.map(p => p.date),
@@ -349,11 +387,12 @@ function _renderPolyesterFamily(data, mode) {
         name: label, type: 'scatter', mode: 'lines',
         fill: 'tozeroy', fillcolor: hexAlpha(color, 0.15),
         line: { color, width: 2 },
-        hovertemplate: `${label}: %{y:,.0f}<extra></extra>`,
+        hovertemplate: `${label}: %{y:${hoverFmt}}<extra></extra>`,
       });
     });
   }
 
+  const yUnit = _currency === 'usd' ? 'USD/t' : 'RMB/t';
   const layout = {
     ...PRICE_CHART_LAYOUT,
     height: 360,
@@ -363,7 +402,8 @@ function _renderPolyesterFamily(data, mode) {
     },
     yaxis: {
       ...PRICE_CHART_LAYOUT.yaxis,
-      tickformat: mode === 'normalize' ? '.0f' : ',d',
+      tickformat: mode === 'normalize' ? '.0f' : (_currency === 'usd' ? '$.2f' : ',d'),
+      title: { text: yUnit, font: { color: C.muted, size: 11 } },
     },
     legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 } },
     showlegend: true,
@@ -387,9 +427,8 @@ function _renderPolyMetricCards(data) {
     const conf = l?.confidence_level || (d ? 'minimal' : null);
     const isMinimal = conf === 'minimal' || !d;
 
-    const price = l?.price != null
-      ? l.price.toLocaleString('en', { maximumFractionDigits: 0 })
-      : '—';
+    const pv    = _latestPrice(l);
+    const price = _priceFmt(pv);
 
     // Minimal confidence: show price only, no other metrics
     if (isMinimal) {
@@ -443,15 +482,16 @@ function _renderSecondaryCharts(data) {
 }
 
 function _renderMultiLine(elId, mats, data) {
+  const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
   const traces = mats.map(m => {
     const d = data[m.key];
     if (!d || !d.series.length) return null;
     return {
       x: d.series.map(p => p.date),
-      y: d.series.map(p => p.price),
+      y: d.series.map(p => _priceVal(p)),
       name: m.label, type: 'scatter', mode: 'lines',
       line: { color: m.color, width: 2 },
-      hovertemplate: `${m.label}: %{y:,.0f}<extra></extra>`,
+      hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
     };
   }).filter(Boolean);
 
@@ -463,7 +503,10 @@ function _renderMultiLine(elId, mats, data) {
   Plotly.newPlot(elId, traces, {
     ...PRICE_CHART_LAYOUT,
     height: 320,
-    yaxis: { ...PRICE_CHART_LAYOUT.yaxis, tickformat: ',d' },
+    yaxis: {
+      ...PRICE_CHART_LAYOUT.yaxis,
+      tickformat: _currency === 'usd' ? '$.2f' : ',d',
+    },
     legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 10 } },
     showlegend: true,
   }, PLOTLY_CONFIG);
@@ -504,7 +547,7 @@ function _renderPriceSummaryTable(data) {
 
     return `<tr class="${famCls} ${minCls}"${tooltip}>
       <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
-      <td class="num">${l?.price != null ? l.price.toLocaleString('en', {maximumFractionDigits:0}) : INS}</td>
+      <td class="num">${_priceFmt(_latestPrice(l))}</td>
       <td class="num">${fmtPct(l?.change_1d)}</td>
       <td class="num">${fmtPct(l?.change_7d)}</td>
       <td class="num">${fmtPct(l?.change_30d)}</td>
@@ -519,7 +562,7 @@ function _renderPriceSummaryTable(data) {
     <table class="data-table">
       <thead><tr>
         <th>Materyal</th>
-        <th class="num">Fiyat (RMB/t)</th>
+        <th class="num">Fiyat (${_currency === 'usd' ? 'USD/t' : 'RMB/t'})</th>
         <th class="num">1G%</th>
         <th class="num">7G%</th>
         <th class="num">30G%</th>
@@ -535,7 +578,18 @@ function _renderPriceSummaryTable(data) {
 // ── Price section init ────────────────────────────────────────────────────────
 
 function initPriceSection() {
-  // Polyester toggle buttons
+  // Currency toggle buttons
+  document.querySelectorAll('#currency-toggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#currency-toggle .toggle-btn')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _currency = btn.dataset.currency;
+      if (_priceData) _renderPriceDashboard(_priceData);
+    });
+  });
+
+  // Polyester chart-mode toggle buttons
   document.querySelectorAll('#poly-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#poly-toggle .toggle-btn')
