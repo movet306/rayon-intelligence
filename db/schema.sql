@@ -392,4 +392,31 @@ CREATE TABLE IF NOT EXISTS price_signals (
 CREATE INDEX IF NOT EXISTS price_signals_period_idx   ON price_signals (period);
 CREATE INDEX IF NOT EXISTS price_signals_material_idx ON price_signals (material);
 
+-- ---------------------------------------------------------------------------
+-- fair_exhibitors — exhibitor directory from trade fairs (Texhibition etc.)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS fair_exhibitors (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    fair_name       TEXT        NOT NULL,          -- e.g. 'Texhibition Istanbul'
+    fair_year       INTEGER     NOT NULL,
+    name            TEXT        NOT NULL,          -- brand/display name
+    full_name       TEXT,                          -- full legal company name
+    slug            TEXT        NOT NULL,          -- URL slug from fair website
+    country         TEXT        NOT NULL DEFAULT 'TR',
+    categories      TEXT[]      NOT NULL DEFAULT '{}',
+    booth           TEXT,
+    website         TEXT,
+    certificates    TEXT[]      NOT NULL DEFAULT '{}',
+    export_markets  TEXT,
+    detail_url      TEXT,
+    scraped_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (fair_name, fair_year, slug)
+);
+
+CREATE INDEX IF NOT EXISTS fair_exhibitors_fair_idx
+    ON fair_exhibitors (fair_name, fair_year);
+CREATE INDEX IF NOT EXISTS fair_exhibitors_name_idx
+    ON fair_exhibitors USING GIN (to_tsvector('simple', name));
+
 COMMIT;

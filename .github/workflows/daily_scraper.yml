@@ -51,5 +51,8 @@ jobs:
       - name: Run LLM analyzer
         run: python scrapers/llm_analyzer.py --limit 50
 
+      - name: Run Texhibition exhibitor scraper
+        run: python scrapers/texhibition_scraper.py
+
       - name: Send Telegram report
         run: python scrapers/telegram_reporter.py
