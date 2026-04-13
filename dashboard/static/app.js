@@ -213,6 +213,7 @@ async function loadPriceDashboard() {
   // Show skeleton while loading
   document.getElementById('chart-polyester').innerHTML =
     '<div class="loading">Fiyat verisi yükleniyor…</div>';
+  document.getElementById('poly-metric-cards').innerHTML = '';
 
   try {
     _priceData = await api('/api/prices');
@@ -385,14 +386,14 @@ function _renderPolyMetricCards(data) {
       ? l.price.toLocaleString('en', { maximumFractionDigits: 0 })
       : '—';
 
-    // Minimal confidence: show price only, all other metrics '—'
+    // Minimal confidence: show price only, no other metrics
     if (isMinimal) {
       return `
         <div class="poly-metric-card" style="border-top: 3px solid ${m.color}; opacity: 0.5"
-             title="Yetersiz veri — 7\'den az veri noktası">
+             title="Yetersiz veri — 7'den az veri noktası">
           <div class="card-label">${m.label}</div>
           <div class="card-price">${price}</div>
-          <div class="card-meta" style="font-size:11px;color:var(--muted)">Yetersiz veri</div>
+          <div class="card-meta"><span class="pct-badge pct-flat">—</span></div>
         </div>`;
     }
 

@@ -142,6 +142,22 @@ def _normalized(price, min_p, max_p):
     return float((price - min_p) / (max_p - min_p) * 100)
 
 
+def _price_at_offset(prev_dates, prev_prices, ref_dt, days_back, window_days):
+    """
+    Return the price closest to (ref_dt - days_back) within ±window_days.
+    Only searches prev_dates/prev_prices (i.e., rows strictly before ref_dt).
+    Returns None if no row falls within the window.
+    """
+    from datetime import timedelta
+    target = ref_dt - timedelta(days=days_back)
+    best_price, best_delta = None, float("inf")
+    for d, p in zip(prev_dates, prev_prices):
+        delta = abs((d - target).days)
+        if delta <= window_days and delta < best_delta:
+            best_price, best_delta = p, delta
+    return best_price
+
+
 # ---------------------------------------------------------------------------
 # Core builders
 # ---------------------------------------------------------------------------
@@ -156,6 +172,9 @@ def build_daily_metrics(rows):
     For each row, data_points = i+1 (accumulates through the series).
     The latest row therefore carries data_points = len(rows).
     Metrics are set to NULL when data_points < the required minimum.
+
+    Changes use date-based lookback (not index-based) so sparse Wayback
+    Machine series do not produce spurious multi-month "7-day" changes.
     """
     prices = [float(r["price_usd"]) for r in rows]
     dates  = [r["period"] for r in rows]
@@ -171,14 +190,25 @@ def build_daily_metrics(rows):
         n            = i + 1          # data points available at this row
         slice_prices = prices[:n]
         conf         = _confidence_level(n)
+        prev_dates   = dates[:i]
+        prev_prices  = prices[:i]
 
-        # ── Changes: use index-safe lookback guards ────────────────────────
-        change_1d  = (_pct_change(price, prices[i - 1])  if n >= MIN_POINTS_CHANGE_1D
-                      else None)
-        change_7d  = (_pct_change(price, prices[i - 7])  if i >= MIN_POINTS_CHANGE_7D
-                      else None)   # i>=7 → n>=8, safe to access prices[i-7]
-        change_30d = (_pct_change(price, prices[i - 30]) if i >= MIN_POINTS_CHANGE_30D
-                      else None)   # i>=30 → n>=31, safe to access prices[i-30]
+        # ── Changes: date-based lookback with ±window tolerance ───────────
+        # change_1d: price 1 calendar day ago, ±2 day window
+        change_1d  = (
+            _pct_change(price, _price_at_offset(prev_dates, prev_prices, dt, 1,  2))
+            if n >= MIN_POINTS_CHANGE_1D else None
+        )
+        # change_7d: price 7 calendar days ago, ±2 day window
+        change_7d  = (
+            _pct_change(price, _price_at_offset(prev_dates, prev_prices, dt, 7,  2))
+            if n >= MIN_POINTS_CHANGE_7D else None
+        )
+        # change_30d: price 30 calendar days ago, ±3 day window
+        change_30d = (
+            _pct_change(price, _price_at_offset(prev_dates, prev_prices, dt, 30, 3))
+            if n >= MIN_POINTS_CHANGE_30D else None
+        )
 
         # ── Moving averages ────────────────────────────────────────────────
         ma7  = _ma(slice_prices, 7)  if n >= MIN_POINTS_MA7  else None

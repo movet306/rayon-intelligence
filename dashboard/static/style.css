@@ -361,7 +361,7 @@ html, body {
 .toggle-btn.active { background: rgba(88,166,255,0.15); color: var(--blue); border-color: var(--blue); }
 
 /* Tall chart wrap for polyester family */
-.chart-wrap-tall { height: 360px; }
+.chart-wrap-tall { height: 360px; overflow: hidden; }
 
 /* Polyester metric cards (4-col grid) */
 .poly-metric-cards {
