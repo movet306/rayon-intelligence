@@ -34,43 +34,6 @@ st.set_page_config(
 # ── Global CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Layout ── */
-.block-container { padding: 1.2rem 2rem 2rem !important; }
-section[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
-
-/* ── Metric cards ── */
-[data-testid="metric-container"] {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 14px 18px !important;
-}
-[data-testid="metric-container"] label {
-    font-size: 12px !important;
-    color: #64748b !important;
-    font-weight: 600 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    font-size: 22px !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
-}
-
-/* ── Section divider ── */
-hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
-
-/* ── Plotly chart border ── */
-.js-plotly-plot { border: 1px solid #e2e8f0; border-radius: 8px; }
-
-/* ── table styling (st.table + .dataframe HTML tables) ── */
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-thead tr { background: #f1f5f9; }
-th { padding: 8px 12px; text-align: left; font-weight: 600;
-     color: #475569; border-bottom: 2px solid #e2e8f0; }
-td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
-tr:hover td { background: #f8fafc; }
 .dataframe { width: 100%; border-collapse: collapse; font-size: 13px; }
 .dataframe th { background: #f0f2f6; padding: 6px 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
 .dataframe td { padding: 5px 10px; border-bottom: 1px solid #f0f2f6; }
@@ -859,19 +822,22 @@ def main():
 
     render_sidebar()
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📡  Market Signals",
-        "💹  Price Intelligence",
-        "🌍  Export Intelligence",
-        "🏭  Internal Data",
-    ])
-    with tab1:
+    page = st.radio(
+        "",
+        ["📡  Market Signals", "💹  Price Intelligence",
+         "🌍  Export Intelligence", "🏭  Internal Data"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    st.divider()
+
+    if page == "📡  Market Signals":
         tab_market_signals()
-    with tab2:
+    elif page == "💹  Price Intelligence":
         tab_price_intelligence()
-    with tab3:
+    elif page == "🌍  Export Intelligence":
         tab_export_intelligence()
-    with tab4:
+    elif page == "🏭  Internal Data":
         tab_internal_data()
 
 
