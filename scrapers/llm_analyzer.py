@@ -41,7 +41,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 PIPELINE = "llm_analyzer"
 LLM_MODEL = "gpt-4o-mini"
-RELEVANCE_THRESHOLD = 0.4
+RELEVANCE_THRESHOLD = 0.25
 # Competitor mentions are emitted as signals even at lower relevance
 COMPETITOR_MENTION_MIN_RELEVANCE = 0.15
 DEFAULT_BATCH_LIMIT = 20
@@ -253,9 +253,9 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
         """
         INSERT INTO market_signals
             (signal_type, severity, title, body,
-             source_table, source_id, company_id,
+             source_table, source_id, source_url, company_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             analysis["signal_type"],
@@ -264,6 +264,7 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
             body,
             "news_items",
             item["id"],
+            item.get("url"),
             company_id,
             LLM_MODEL,
             tokens_in,
@@ -287,9 +288,9 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
         """
         INSERT INTO market_signals
             (signal_type, severity, title, body,
-             source_table, source_id, company_id,
+             source_table, source_id, source_url, company_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             "competitor_mention",
@@ -298,6 +299,7 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
             body,
             "news_items",
             item["id"],
+            item.get("url"),
             company["id"],
             LLM_MODEL,
             tokens_in,

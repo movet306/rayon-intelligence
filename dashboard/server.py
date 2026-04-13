@@ -127,6 +127,7 @@ def signals(
         SELECT ms.signal_type, ms.severity, ms.title,
                ms.body        AS summary,
                ms.source_table,
+               ms.source_url,
                to_char(ms.detected_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS detected_at,
                c.name AS company_name
         FROM market_signals ms

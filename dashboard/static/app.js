@@ -172,12 +172,17 @@ function renderSignalCard(r) {
   const company   = r.company_name
     ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
   const src = (r.source_table || '').replace(/_/g,' ');
+  const hasUrl    = !!r.source_url;
+  const clickable = hasUrl ? ` style="cursor:pointer" title="Haberi aç"` : '';
+  const linkIcon  = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
   return `
-    <div class="signal-card type-${r.signal_type || 'other'}">
+    <div class="signal-card type-${r.signal_type || 'other'}"${clickable}
+         ${hasUrl ? `onclick="window.open(${JSON.stringify(r.source_url)},'_blank')"` : ''}>
       <div class="signal-meta">
         ${typeBadge}${sevBadge}
         <span class="signal-source">${esc(src)}</span>
         <span class="signal-dt">${esc(r.detected_at || '')}</span>
+        ${linkIcon}
       </div>
       <div class="signal-title">${esc(r.title || '')}</div>
       <div class="signal-body">${esc(r.summary || '')}</div>
