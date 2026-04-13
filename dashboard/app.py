@@ -733,10 +733,13 @@ def tab_export_intelligence():
 
 def tab_internal_data():
     st.subheader("Internal Business Data")
-    inner1, inner2, inner3 = st.tabs(["📦 Lescon Sales", "🧶 Yarn Costs", "🛒 Orders"])
+    section = st.radio("", ["📦 Lescon Sales", "🧶 Yarn Costs", "🛒 Orders"],
+                       horizontal=True, label_visibility="collapsed")
+
+    st.divider()
 
     # ── Lescon Sales ─────────────────────────────────────────────────────────────
-    with inner1:
+    if section == "📦 Lescon Sales":
         fab_rows = q_lescon_by_fabric()
         months, rev_by_month = q_lescon_monthly()
 
@@ -796,7 +799,7 @@ def tab_internal_data():
                 ).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
     # ── Yarn Costs ───────────────────────────────────────────────────────────────
-    with inner2:
+    elif section == "🧶 Yarn Costs":
         yarn_rows = q_yarn_cost_trend()
         if not yarn_rows:
             st.info("No yarn cost data.")
@@ -839,7 +842,7 @@ def tab_internal_data():
                 ).to_html(index=False, classes='dataframe'), unsafe_allow_html=True)
 
     # ── Orders ──────────────────────────────────────────────────────────────────
-    with inner3:
+    elif section == "🛒 Orders":
         sup_rows = q_orders_by_supplier()
         if not sup_rows:
             st.info("No orders data.")
