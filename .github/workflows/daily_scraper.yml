@@ -36,6 +36,9 @@ jobs:
       - name: Run just_style scraper
         run: python scrapers/just_style.py --pages 2
 
+      - name: Run tekstil_teknik scraper
+        run: python scrapers/tekstil_teknik.py --pages 3
+
       - name: Run LLM analyzer
         run: python scrapers/llm_analyzer.py --limit 50
 
