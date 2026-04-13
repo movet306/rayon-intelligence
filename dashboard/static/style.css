@@ -431,6 +431,40 @@ html, body {
 .price-table-toggle-header { cursor: pointer; user-select: none; }
 .price-table-toggle-header:hover { color: var(--blue); }
 
+/* Confidence level badges */
+.conf-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.conf-high    { background: rgba(63,185,80,0.18);   color: var(--green);  border: 1px solid rgba(63,185,80,0.35); }
+.conf-medium  { background: rgba(210,153,34,0.18);  color: #d9a520;       border: 1px solid rgba(210,153,34,0.35); }
+.conf-low     { background: rgba(240,136,62,0.18);  color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
+.conf-minimal { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
+
+/* Minimal-confidence rows: grayed out */
+.data-table tr.row-minimal td {
+  opacity: 0.42;
+  font-style: italic;
+}
+.data-table tr.row-minimal:hover td {
+  opacity: 0.60;
+  background: rgba(139,148,158,0.06);
+}
+
+/* Suppressed materials note in signals bar */
+.signals-suppressed-note {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+
 /* ── Export section ────────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid;

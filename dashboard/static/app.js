@@ -233,17 +233,27 @@ async function _loadPriceSignalsBar() {
   }
 }
 
-function _renderPriceSignalsBar(bar, signals) {
-  if (!signals || !signals.length) {
+function _renderPriceSignalsBar(bar, response) {
+  // Accept both old array format and new {signals, suppressed} format
+  const signals    = Array.isArray(response) ? response : (response.signals || []);
+  const suppressed = Array.isArray(response) ? 0        : (response.suppressed || 0);
+
+  if (!signals.length && !suppressed) {
     bar.innerHTML = '<span class="price-signal-badge badge-neutral">Sinyal yok — piyasalar sakin</span>';
     return;
   }
-  bar.innerHTML = signals.map(s => {
+
+  let html = signals.map(s => {
     const cls = s.severity === 'warning' ? 'badge-warning'
               : s.severity === 'alert'   ? 'badge-alert'
               :                            'badge-info';
     return `<span class="price-signal-badge ${cls}">${esc(s.text)}</span>`;
   }).join('');
+
+  if (suppressed) {
+    html += `<span class="signals-suppressed-note">${suppressed} materyal susturuldu — yetersiz veri</span>`;
+  }
+  bar.innerHTML = html || '<span class="price-signal-badge badge-neutral">Sinyal yok — piyasalar sakin</span>';
 }
 
 function _renderPriceDashboard(data) {
@@ -262,8 +272,22 @@ function _renderPolyesterFamily(data, mode) {
     POLY_MATS.forEach(m => {
       const d = data[m.key];
       if (!d || !d.series.length) return;
+      const conf = d.latest?.confidence_level || 'minimal';
       const x = d.series.map(p => p.date);
       const y = d.series.map(p => p.price);
+
+      if (conf === 'minimal') {
+        // Dotted dim line — insufficient data
+        traces.push({
+          x, y, name: `${m.label} (yetersiz veri)`,
+          type: 'scatter', mode: 'lines',
+          line: { color: m.color, width: 1.5, dash: 'dot' },
+          opacity: 0.3,
+          hovertemplate: `${m.label}: %{y:,.0f} (yetersiz veri)<extra></extra>`,
+        });
+        return;
+      }
+
       traces.push({
         x, y, name: m.label, type: 'scatter', mode: 'lines',
         line: { color: m.color, width: 2.5 },
@@ -282,10 +306,12 @@ function _renderPolyesterFamily(data, mode) {
     });
 
   } else if (mode === 'normalize') {
-    // Rebase each series so first point = 100
+    // Rebase each series so first point = 100; only confidence >= low
     POLY_MATS.forEach(m => {
       const d = data[m.key];
       if (!d || !d.series.length) return;
+      const conf = d.latest?.confidence_level || 'minimal';
+      if (conf === 'minimal') return;   // skip in normalize mode
       const first = d.series[0].price;
       if (!first) return;
       traces.push({
@@ -350,32 +376,45 @@ function _renderPolyesterFamily(data, mode) {
 function _renderPolyMetricCards(data) {
   const container = document.getElementById('poly-metric-cards');
   container.innerHTML = POLY_MATS.map(m => {
-    const d = data[m.key];
-    const l = d?.latest;
-    const insufficient = !d || d.series.length < 7;
+    const d    = data[m.key];
+    const l    = d?.latest;
+    const conf = l?.confidence_level || (d ? 'minimal' : null);
+    const isMinimal = conf === 'minimal' || !d;
 
     const price = l?.price != null
       ? l.price.toLocaleString('en', { maximumFractionDigits: 0 })
       : '—';
 
+    // Minimal confidence: show price only, all other metrics '—'
+    if (isMinimal) {
+      return `
+        <div class="poly-metric-card" style="border-top: 3px solid ${m.color}; opacity: 0.5"
+             title="Yetersiz veri — 7\'den az veri noktası">
+          <div class="card-label">${m.label}</div>
+          <div class="card-price">${price}</div>
+          <div class="card-meta" style="font-size:11px;color:var(--muted)">Yetersiz veri</div>
+        </div>`;
+    }
+
     const c7 = l?.change_7d;
     const c7Html = c7 != null
       ? `<span class="pct-badge ${c7 > 0 ? 'pct-up' : c7 < 0 ? 'pct-down' : 'pct-flat'}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</span>`
-      : '<span class="pct-badge pct-flat">—</span>';
+      : '';
 
     const trend = l?.trend_direction;
     const trendHtml = trend === 'up'   ? '<span class="trend-arrow trend-up">↑</span>'
                     : trend === 'down' ? '<span class="trend-arrow trend-down">↓</span>'
-                    :                   '<span class="trend-arrow trend-flat">→</span>';
+                    : trend === 'flat' ? '<span class="trend-arrow trend-flat">→</span>'
+                    : '';
 
-    const vol = (l?.volatility_7d != null && !insufficient)
+    const vol = l?.volatility_7d != null
       ? `<span class="card-vol">σ ${l.volatility_7d.toFixed(1)}</span>` : '';
 
     return `
       <div class="poly-metric-card" style="border-top: 3px solid ${m.color}">
         <div class="card-label">${m.label}</div>
-        <div class="card-price">${insufficient ? '<span class="muted-sm">Yetersiz veri</span>' : price}</div>
-        <div class="card-meta">${insufficient ? '' : c7Html + trendHtml + vol}</div>
+        <div class="card-price">${price}</div>
+        <div class="card-meta">${c7Html}${trendHtml}${vol}</div>
       </div>`;
   }).join('');
 }
@@ -438,23 +477,34 @@ function _renderPriceSummaryTable(data) {
     if (t === 'down') return '<span class="stat-down">↓</span>';
     return '<span class="stat-neutral">→</span>';
   };
-  const INS = '<span class="muted" style="font-size:11px">Yetersiz veri</span>';
+  const confBadge = conf => {
+    if (!conf) return '';
+    const cls = { high: 'conf-high', medium: 'conf-medium', low: 'conf-low', minimal: 'conf-minimal' }[conf] || '';
+    return `<span class="conf-badge ${cls}">${conf}</span>`;
+  };
+  const INS = '<span class="muted">—</span>';
 
   const rows = ALL_PRICE_MATS.map(m => {
-    const d = data[m.key];
-    const pts = d?.series.length || 0;
-    const ins = pts < 7;
-    const l   = d?.latest;
-    const rc  = m.fam === 'polyester' ? 'fam-polyester'
-               : m.fam === 'nylon'    ? 'fam-nylon' : '';
-    return `<tr class="${rc}">
+    const d    = data[m.key];
+    const pts  = d?.series.length || 0;
+    const l    = d?.latest;
+    const conf = l?.confidence_level || (pts >= 30 ? 'high' : pts >= 14 ? 'medium' : pts >= 7 ? 'low' : 'minimal');
+    const isMinimal = conf === 'minimal';
+
+    const famCls  = m.fam === 'polyester' ? 'fam-polyester'
+                  : m.fam === 'nylon'     ? 'fam-nylon' : '';
+    const minCls  = isMinimal ? 'row-minimal' : '';
+    const tooltip = isMinimal ? ' title="7'den az veri noktası — metrikler devre dışı"' : '';
+
+    return `<tr class="${famCls} ${minCls}"${tooltip}>
       <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
-      <td class="num">${ins || !l?.price ? INS : l.price.toLocaleString('en', {maximumFractionDigits:0})}</td>
-      <td class="num">${ins ? INS : fmtPct(l?.change_1d)}</td>
-      <td class="num">${ins ? INS : fmtPct(l?.change_7d)}</td>
-      <td class="num">${ins ? INS : fmtPct(l?.change_30d)}</td>
-      <td class="num">${ins ? INS : trendArrow(l?.trend_direction)}</td>
-      <td class="num">${ins || l?.volatility_7d == null ? INS : l.volatility_7d.toFixed(1)}</td>
+      <td class="num">${l?.price != null ? l.price.toLocaleString('en', {maximumFractionDigits:0}) : INS}</td>
+      <td class="num">${fmtPct(l?.change_1d)}</td>
+      <td class="num">${fmtPct(l?.change_7d)}</td>
+      <td class="num">${fmtPct(l?.change_30d)}</td>
+      <td class="num">${trendArrow(l?.trend_direction)}</td>
+      <td class="num">${l?.volatility_7d != null ? l.volatility_7d.toFixed(1) : INS}</td>
+      <td class="num">${confBadge(conf)}</td>
       <td class="num" style="color:var(--muted);font-size:11px">${pts}</td>
     </tr>`;
   }).join('');
@@ -469,6 +519,7 @@ function _renderPriceSummaryTable(data) {
         <th class="num">30G%</th>
         <th class="num">Trend</th>
         <th class="num">Volatilite</th>
+        <th class="num">Güven</th>
         <th class="num">Veri</th>
       </tr></thead>
       <tbody>${rows}</tbody>

@@ -159,7 +159,9 @@ def prices():
                ma30::float,
                volatility_7d::float,
                normalized_idx::float,
-               trend_direction
+               trend_direction,
+               data_points,
+               confidence_level
         FROM price_metrics_daily
         WHERE frequency = 'daily'
           AND metric_date >= NOW() - INTERVAL '90 days'
@@ -179,12 +181,14 @@ def prices():
             "normalized_idx": r["normalized_idx"],
         })
         grouped[m]["latest"] = {
-            "price":          r["price"],
-            "change_1d":      r["change_1d"],
-            "change_7d":      r["change_7d"],
-            "change_30d":     r["change_30d"],
-            "volatility_7d":  r["volatility_7d"],
+            "price":           r["price"],
+            "change_1d":       r["change_1d"],
+            "change_7d":       r["change_7d"],
+            "change_30d":      r["change_30d"],
+            "volatility_7d":   r["volatility_7d"],
             "trend_direction": r["trend_direction"],
+            "data_points":     r["data_points"],
+            "confidence_level": r["confidence_level"],
         }
 
     return grouped
@@ -203,48 +207,49 @@ def price_signals_auto():
       - polyamide_fdy/polyester_fdy spread change > ±5% vs 30d ago → spread info
     Skips materials with < 7 data points (insufficient series).
     """
+    # Latest row per daily material with confidence metadata
     latest = _rows("""
-        WITH counts AS (
-            SELECT material, COUNT(*) AS data_points
-            FROM price_metrics_daily
-            WHERE frequency = 'daily'
-            GROUP BY material
-        )
-        SELECT DISTINCT ON (pmd.material)
-            pmd.material,
-            pmd.price::float         AS price,
-            pmd.change_7d::float     AS change_7d,
-            pmd.change_30d::float    AS change_30d,
-            pmd.volatility_7d::float AS volatility_7d,
-            pmd.trend_direction,
-            c.data_points::int       AS data_points
-        FROM price_metrics_daily pmd
-        JOIN counts c ON c.material = pmd.material
-        WHERE pmd.frequency = 'daily'
-        ORDER BY pmd.material, pmd.metric_date DESC
+        SELECT DISTINCT ON (material)
+            material,
+            price::float         AS price,
+            change_7d::float     AS change_7d,
+            change_30d::float    AS change_30d,
+            volatility_7d::float AS volatility_7d,
+            trend_direction,
+            data_points,
+            confidence_level
+        FROM price_metrics_daily
+        WHERE frequency = 'daily'
+        ORDER BY material, metric_date DESC
     """)
 
-    # Average volatility across all materials that have it
-    vols = [r["volatility_7d"] for r in latest if r["volatility_7d"] is not None]
+    # Split into eligible (high/medium confidence, change_7d present) and suppressed
+    eligible   = [
+        r for r in latest
+        if r.get("confidence_level") in ("high", "medium")
+        and r.get("change_7d") is not None
+    ]
+    suppressed_count = len(latest) - len(eligible)
+
+    # Average volatility across eligible materials only
+    vols    = [r["volatility_7d"] for r in eligible if r["volatility_7d"] is not None]
     avg_vol = sum(vols) / len(vols) if vols else None
 
-    by_mat = {r["material"]: r for r in latest}
+    by_mat  = {r["material"]: r for r in latest}
     signals = []
 
-    for r in latest:
-        if (r["data_points"] or 0) < 7:
-            continue
+    for r in eligible:
         mat   = r["material"]
         label = MATERIAL_LABELS.get(mat, mat)
         c7    = r["change_7d"]
         vol   = r["volatility_7d"]
 
-        if c7 is not None and c7 > 3:
+        if c7 > 3:
             signals.append({
                 "material": mat, "type": "rise", "severity": "warning",
                 "text": f"{label} 7 günde +{c7:.1f}% yükseldi",
             })
-        elif c7 is not None and c7 < -3:
+        elif c7 < -3:
             signals.append({
                 "material": mat, "type": "drop", "severity": "warning",
                 "text": f"{label} 7 günde {c7:.1f}% geriledi",
@@ -256,19 +261,22 @@ def price_signals_auto():
                 "text": f"{label} yüksek volatilite (7G σ={vol:.1f})",
             })
 
-    # Spread signal: polyamide_fdy / polyester_fdy ratio change vs 30d ago
-    pa  = by_mat.get("polyamide_fdy")
-    pf  = by_mat.get("polyester_fdy")
+    # Spread signal: polyamide_fdy / polyester_fdy ratio vs 30d ago
+    # Requires high/medium confidence on both legs and change_30d available
+    pa = by_mat.get("polyamide_fdy")
+    pf = by_mat.get("polyester_fdy")
     if (pa and pf
-            and (pa["data_points"] or 0) >= 7 and (pf["data_points"] or 0) >= 7
-            and pa["price"] and pf["price"] and pf["price"] != 0
-            and pa["change_30d"] is not None and pf["change_30d"] is not None):
+            and pa.get("confidence_level") in ("high", "medium")
+            and pf.get("confidence_level") in ("high", "medium")
+            and pa.get("price") and pf.get("price") and pf["price"] != 0
+            and pa.get("change_30d") is not None
+            and pf.get("change_30d") is not None):
         ratio_now  = pa["price"] / pf["price"]
-        pa_30d     = pa["price"]  / (1 + pa["change_30d"]  / 100)
-        poly_30d   = pf["price"]  / (1 + pf["change_30d"]  / 100)
+        pa_30d     = pa["price"] / (1 + pa["change_30d"] / 100)
+        poly_30d   = pf["price"] / (1 + pf["change_30d"] / 100)
         if poly_30d != 0:
-            ratio_30d   = pa_30d / poly_30d
-            spread_chg  = (ratio_now - ratio_30d) / ratio_30d * 100
+            ratio_30d  = pa_30d / poly_30d
+            spread_chg = (ratio_now - ratio_30d) / ratio_30d * 100
             if abs(spread_chg) > 5:
                 direction = "genişledi" if spread_chg > 0 else "daraldı"
                 signals.append({
@@ -278,7 +286,11 @@ def price_signals_auto():
                              f"({spread_chg:+.1f}%)"),
                 })
 
-    return signals
+    return {
+        "signals":           signals,
+        "suppressed":        suppressed_count,
+        "suppressed_reason": "Insufficient data (confidence: low or minimal)",
+    }
 
 
 # ── /api/exports ───────────────────────────────────────────────────────────────
