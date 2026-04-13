@@ -4,9 +4,18 @@ Reads unanalyzed news_items (relevance_score IS NULL) and runs each through
 GPT-4o-mini to produce relevance scores, signal classification, and a Turkish
 summary.  High-relevance articles (score > 0.4) are promoted to market_signals.
 
+Specific intelligence extracted:
+  - competitor_mention  : any article naming a tracked competitor company
+  - price_signal        : articles with specific price data (USD/kg or direction)
+  - standard types      : price_move, capacity_change, new_market, trend, regulation, other
+
+The system prompt is built dynamically at startup from the companies table so the
+LLM always works with the current competitor list.
+
 Usage:
     python scrapers/llm_analyzer.py
     python scrapers/llm_analyzer.py --limit 10 --dry-run
+    python scrapers/llm_analyzer.py --limit 20 --print-signals
 
 Returns exit code 0 always; summary is printed to stdout.
 """
@@ -16,6 +25,7 @@ import json
 import logging
 import os
 import sys
+import textwrap
 import traceback
 from datetime import datetime, timezone
 
@@ -32,14 +42,29 @@ load_dotenv()
 PIPELINE = "llm_analyzer"
 LLM_MODEL = "gpt-4o-mini"
 RELEVANCE_THRESHOLD = 0.4
+# Competitor mentions are emitted as signals even at lower relevance
+COMPETITOR_MENTION_MIN_RELEVANCE = 0.15
 DEFAULT_BATCH_LIMIT = 20
 
 # GPT-4o-mini pricing (USD per token, as of 2024-11)
 COST_PER_INPUT_TOKEN  = 0.150 / 1_000_000   # $0.150 per 1M tokens
 COST_PER_OUTPUT_TOKEN = 0.600 / 1_000_000   # $0.600 per 1M tokens
 
-VALID_SIGNAL_TYPES = {"price_move", "capacity_change", "new_market", "trend", "regulation", "other"}
-VALID_SEVERITIES   = {"info", "warning", "alert"}
+VALID_SIGNAL_TYPES = {
+    "price_move", "capacity_change", "new_market", "trend",
+    "regulation", "competitor_mention", "price_signal", "other",
+}
+VALID_SEVERITIES = {"info", "warning", "alert"}
+
+# HS codes tracked by Rayon Tekstil
+HS_CODE_CONTEXT = """\
+  • 5407 — Woven fabrics of synthetic filament yarn (polyester/nylon woven)
+  • 5512 — Woven fabrics of ≥85% synthetic staple fibres
+  • 5515 — Other woven fabrics of synthetic staple fibres
+  • 6006 — Other knitted or crocheted fabrics (technical knit)
+  • 6001 — Pile fabrics / velour knit
+  • 5402 — Synthetic filament yarn (e.g. polyester, nylon, PP)
+  • 5509 — Yarn of synthetic staple fibres"""
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,36 +73,84 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
-You are a market intelligence analyst specialized in the global textile and fabric industry.
-You serve a Turkish B2B fabric manufacturer (Rayon Tekstil) that produces knit and woven fabrics
-and exports to Eastern Europe, Middle East, Caucasus, Russia, and Ukraine.
-Their customers are garment manufacturers, tender companies, and wholesalers.
 
-You will be given the title and body of a news article. Respond ONLY with a JSON object
-containing these exact keys:
+# ---------------------------------------------------------------------------
+# Dynamic system prompt
+# ---------------------------------------------------------------------------
 
-{
-  "relevance_score": <float 0.0–1.0, how relevant this article is to the company>,
-  "signal_type": <one of: "price_move", "capacity_change", "new_market", "trend", "regulation", "other">,
-  "severity": <one of: "info", "warning", "alert">,
-  "summary_tr": <one sentence in Turkish summarising the article's key market intelligence>,
-  "company_mentioned": <the exact name of a specific competitor or supplier company mentioned in the article, or null if none>
-}
+def build_system_prompt(competitor_names: list[str]) -> str:
+    """
+    Build the LLM system prompt injecting the current competitor list.
+    Called once at startup after fetching companies from DB.
+    """
+    names_block = "\n".join(f"  • {n}" for n in sorted(competitor_names))
 
-Relevance scoring guide:
-  1.0 = directly affects fabric/textile pricing, supply, or export markets Rayon serves
-  0.7 = affects the broader textile/garment industry in relevant geographies
-  0.4 = general textile industry news with indirect relevance
-  0.0 = completely unrelated (fashion, retail consumer news, unrelated industries)
+    return textwrap.dedent(f"""\
+        You are a market intelligence analyst for Rayon Tekstil Sanayi, a Turkish B2B fabric manufacturer.
 
-Severity guide:
-  alert   = immediate action or close monitoring required (major price shock, supply disruption, sanctions)
-  warning = developing situation worth tracking (capacity shifts, new entrants, regulatory proposals)
-  info    = background context or trend to be aware of
+        == RAYON'S BUSINESS PROFILE ==
+        Products: woven and knit technical fabrics — FR (flame-retardant), military, outdoor, workwear, laminated.
+        Yarn input: polyester/nylon filament and staple, PP, FR-modified fibres.
+        Export markets: Eastern Europe, Caucasus, Russia, Ukraine, Middle East.
+        Customers: garment manufacturers, tender companies, wholesalers.
+        Relevant HS codes:
+        {HS_CODE_CONTEXT}
 
-Return only the JSON object — no markdown, no explanation.\
-"""
+        == TRACKED COMPETITOR COMPANIES ==
+        Flag ANY article that names one or more of these companies explicitly:
+        {names_block}
+
+        == TASK ==
+        Analyse the news article provided and return ONLY a JSON object with these exact keys:
+
+        {{
+          "relevance_score": <float 0.0–1.0>,
+          "signal_type": <see types below>,
+          "severity": <"info" | "warning" | "alert">,
+          "summary_tr": <one sentence in Turkish — be specific: name companies, geographies, percentages>,
+          "competitors_mentioned": <list of exact company names from the article that appear in the tracked list above; [] if none>,
+          "price_signal": <object or null — see structure below>
+        }}
+
+        signal_type values:
+          "competitor_mention"  — article names one or more tracked competitor companies
+          "price_move"          — raw material or fabric prices moving (polyester, nylon, cotton, yarn)
+          "price_signal"        — article gives a specific USD/kg or price index figure
+          "capacity_change"     — factory expansion, closure, new line, or major CapEx
+          "new_market"          — new geography, new customer segment, or new certification
+          "trend"               — broader industry direction (sustainability, reshoring, demand shift)
+          "regulation"          — tariff, sanction, standard, or compliance change
+          "other"               — relevant but doesn't fit above categories
+
+        Use "competitor_mention" if the article names any tracked competitor AND that is the primary intelligence.
+        Use "price_signal" if a specific price figure (USD/kg, index level, percentage change) is given.
+        Use "price_move" if only a direction or qualitative trend is described without a specific figure.
+
+        price_signal structure (include when specific price data exists, otherwise null):
+        {{
+          "material": <e.g. "polyester filament", "nylon 6.6", "FR polyester fabric">,
+          "direction": <"up" | "down" | "stable">,
+          "price_usd_kg": <float or null if not stated>,
+          "note": <brief quote or context from the article, max 80 chars>
+        }}
+
+        Relevance scoring:
+          1.0 = directly affects fabric/yarn pricing, capacity, or export trade in Rayon's markets
+          0.7 = affects broader textile/garment industry in relevant geographies
+          0.4 = general textile news with indirect relevance
+          0.1 = tangential (fashion/retail consumer news, unrelated raw materials)
+          0.0 = completely unrelated
+
+        Severity:
+          alert   = immediate action needed (major price shock, supply disruption, sanctions)
+          warning = developing situation worth tracking (capacity shifts, new entrant, regulatory proposal)
+          info    = background context or trend
+
+        summary_tr MUST be specific. Bad: "Polyester piyasası geriliyor."
+        Good: "Kipaş Mensucat, FR kumaş kapasitesini %30 artırarak yeni askeri tedarik sözleşmesi aldı."
+
+        Return ONLY the JSON object — no markdown, no explanation.\
+    """)
 
 
 # ---------------------------------------------------------------------------
@@ -109,25 +182,29 @@ def fetch_unanalyzed(cur, limit: int) -> list[dict]:
 
 
 def fetch_companies(cur) -> list[dict]:
-    """Return all company names + ids for fuzzy matching."""
-    cur.execute("SELECT id, name FROM companies")
-    return [{"id": str(row[0]), "name": row[1]} for row in cur.fetchall()]
+    """Return all competitor company names + ids for matching and prompt injection."""
+    cur.execute("SELECT id, name, category FROM companies ORDER BY name")
+    return [{"id": str(row[0]), "name": row[1], "category": row[2]} for row in cur.fetchall()]
 
 
-def match_company(company_name: str | None, companies: list[dict]) -> str | None:
+def match_companies(names_from_llm: list[str], companies: list[dict]) -> list[dict]:
     """
-    Case-insensitive substring match: return company_id if the LLM-returned
-    name appears in any tracked company name or vice-versa.
-    Returns None if no match or company_name is None.
+    For each LLM-returned name, find a matching tracked company.
+    Uses case-insensitive substring match in both directions.
+    Returns list of {"id": ..., "name": ...} dicts (deduplicated).
     """
-    if not company_name:
-        return None
-    needle = company_name.strip().lower()
-    for c in companies:
-        haystack = c["name"].lower()
-        if needle in haystack or haystack in needle:
-            return c["id"]
-    return None
+    matched = {}
+    for llm_name in names_from_llm:
+        if not llm_name:
+            continue
+        needle = llm_name.strip().lower()
+        for c in companies:
+            haystack = c["name"].lower()
+            if needle in haystack or haystack in needle:
+                if c["id"] not in matched:
+                    matched[c["id"]] = c
+                break
+    return list(matched.values())
 
 
 def update_news_item(cur, item_id: str, analysis: dict, company_id: str | None,
@@ -159,6 +236,19 @@ def update_news_item(cur, item_id: str, analysis: dict, company_id: str | None,
 
 def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None,
                          tokens_in: int, tokens_out: int, cost: float):
+    """Insert the primary (non-competitor-mention) market signal."""
+    body = analysis["summary_tr"] or ""
+    # Append price context to body if available
+    ps = analysis.get("price_signal")
+    if ps:
+        direction_str = {"up": "↑", "down": "↓", "stable": "→"}.get(ps.get("direction", ""), "")
+        price_str = f"  |  {ps['material']} {direction_str}"
+        if ps.get("price_usd_kg"):
+            price_str += f" ${ps['price_usd_kg']:.2f}/kg"
+        if ps.get("note"):
+            price_str += f" — {ps['note']}"
+        body = body + price_str
+
     cur.execute(
         """
         INSERT INTO market_signals
@@ -171,10 +261,44 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
             analysis["signal_type"],
             analysis["severity"],
             item["title"] or analysis["summary_tr"],
-            analysis["summary_tr"],
+            body,
             "news_items",
             item["id"],
             company_id,
+            LLM_MODEL,
+            tokens_in,
+            tokens_out,
+            cost,
+        ),
+    )
+
+
+def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
+                             tokens_in: int, tokens_out: int, cost: float):
+    """
+    Insert one competitor_mention market_signal linked to a specific company.
+    Called once per matched competitor per article.
+    """
+    title = f"{company['name']} mentioned: {item['title'][:100]}" if item["title"] \
+            else f"{company['name']} mentioned in news"
+    body = analysis["summary_tr"] or ""
+
+    cur.execute(
+        """
+        INSERT INTO market_signals
+            (signal_type, severity, title, body,
+             source_table, source_id, company_id,
+             llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            "competitor_mention",
+            analysis["severity"],
+            title,
+            body,
+            "news_items",
+            item["id"],
+            company["id"],
             LLM_MODEL,
             tokens_in,
             tokens_out,
@@ -221,7 +345,7 @@ def build_user_message(item: dict) -> str:
     return f"TITLE: {title}\n\nBODY:\n{body}"
 
 
-def call_openai(client: OpenAI, user_message: str) -> tuple[dict, int, int, float]:
+def call_openai(client: OpenAI, system_prompt: str, user_message: str) -> tuple[dict, int, int, float]:
     """
     Send one article to GPT-4o-mini and return (analysis_dict, tokens_in, tokens_out, cost_usd).
     Raises on API error or JSON parse failure.
@@ -230,11 +354,11 @@ def call_openai(client: OpenAI, user_message: str) -> tuple[dict, int, int, floa
         model=LLM_MODEL,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_message},
         ],
         temperature=0.1,
-        max_tokens=256,
+        max_tokens=400,
     )
 
     tokens_in  = response.usage.prompt_tokens
@@ -244,10 +368,9 @@ def call_openai(client: OpenAI, user_message: str) -> tuple[dict, int, int, floa
     raw = response.choices[0].message.content
     analysis = json.loads(raw)
 
-    # Validate and sanitize fields
+    # --- Validate and sanitize ---
     score = float(analysis.get("relevance_score", 0.0))
-    score = max(0.0, min(1.0, score))
-    analysis["relevance_score"] = round(score, 3)
+    analysis["relevance_score"] = round(max(0.0, min(1.0, score)), 3)
 
     signal_type = analysis.get("signal_type", "other")
     if signal_type not in VALID_SIGNAL_TYPES:
@@ -260,7 +383,27 @@ def call_openai(client: OpenAI, user_message: str) -> tuple[dict, int, int, floa
     analysis["severity"] = severity
 
     analysis["summary_tr"] = (analysis.get("summary_tr") or "").strip() or None
-    analysis["company_mentioned"] = analysis.get("company_mentioned") or None
+
+    # competitors_mentioned: always a list of strings
+    raw_competitors = analysis.get("competitors_mentioned") or []
+    if isinstance(raw_competitors, str):
+        raw_competitors = [raw_competitors] if raw_competitors else []
+    analysis["competitors_mentioned"] = [str(c).strip() for c in raw_competitors if c]
+
+    # price_signal: validate structure or set to None
+    ps = analysis.get("price_signal")
+    if ps and isinstance(ps, dict) and ps.get("material"):
+        ps["direction"] = ps.get("direction", "stable")
+        if ps["direction"] not in ("up", "down", "stable"):
+            ps["direction"] = "stable"
+        if ps.get("price_usd_kg") is not None:
+            try:
+                ps["price_usd_kg"] = float(ps["price_usd_kg"])
+            except (TypeError, ValueError):
+                ps["price_usd_kg"] = None
+        analysis["price_signal"] = ps
+    else:
+        analysis["price_signal"] = None
 
     return analysis, tokens_in, tokens_out, cost
 
@@ -269,7 +412,8 @@ def call_openai(client: OpenAI, user_message: str) -> tuple[dict, int, int, floa
 # Main analysis loop
 # ---------------------------------------------------------------------------
 
-def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False) -> dict:
+def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
+            print_signals: bool = False) -> dict:
     """
     Fetch up to `limit` unanalyzed news_items, run LLM analysis, persist results.
     Returns summary counts.
@@ -286,14 +430,23 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False) -> dict:
         log.error("DB connection failed: %s", e)
         return {"processed": 0, "signaled": 0, "failed": 0, "total_cost_usd": 0.0, "error": str(e)}
 
-    processed = signaled = failed = 0
+    processed = signaled = failed = competitor_signals = 0
     total_cost = 0.0
+    sample_signals: list[dict] = []
 
     with conn.cursor() as cur:
         items     = fetch_unanalyzed(cur, limit)
         companies = fetch_companies(cur)
 
-    log.info("Fetched %d unanalyzed articles; %d companies in index", len(items), len(companies))
+    competitor_names = [c["name"] for c in companies]
+    system_prompt = build_system_prompt(competitor_names)
+
+    log.info(
+        "Fetched %d unanalyzed articles; %d companies in prompt (%d competitors)",
+        len(items),
+        len(companies),
+        sum(1 for c in companies if c.get("category") == "competitor"),
+    )
 
     for item in items:
         log.info("Analyzing [%s] %.80s", item["id"], item["title"])
@@ -301,7 +454,7 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False) -> dict:
         user_msg = build_user_message(item)
 
         try:
-            analysis, tokens_in, tokens_out, cost = call_openai(client, user_msg)
+            analysis, tokens_in, tokens_out, cost = call_openai(client, system_prompt, user_msg)
         except Exception as e:
             failed += 1
             log.warning("  LLM error: %s", e)
@@ -316,38 +469,94 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False) -> dict:
             continue
 
         total_cost += cost
-        company_id = match_company(analysis["company_mentioned"], companies)
+        matched = match_companies(analysis["competitors_mentioned"], companies)
+        first_company_id = matched[0]["id"] if matched else None
+
+        # Build a readable log line
+        competitor_tag = ""
+        if matched:
+            competitor_tag = f"  competitors={[c['name'] for c in matched]}"
+        price_tag = ""
+        if analysis["price_signal"]:
+            ps = analysis["price_signal"]
+            price_tag = f"  price={ps['material']}({ps['direction']})"
+            if ps.get("price_usd_kg"):
+                price_tag += f"@${ps['price_usd_kg']:.2f}/kg"
 
         log.info(
-            "  score=%.3f  type=%-17s severity=%-7s  tokens=%d+%d  cost=$%.6f%s",
+            "  score=%.3f  type=%-18s sev=%-7s  tokens=%d+%d  cost=$%.6f%s%s",
             analysis["relevance_score"],
             analysis["signal_type"],
             analysis["severity"],
             tokens_in, tokens_out,
             cost,
-            f"  company_id={company_id}" if company_id else "",
+            competitor_tag,
+            price_tag,
         )
 
         if dry_run:
             log.info("  [DRY-RUN] skipping DB writes")
             processed += 1
-            if analysis["relevance_score"] > RELEVANCE_THRESHOLD:
+            if analysis["relevance_score"] >= RELEVANCE_THRESHOLD:
                 signaled += 1
+            if matched:
+                competitor_signals += len(matched)
+            if print_signals and (matched or analysis["relevance_score"] >= RELEVANCE_THRESHOLD):
+                sample_signals.append({
+                    "title":       item["title"],
+                    "score":       analysis["relevance_score"],
+                    "type":        analysis["signal_type"],
+                    "severity":    analysis["severity"],
+                    "summary_tr":  analysis["summary_tr"],
+                    "competitors": [c["name"] for c in matched],
+                    "price":       analysis["price_signal"],
+                })
             continue
 
         try:
             with conn:
                 with conn.cursor() as cur:
-                    update_news_item(cur, item["id"], analysis, company_id,
+                    update_news_item(cur, item["id"], analysis, first_company_id,
                                      tokens_in, tokens_out, cost)
 
-                    if analysis["relevance_score"] > RELEVANCE_THRESHOLD:
-                        insert_market_signal(cur, item, analysis, company_id,
-                                             tokens_in, tokens_out, cost)
-                        signaled += 1
-                        log.info("  → market_signal written")
+                    signals_written = 0
+
+                    # 1. Competitor mention signals — one per matched company
+                    for company in matched:
+                        if analysis["relevance_score"] >= COMPETITOR_MENTION_MIN_RELEVANCE:
+                            insert_competitor_signal(cur, item, company, analysis,
+                                                     tokens_in, tokens_out, cost)
+                            signals_written += 1
+                            competitor_signals += 1
+                            log.info("  → competitor_mention: %s", company["name"])
+
+                    # 2. Primary signal — emit when above threshold
+                    #    Skip if signal_type is competitor_mention and we already wrote per-company signals
+                    emit_primary = analysis["relevance_score"] >= RELEVANCE_THRESHOLD
+                    if emit_primary:
+                        # If all intelligence is captured by competitor signals, skip redundant signal
+                        if analysis["signal_type"] == "competitor_mention" and signals_written > 0:
+                            pass  # competitor signals already capture this
+                        else:
+                            insert_market_signal(cur, item, analysis, first_company_id,
+                                                 tokens_in, tokens_out, cost)
+                            signals_written += 1
+                            log.info("  → market_signal: %s", analysis["signal_type"])
+
+                    signaled += signals_written
 
             processed += 1
+
+            if print_signals and signals_written > 0:
+                sample_signals.append({
+                    "title":       item["title"],
+                    "score":       analysis["relevance_score"],
+                    "type":        analysis["signal_type"],
+                    "severity":    analysis["severity"],
+                    "summary_tr":  analysis["summary_tr"],
+                    "competitors": [c["name"] for c in matched],
+                    "price":       analysis["price_signal"],
+                })
 
         except psycopg2.Error as e:
             failed += 1
@@ -373,12 +582,46 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False) -> dict:
             )
 
     conn.close()
+
+    if print_signals and sample_signals:
+        _print_sample_signals(sample_signals)
+
     return {
-        "processed":      processed,
-        "signaled":       signaled,
-        "failed":         failed,
-        "total_cost_usd": round(total_cost, 6),
+        "processed":          processed,
+        "signaled":           signaled,
+        "competitor_signals": competitor_signals,
+        "failed":             failed,
+        "total_cost_usd":     round(total_cost, 6),
     }
+
+
+def _safe(text: str, maxlen: int = 0) -> str:
+    """Encode to terminal code page with '?' substitution for unmappable chars."""
+    enc = sys.stdout.encoding or "ascii"
+    s = (text or "")[:maxlen] if maxlen else (text or "")
+    return s.encode(enc, "replace").decode(enc)
+
+
+def _print_sample_signals(signals: list[dict]):
+    sep = "-" * 72
+    lines = [
+        "",
+        sep,
+        f"  SAMPLE SIGNALS ({len(signals)} articles with signals)",
+        sep,
+    ]
+    for i, s in enumerate(signals, 1):
+        lines.append(f"\n[{i}] score={s['score']:.2f}  type={s['type']}  severity={s['severity']}")
+        lines.append(f"    Title : {_safe(s['title'], 90)}")
+        lines.append(f"    Signal: {_safe(s['summary_tr'])}")
+        if s["competitors"]:
+            lines.append(f"    Companies: {_safe(', '.join(s['competitors']))}")
+        if s["price"]:
+            ps = s["price"]
+            p = f"${ps['price_usd_kg']:.2f}/kg" if ps.get("price_usd_kg") else ps.get("direction", "")
+            lines.append(f"    Price: {_safe(ps['material'])} {p} - {_safe(ps.get('note', ''))}")
+    lines += ["", sep, ""]
+    print("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
@@ -399,16 +642,26 @@ def main():
         action="store_true",
         help="Call OpenAI but skip all DB writes",
     )
+    parser.add_argument(
+        "--print-signals",
+        action="store_true",
+        help="Print a formatted table of signals generated in this run",
+    )
     args = parser.parse_args()
 
-    log.info("Starting %s (model=%s, limit=%d%s)", PIPELINE, LLM_MODEL, args.limit,
-             ", DRY-RUN" if args.dry_run else "")
+    log.info(
+        "Starting %s (model=%s, limit=%d%s%s)",
+        PIPELINE, LLM_MODEL, args.limit,
+        ", DRY-RUN" if args.dry_run else "",
+        ", PRINT-SIGNALS" if args.print_signals else "",
+    )
 
-    result = analyze(limit=args.limit, dry_run=args.dry_run)
+    result = analyze(limit=args.limit, dry_run=args.dry_run, print_signals=args.print_signals)
 
     print(
         f"\nSummary — processed: {result['processed']}  "
-        f"signaled: {result['signaled']}  "
+        f"signals: {result['signaled']}  "
+        f"competitor_mentions: {result['competitor_signals']}  "
         f"failed: {result['failed']}  "
         f"total_cost: ${result['total_cost_usd']:.6f}"
     )
