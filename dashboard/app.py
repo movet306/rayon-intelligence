@@ -16,12 +16,15 @@ import os
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import psycopg2
 import streamlit as st
 from dotenv import load_dotenv
 from plotly.subplots import make_subplots
+
+# Qualitative colour palette (replaces px.colors.qualitative.Bold)
+_BOLD = ["#7F3C8D", "#11A579", "#3969AC", "#F2B701", "#E73F74",
+         "#80BA5A", "#E68310", "#008695", "#CF1C90", "#f97b72"]
 
 load_dotenv()
 
@@ -698,26 +701,28 @@ def tab_export_intelligence():
 
     df_top = q_trade_top_destinations(hs_sel)
     if not df_top.empty:
-        fig_bar = px.bar(
-            df_top.head(10),
-            x="value_usd",
-            y="country_name",
+        d10 = df_top.head(10)
+        fig_bar = go.Figure(go.Bar(
+            x=d10["value_usd"].tolist(),
+            y=d10["country_name"].tolist(),
             orientation="h",
-            labels={"value_usd": "Export value (USD)", "country_name": "Country"},
-            title=f"Top 10 destinations — {HS_LABELS[hs_sel]} (latest month)",
-            color="value_usd",
-            color_continuous_scale="Teal",
-            text=df_top["value_usd"].head(10).apply(lambda v: f"${v/1e6:.1f}M"),
-        )
+            text=[f"${v/1e6:.1f}M" for v in d10["value_usd"]],
+            textposition="outside",
+            marker=dict(
+                color=d10["value_usd"].tolist(),
+                colorscale="Teal",
+                showscale=False,
+            ),
+            hovertemplate="%{y}: $%{x:,.0f}<extra></extra>",
+        ))
         fig_bar.update_layout(
+            title=f"Top 10 destinations — {HS_LABELS[hs_sel]} (latest month)",
             paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
             font=dict(color="#ccc"),
             yaxis=dict(autorange="reversed"),
-            coloraxis_showscale=False,
             margin=dict(l=0, r=80, t=40, b=0),
             height=360,
         )
-        fig_bar.update_traces(textposition="outside")
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
         st.info(f"No trade data for {hs_sel}")
@@ -736,28 +741,28 @@ def tab_export_intelligence():
         df_trend = q_trade_monthly_trend(tuple(hs_trend))
         if not df_trend.empty:
             df_trend["label"] = df_trend["hs_code"].map(lambda k: HS_LABELS.get(k, k))
-            fig_line = px.line(
-                df_trend,
-                x="period",
-                y="value_usd_mn",
-                color="label",
-                markers=True,
-                labels={"value_usd_mn": "Export value (USD million)", "period": "Month", "label": "HS code"},
-                title="Monthly export value — Turkey",
-                color_discrete_sequence=px.colors.qualitative.Bold,
-            )
+            fig_line = go.Figure()
+            for i, (label, grp) in enumerate(df_trend.groupby("label", sort=False)):
+                grp = grp.sort_values("period")
+                fig_line.add_trace(go.Scatter(
+                    x=grp["period"].tolist(),
+                    y=grp["value_usd_mn"].tolist(),
+                    name=label,
+                    mode="lines+markers",
+                    line=dict(color=_BOLD[i % len(_BOLD)], width=2),
+                    marker=dict(size=6),
+                    hovertemplate=f"{label}: %{{y:.1f}}M USD<extra></extra>",
+                ))
             fig_line.update_layout(
+                title="Monthly export value — Turkey",
                 paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                 font=dict(color="#ccc"),
                 legend=dict(bgcolor="rgba(0,0,0,0)", title_text=""),
                 margin=dict(l=0, r=0, t=40, b=0),
                 height=350,
                 hovermode="x unified",
-                yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", ticksuffix="M"),
+                yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", ticksuffix="M", title="USD million"),
                 xaxis=dict(gridcolor="#2a2a3a", tickformat="%b %Y"),
-            )
-            fig_line.update_traces(
-                hovertemplate="%{y:.1f}M USD<extra>%{fullData.name}</extra>"
             )
             st.plotly_chart(fig_line, use_container_width=True)
         else:
@@ -793,44 +798,48 @@ def tab_internal_data():
 
             col_a, col_b = st.columns(2)
             with col_a:
-                fig_fab = px.bar(
-                    df_fab,
-                    x="revenue_usd",
-                    y="fabric_type",
+                fig_fab = go.Figure(go.Bar(
+                    x=df_fab["revenue_usd"].tolist(),
+                    y=df_fab["fabric_type"].tolist(),
                     orientation="h",
-                    title="Revenue by fabric type (USD)",
-                    labels={"revenue_usd": "Revenue (USD)", "fabric_type": "Fabric"},
-                    color="revenue_usd",
-                    color_continuous_scale="Teal",
-                    text=df_fab["revenue_usd"].apply(lambda v: f"${v/1e3:.0f}K"),
-                )
+                    text=[f"${v/1e3:.0f}K" for v in df_fab["revenue_usd"]],
+                    textposition="outside",
+                    marker=dict(
+                        color=df_fab["revenue_usd"].tolist(),
+                        colorscale="Teal",
+                        showscale=False,
+                    ),
+                    hovertemplate="%{y}: $%{x:,.0f}<extra></extra>",
+                ))
                 fig_fab.update_layout(
+                    title="Revenue by fabric type (USD)",
                     paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                     font=dict(color="#ccc"),
                     yaxis=dict(autorange="reversed"),
-                    coloraxis_showscale=False,
                     margin=dict(l=0, r=60, t=40, b=0),
                     height=360,
                 )
-                fig_fab.update_traces(textposition="outside")
                 st.plotly_chart(fig_fab, use_container_width=True)
 
             with col_b:
-                fig_tx = px.bar(
-                    df_fab,
-                    x="tx_count",
-                    y="fabric_type",
+                fig_tx = go.Figure(go.Bar(
+                    x=df_fab["tx_count"].tolist(),
+                    y=df_fab["fabric_type"].tolist(),
                     orientation="h",
-                    title="Transaction count by fabric type",
-                    labels={"tx_count": "Transactions", "fabric_type": "Fabric"},
-                    color="tx_count",
-                    color_continuous_scale="Blues",
-                )
+                    text=df_fab["tx_count"].tolist(),
+                    textposition="outside",
+                    marker=dict(
+                        color=df_fab["tx_count"].tolist(),
+                        colorscale="Blues",
+                        showscale=False,
+                    ),
+                    hovertemplate="%{y}: %{x} transactions<extra></extra>",
+                ))
                 fig_tx.update_layout(
+                    title="Transaction count by fabric type",
                     paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                     font=dict(color="#ccc"),
                     yaxis=dict(autorange="reversed"),
-                    coloraxis_showscale=False,
                     margin=dict(l=0, r=0, t=40, b=0),
                     height=360,
                 )
@@ -838,20 +847,22 @@ def tab_internal_data():
 
             # Monthly revenue trend
             if not df_mon.empty:
-                fig_mon = px.area(
-                    df_mon,
-                    x="month",
-                    y="revenue_usd",
-                    title="Monthly revenue trend (Lescon account)",
-                    labels={"revenue_usd": "Revenue (USD)", "month": "Month"},
-                    color_discrete_sequence=["#26C6DA"],
-                )
+                fig_mon = go.Figure(go.Scatter(
+                    x=df_mon["month"].tolist(),
+                    y=df_mon["revenue_usd"].tolist(),
+                    mode="lines",
+                    fill="tozeroy",
+                    line=dict(color="#26C6DA", width=2),
+                    fillcolor="rgba(38,198,218,0.15)",
+                    hovertemplate="%{x|%b %Y}: $%{y:,.0f}<extra></extra>",
+                ))
                 fig_mon.update_layout(
+                    title="Monthly revenue trend (Lescon account)",
                     paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                     font=dict(color="#ccc"),
                     margin=dict(l=0, r=0, t=40, b=0),
                     height=280,
-                    yaxis=dict(gridcolor="#2a2a3a", tickprefix="$"),
+                    yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", title="Revenue (USD)"),
                     xaxis=dict(gridcolor="#2a2a3a", tickformat="%b %Y"),
                 )
                 st.plotly_chart(fig_mon, use_container_width=True)
@@ -943,26 +954,28 @@ def tab_internal_data():
             oc1.metric("Total orders", "1,484")
             oc2.metric("Total suppliers", str(df_sup["supplier"].nunique()))
 
-            fig_sup = px.bar(
-                df_sup.head(12),
-                x="order_count",
-                y="supplier",
+            d12 = df_sup.head(12)
+            fig_sup = go.Figure(go.Bar(
+                x=d12["order_count"].tolist(),
+                y=d12["supplier"].tolist(),
                 orientation="h",
-                title="Top suppliers by order count",
-                labels={"order_count": "# Orders", "supplier": "Supplier"},
-                color="order_count",
-                color_continuous_scale="Purples",
-                text="order_count",
-            )
+                text=d12["order_count"].tolist(),
+                textposition="outside",
+                marker=dict(
+                    color=d12["order_count"].tolist(),
+                    colorscale="Purples",
+                    showscale=False,
+                ),
+                hovertemplate="%{y}: %{x} orders<extra></extra>",
+            ))
             fig_sup.update_layout(
+                title="Top suppliers by order count",
                 paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                 font=dict(color="#ccc"),
                 yaxis=dict(autorange="reversed"),
-                coloraxis_showscale=False,
                 margin=dict(l=0, r=40, t=40, b=0),
                 height=420,
             )
-            fig_sup.update_traces(textposition="outside")
             st.plotly_chart(fig_sup, use_container_width=True)
 
             with st.expander("Full supplier table"):
