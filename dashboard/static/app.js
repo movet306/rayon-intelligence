@@ -38,29 +38,51 @@ const COUNTRY_NAMES = {
 };
 
 const MATERIAL_LABELS = {
-  polyester_staple_fiber: 'Polyester Staple Fibre',
-  polyester_fdy:  'Polyester FDY',
-  polyester_poy:  'Polyester POY',
-  polyamide_fdy:  'Nylon FDY (PA6)',
-  cotton_lint:    'Cotton Lint',
-  pa6_chip:       'PA6 Chip',
-  pa66_chip:      'PA66 Chip',
+  polyester_staple_fiber: 'PSF (Polyester Elyaf)',
+  polyester_fdy:          'Polyester FDY',
+  polyester_poy:          'Polyester POY',
+  polyester_dty:          'Polyester DTY',
+  polyester_yarn:         'Polyester İplik',
+  pta:                    'PTA',
+  cotton_lint:            'Pamuk (Ham)',
+  cotton_yarn:            'Pamuk İpliği',
+  polyamide_fdy:          'Naylon FDY (PA6)',
+  pa6_chip:               'PA6 Chip',
+  pa66_chip:              'PA66 Chip',
+  rayon_yarn:             'Rayon İpliği',
+  adipic_acid:            'Adipik Asit',
 };
 
-// Price chart order and grouping (pa6/pa66 share one panel)
-const PRICE_PANELS = [
-  { key: 'polyester_staple_fiber', color: C.blue },
-  { key: 'polyester_fdy',          color: C.orange },
-  { key: 'polyester_poy',          color: C.green },
-  { key: 'polyamide_fdy',          color: C.purple },
-  { key: 'cotton_lint',            color: C.orange },
-  { key: '__pa_chips__',           keys: ['pa6_chip','pa66_chip'],
-    colors: [C.blue, C.orange],    label: 'PA6 Chip vs PA66 Chip' },
+// Polyester family chart definition
+const POLY_MATS = [
+  { key: 'polyester_staple_fiber', color: C.blue,     label: 'PSF' },
+  { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
+  { key: 'polyester_poy',          color: C.green,    label: 'POY' },
+  { key: 'polyester_dty',          color: '#a371f7',  label: 'DTY' },
+];
+
+// All materials for summary table (ordered by family)
+const ALL_PRICE_MATS = [
+  { key: 'polyester_staple_fiber', fam: 'polyester' },
+  { key: 'polyester_fdy',          fam: 'polyester' },
+  { key: 'polyester_poy',          fam: 'polyester' },
+  { key: 'polyester_dty',          fam: 'polyester' },
+  { key: 'polyester_yarn',         fam: 'polyester' },
+  { key: 'pta',                    fam: 'polyester' },
+  { key: 'cotton_lint',            fam: 'cotton'    },
+  { key: 'cotton_yarn',            fam: 'cotton'    },
+  { key: 'polyamide_fdy',          fam: 'nylon'     },
+  { key: 'pa6_chip',               fam: 'nylon'     },
+  { key: 'pa66_chip',              fam: 'nylon'     },
+  { key: 'adipic_acid',            fam: 'nylon'     },
+  { key: 'rayon_yarn',             fam: 'rayon'     },
 ];
 
 /* ── State ─────────────────────────────────────────────────────────────────── */
 let _internalData = null;
 let _exportData   = {};
+let _priceData    = null;
+let _polyMode     = 'price';
 
 /* ── API helpers ───────────────────────────────────────────────────────────── */
 async function api(path) {
@@ -98,7 +120,7 @@ const _loaded = new Set();
 function lazyLoad(section) {
   if (_loaded.has(section)) return;
   _loaded.add(section);
-  if (section === 'prices')   loadPrices();
+  if (section === 'prices')   loadPriceDashboard();
   if (section === 'exports')  loadExports();
   if (section === 'internal') loadInternal();
 }
@@ -170,104 +192,313 @@ function initSignalFilters() {
 }
 
 /* ── Price Intelligence ──────────────────────────────────────────────────────── */
-async function loadPrices() {
-  const grid = document.getElementById('price-grid');
-  grid.innerHTML = '<div class="loading">Loading price data…</div>';
 
-  try {
-    const data = await api('/api/prices');
-    grid.innerHTML = '';
+const PRICE_CHART_LAYOUT = {
+  paper_bgcolor: '#161b22',
+  plot_bgcolor:  '#161b22',
+  font: { color: '#8b949e', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', size: 11 },
+  margin: { l: 40, r: 20, t: 10, b: 40 },
+  xaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { color: '#8b949e' }, zerolinecolor: '#30363d' },
+  yaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { color: '#8b949e' }, zerolinecolor: '#30363d' },
+};
 
-    PRICE_PANELS.forEach((panel, i) => {
-      const div = document.createElement('div');
-      div.className = 'price-panel';
-      grid.appendChild(div);
+async function loadPriceDashboard() {
+  // Fire signals bar immediately (independent request)
+  _loadPriceSignalsBar();
 
-      if (panel.key === '__pa_chips__') {
-        renderMultiPricePanel(div, panel, data, i);
-      } else {
-        renderSinglePricePanel(div, panel, data[panel.key], i);
-      }
-    });
-  } catch (e) {
-    grid.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
-  }
-}
-
-function renderSinglePricePanel(container, panel, d, idx) {
-  const label = MATERIAL_LABELS[panel.key] || panel.key;
-  if (!d || !d.prices || !d.prices.length) {
-    container.innerHTML = `<div class="price-panel-header"><span class="price-panel-title">${label}</span></div><div class="empty-state" style="padding:20px">No data</div>`;
+  if (_priceData) {
+    _renderPriceDashboard(_priceData);
     return;
   }
+  // Show skeleton while loading
+  document.getElementById('chart-polyester').innerHTML =
+    '<div class="loading">Fiyat verisi yükleniyor…</div>';
 
-  const cur = d.prices[d.prices.length - 1];
-  const pct = d.pct_change;
-  const pctHtml = pct != null
-    ? `<span class="pct-badge ${pct > 0 ? 'pct-up' : pct < 0 ? 'pct-down' : 'pct-flat'}">${pct > 0 ? '+' : ''}${pct}%</span>`
-    : '';
-
-  container.innerHTML = `
-    <div class="price-panel-header">
-      <span class="price-panel-title">${label}</span>
-      <span class="price-current">${cur.toLocaleString('en',{maximumFractionDigits:0})}</span>
-      ${pctHtml}
-    </div>
-    <div class="price-chart-wrap" id="pchart-${idx}"></div>`;
-
-  const trace = {
-    x: d.periods, y: d.prices,
-    type: 'scatter', mode: 'lines',
-    line: { color: panel.color, width: 2 },
-    fill: 'tozeroy',
-    fillcolor: hexAlpha(panel.color, 0.08),
-    hovertemplate: '%{x}<br><b>%{y:,.0f}</b><extra></extra>',
-  };
-  const layout = {
-    ...PLOTLY_BASE,
-    height: 180,
-    margin: { l: 48, r: 12, t: 8, b: 28 },
-    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30, nticks: 6 },
-    yaxis: { ...PLOTLY_BASE.yaxis, tickformat: ',d' },
-    showlegend: false,
-  };
-  Plotly.newPlot(`pchart-${idx}`, [trace], layout, PLOTLY_CONFIG);
+  try {
+    _priceData = await api('/api/prices');
+    _renderPriceDashboard(_priceData);
+  } catch (e) {
+    document.getElementById('chart-polyester').innerHTML =
+      `<div class="empty-state">Hata: ${esc(e.message)}</div>`;
+  }
 }
 
-function renderMultiPricePanel(container, panel, data, idx) {
-  container.innerHTML = `
-    <div class="price-panel-header">
-      <span class="price-panel-title">${panel.label}</span>
-    </div>
-    <div class="price-chart-wrap" id="pchart-${idx}"></div>`;
+async function _loadPriceSignalsBar() {
+  const bar = document.getElementById('price-signals-bar');
+  try {
+    const signals = await api('/api/price_signals');
+    _renderPriceSignalsBar(bar, signals);
+  } catch (_) {
+    bar.innerHTML = '<span class="price-signal-badge badge-neutral">Sinyaller yüklenemedi</span>';
+  }
+}
 
-  const traces = panel.keys.map((k, i) => {
-    const d = data[k];
-    if (!d) return null;
+function _renderPriceSignalsBar(bar, signals) {
+  if (!signals || !signals.length) {
+    bar.innerHTML = '<span class="price-signal-badge badge-neutral">Sinyal yok — piyasalar sakin</span>';
+    return;
+  }
+  bar.innerHTML = signals.map(s => {
+    const cls = s.severity === 'warning' ? 'badge-warning'
+              : s.severity === 'alert'   ? 'badge-alert'
+              :                            'badge-info';
+    return `<span class="price-signal-badge ${cls}">${esc(s.text)}</span>`;
+  }).join('');
+}
+
+function _renderPriceDashboard(data) {
+  _renderPolyesterFamily(data, _polyMode);
+  _renderPolyMetricCards(data);
+  _renderSecondaryCharts(data);
+  _renderPriceSummaryTable(data);
+}
+
+// ── Polyester family chart ────────────────────────────────────────────────────
+
+function _renderPolyesterFamily(data, mode) {
+  const traces = [];
+
+  if (mode === 'price') {
+    POLY_MATS.forEach(m => {
+      const d = data[m.key];
+      if (!d || !d.series.length) return;
+      const x = d.series.map(p => p.date);
+      const y = d.series.map(p => p.price);
+      traces.push({
+        x, y, name: m.label, type: 'scatter', mode: 'lines',
+        line: { color: m.color, width: 2.5 },
+        hovertemplate: `${m.label}: %{y:,.0f}<extra></extra>`,
+      });
+      // MA7 as dashed line (same color, 50% opacity)
+      const yMa7 = d.series.map(p => p.ma7);
+      if (yMa7.some(v => v != null)) {
+        traces.push({
+          x, y: yMa7, name: `${m.label} MA7`,
+          type: 'scatter', mode: 'lines',
+          line: { color: m.color, width: 1.5, dash: 'dash' },
+          opacity: 0.5, showlegend: false, hoverinfo: 'skip',
+        });
+      }
+    });
+
+  } else if (mode === 'normalize') {
+    // Rebase each series so first point = 100
+    POLY_MATS.forEach(m => {
+      const d = data[m.key];
+      if (!d || !d.series.length) return;
+      const first = d.series[0].price;
+      if (!first) return;
+      traces.push({
+        x: d.series.map(p => p.date),
+        y: d.series.map(p => p.price != null ? (p.price / first) * 100 : null),
+        name: m.label, type: 'scatter', mode: 'lines',
+        line: { color: m.color, width: 2.5 },
+        hovertemplate: `${m.label}: %{y:.1f}<extra></extra>`,
+      });
+    });
+
+  } else if (mode === 'spread') {
+    // FDY − PSF and DTY − POY spreads as area charts
+    const pairs = [
+      { matA: 'polyester_staple_fiber', matB: 'polyester_fdy',  label: 'FDY − PSF', color: C.orange },
+      { matA: 'polyester_poy',          matB: 'polyester_dty',  label: 'DTY − POY', color: '#a371f7' },
+    ];
+    pairs.forEach(({ matA, matB, label, color }) => {
+      const dA = data[matA], dB = data[matB];
+      if (!dA || !dB) return;
+      const mapA = Object.fromEntries(dA.series.map(p => [p.date, p.price]));
+      const pts = dB.series
+        .filter(p => p.price != null && mapA[p.date] != null)
+        .map(p => ({ date: p.date, val: p.price - mapA[p.date] }));
+      if (!pts.length) return;
+      traces.push({
+        x: pts.map(p => p.date),
+        y: pts.map(p => p.val),
+        name: label, type: 'scatter', mode: 'lines',
+        fill: 'tozeroy', fillcolor: hexAlpha(color, 0.15),
+        line: { color, width: 2 },
+        hovertemplate: `${label}: %{y:,.0f}<extra></extra>`,
+      });
+    });
+  }
+
+  const layout = {
+    ...PRICE_CHART_LAYOUT,
+    height: 360,
+    xaxis: {
+      ...PRICE_CHART_LAYOUT.xaxis,
+      rangeslider: { bgcolor: '#0d1117', thickness: 0.08 },
+    },
+    yaxis: {
+      ...PRICE_CHART_LAYOUT.yaxis,
+      tickformat: mode === 'normalize' ? '.0f' : ',d',
+    },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 } },
+    showlegend: true,
+  };
+
+  if (!traces.length) {
+    document.getElementById('chart-polyester').innerHTML =
+      '<div class="empty-state" style="padding:40px">Veri yok</div>';
+    return;
+  }
+  Plotly.newPlot('chart-polyester', traces, layout, PLOTLY_CONFIG);
+}
+
+// ── Polyester metric cards ────────────────────────────────────────────────────
+
+function _renderPolyMetricCards(data) {
+  const container = document.getElementById('poly-metric-cards');
+  container.innerHTML = POLY_MATS.map(m => {
+    const d = data[m.key];
+    const l = d?.latest;
+    const insufficient = !d || d.series.length < 7;
+
+    const price = l?.price != null
+      ? l.price.toLocaleString('en', { maximumFractionDigits: 0 })
+      : '—';
+
+    const c7 = l?.change_7d;
+    const c7Html = c7 != null
+      ? `<span class="pct-badge ${c7 > 0 ? 'pct-up' : c7 < 0 ? 'pct-down' : 'pct-flat'}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</span>`
+      : '<span class="pct-badge pct-flat">—</span>';
+
+    const trend = l?.trend_direction;
+    const trendHtml = trend === 'up'   ? '<span class="trend-arrow trend-up">↑</span>'
+                    : trend === 'down' ? '<span class="trend-arrow trend-down">↓</span>'
+                    :                   '<span class="trend-arrow trend-flat">→</span>';
+
+    const vol = (l?.volatility_7d != null && !insufficient)
+      ? `<span class="card-vol">σ ${l.volatility_7d.toFixed(1)}</span>` : '';
+
+    return `
+      <div class="poly-metric-card" style="border-top: 3px solid ${m.color}">
+        <div class="card-label">${m.label}</div>
+        <div class="card-price">${insufficient ? '<span class="muted-sm">Yetersiz veri</span>' : price}</div>
+        <div class="card-meta">${insufficient ? '' : c7Html + trendHtml + vol}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Secondary charts ──────────────────────────────────────────────────────────
+
+function _renderSecondaryCharts(data) {
+  // Cotton & Raw
+  _renderMultiLine('chart-cotton-raw', [
+    { key: 'cotton_lint', color: C.orange, label: 'Pamuk Ham' },
+    { key: 'pta',         color: C.blue,   label: 'PTA' },
+  ], data);
+
+  // Nylon
+  _renderMultiLine('chart-nylon', [
+    { key: 'pa6_chip',     color: C.blue,   label: 'PA6 Chip' },
+    { key: 'pa66_chip',    color: C.orange, label: 'PA66 Chip' },
+    { key: 'polyamide_fdy', color: C.purple, label: 'Naylon FDY' },
+  ], data);
+}
+
+function _renderMultiLine(elId, mats, data) {
+  const traces = mats.map(m => {
+    const d = data[m.key];
+    if (!d || !d.series.length) return null;
     return {
-      x: d.periods, y: d.prices,
-      name: MATERIAL_LABELS[k] || k,
-      type: 'scatter', mode: 'lines',
-      line: { color: panel.colors[i], width: 2 },
-      hovertemplate: `${MATERIAL_LABELS[k]}: %{y:,.0f}<extra></extra>`,
+      x: d.series.map(p => p.date),
+      y: d.series.map(p => p.price),
+      name: m.label, type: 'scatter', mode: 'lines',
+      line: { color: m.color, width: 2 },
+      hovertemplate: `${m.label}: %{y:,.0f}<extra></extra>`,
     };
   }).filter(Boolean);
 
   if (!traces.length) {
-    container.querySelector('.price-chart-wrap').innerHTML = '<div class="empty-state" style="padding:20px">No data</div>';
+    document.getElementById(elId).innerHTML =
+      '<div class="empty-state" style="padding:40px">Veri yok</div>';
     return;
   }
-
-  const layout = {
-    ...PLOTLY_BASE,
-    height: 180,
-    margin: { l: 48, r: 12, t: 8, b: 28 },
-    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30, nticks: 6 },
-    yaxis: { ...PLOTLY_BASE.yaxis, tickformat: ',d' },
-    legend: { font: { color: C.muted, size: 10 }, bgcolor: 'rgba(0,0,0,0)', x: 0, y: 1 },
+  Plotly.newPlot(elId, traces, {
+    ...PRICE_CHART_LAYOUT,
+    height: 320,
+    yaxis: { ...PRICE_CHART_LAYOUT.yaxis, tickformat: ',d' },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 10 } },
     showlegend: true,
+  }, PLOTLY_CONFIG);
+}
+
+// ── Summary table ─────────────────────────────────────────────────────────────
+
+function _renderPriceSummaryTable(data) {
+  const fmtPct = v => {
+    if (v == null) return '<span class="muted">—</span>';
+    const cls = v > 0 ? 'stat-up' : v < 0 ? 'stat-down' : 'stat-neutral';
+    return `<span class="${cls}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
   };
-  Plotly.newPlot(`pchart-${idx}`, traces, layout, PLOTLY_CONFIG);
+  const trendArrow = t => {
+    if (!t) return '<span class="muted">—</span>';
+    if (t === 'up')   return '<span class="stat-up">↑</span>';
+    if (t === 'down') return '<span class="stat-down">↓</span>';
+    return '<span class="stat-neutral">→</span>';
+  };
+  const INS = '<span class="muted" style="font-size:11px">Yetersiz veri</span>';
+
+  const rows = ALL_PRICE_MATS.map(m => {
+    const d = data[m.key];
+    const pts = d?.series.length || 0;
+    const ins = pts < 7;
+    const l   = d?.latest;
+    const rc  = m.fam === 'polyester' ? 'fam-polyester'
+               : m.fam === 'nylon'    ? 'fam-nylon' : '';
+    return `<tr class="${rc}">
+      <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
+      <td class="num">${ins || !l?.price ? INS : l.price.toLocaleString('en', {maximumFractionDigits:0})}</td>
+      <td class="num">${ins ? INS : fmtPct(l?.change_1d)}</td>
+      <td class="num">${ins ? INS : fmtPct(l?.change_7d)}</td>
+      <td class="num">${ins ? INS : fmtPct(l?.change_30d)}</td>
+      <td class="num">${ins ? INS : trendArrow(l?.trend_direction)}</td>
+      <td class="num">${ins || l?.volatility_7d == null ? INS : l.volatility_7d.toFixed(1)}</td>
+      <td class="num" style="color:var(--muted);font-size:11px">${pts}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('price-summary-table').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Materyal</th>
+        <th class="num">Fiyat (RMB/t)</th>
+        <th class="num">1G%</th>
+        <th class="num">7G%</th>
+        <th class="num">30G%</th>
+        <th class="num">Trend</th>
+        <th class="num">Volatilite</th>
+        <th class="num">Veri</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Price section init ────────────────────────────────────────────────────────
+
+function initPriceSection() {
+  // Polyester toggle buttons
+  document.querySelectorAll('#poly-toggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#poly-toggle .toggle-btn')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _polyMode = btn.dataset.mode;
+      if (_priceData) _renderPolyesterFamily(_priceData, _polyMode);
+    });
+  });
+
+  // Collapsible summary table
+  const header  = document.getElementById('price-table-toggle');
+  const table   = document.getElementById('price-summary-table');
+  const arrow   = document.getElementById('price-table-arrow');
+  let collapsed = false;
+  header.addEventListener('click', () => {
+    collapsed = !collapsed;
+    table.style.display    = collapsed ? 'none' : '';
+    arrow.textContent      = collapsed ? '▶' : '▼';
+  });
 }
 
 /* ── Export Intelligence ─────────────────────────────────────────────────────── */
@@ -557,6 +788,7 @@ function hexAlpha(hex, alpha) {
 function initRefresh() {
   document.getElementById('refresh-btn').addEventListener('click', () => {
     _internalData = null;
+    _priceData    = null;
     Object.keys(_exportData).forEach(k => delete _exportData[k]);
     _loaded.clear();
     loadStats();
@@ -565,7 +797,7 @@ function initRefresh() {
     const active = document.querySelector('.nav-item.active');
     if (active) {
       const sec = active.dataset.section;
-      if (sec === 'prices')   loadPrices();
+      if (sec === 'prices')   loadPriceDashboard();
       if (sec === 'exports')  loadExports();
       if (sec === 'internal') loadInternal();
     }
@@ -577,6 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initSignalFilters();
   initExportSelector();
+  initPriceSection();
   initRefresh();
   loadStats();
   loadSignals();         // signals is the default active section

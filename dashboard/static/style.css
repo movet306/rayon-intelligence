@@ -289,36 +289,113 @@ html, body {
   color: var(--orange);
 }
 
-/* ── Price grid ────────────────────────────────────────────────────────────── */
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
+/* ── Price Intelligence section ────────────────────────────────────────────── */
 
-.price-panel {
+/* Auto-signals bar */
+.price-signals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  min-height: 42px;
+  align-items: center;
+}
+.price-signal-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-warning { background: rgba(240,136,62,0.18); color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
+.badge-alert   { background: rgba(248,81,73,0.18);  color: var(--red);    border: 1px solid rgba(248,81,73,0.35); }
+.badge-info    { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.3); }
+.badge-neutral { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid rgba(139,148,158,0.25); }
+
+/* Polyester family block */
+.price-block {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  margin-bottom: 16px;
 }
-.price-panel-header {
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--border);
+.price-block-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
   gap: 10px;
 }
-.price-panel-title {
-  font-size: 13px;
+.price-block-title {
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  flex: 1;
 }
-.price-current {
-  font-size: 16px;
+
+/* Toggle buttons */
+.chart-toggle {
+  display: flex;
+  gap: 4px;
+}
+.toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.toggle-btn:hover  { color: var(--text); border-color: var(--blue); }
+.toggle-btn.active { background: rgba(88,166,255,0.15); color: var(--blue); border-color: var(--blue); }
+
+/* Tall chart wrap for polyester family */
+.chart-wrap-tall { height: 360px; }
+
+/* Polyester metric cards (4-col grid) */
+.poly-metric-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.poly-metric-card {
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+}
+.poly-metric-card:last-child { border-right: none; }
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.card-price {
+  font-size: 20px;
   font-weight: 700;
   color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .pct-badge {
   font-size: 11px;
@@ -326,10 +403,33 @@ html, body {
   padding: 2px 7px;
   border-radius: 4px;
 }
-.pct-up   { background: rgba(63,185,80,0.2);  color: var(--green); }
-.pct-down { background: rgba(248,81,73,0.2);  color: var(--red); }
+.pct-up   { background: rgba(63,185,80,0.2);    color: var(--green); }
+.pct-down { background: rgba(248,81,73,0.2);    color: var(--red); }
 .pct-flat { background: rgba(139,148,158,0.15); color: var(--muted); }
-.price-chart-wrap { height: 180px; }
+.trend-arrow { font-size: 14px; font-weight: 700; }
+.trend-up   { color: var(--green); }
+.trend-down { color: var(--red); }
+.trend-flat { color: var(--muted); }
+.card-vol {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.muted-sm { font-size: 11px; color: var(--muted); }
+
+/* Secondary row spacing */
+.price-secondary-row { margin-bottom: 0; }
+.price-summary-wrap  { margin-top: 16px; }
+
+/* Summary table row family tinting */
+.data-table tr.fam-polyester td { background: rgba(88,166,255,0.04); }
+.data-table tr.fam-nylon td     { background: rgba(240,136,62,0.04); }
+.data-table tr.fam-polyester:hover td { background: rgba(88,166,255,0.09); }
+.data-table tr.fam-nylon:hover td     { background: rgba(240,136,62,0.09); }
+
+/* Collapsible table header */
+.price-table-toggle-header { cursor: pointer; user-select: none; }
+.price-table-toggle-header:hover { color: var(--blue); }
 
 /* ── Export section ────────────────────────────────────────────────────────── */
 .kpi-row {

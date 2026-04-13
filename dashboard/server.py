@@ -22,6 +22,23 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 RMB_USD_RATE = float(os.getenv("RMB_USD_RATE", "0.138"))
 
+# Turkish display labels for auto-signal texts
+MATERIAL_LABELS = {
+    "polyester_staple_fiber": "PSF (Polyester Elyaf)",
+    "polyester_fdy":          "Polyester FDY",
+    "polyester_poy":          "Polyester POY",
+    "polyester_dty":          "Polyester DTY",
+    "polyester_yarn":         "Polyester İplik",
+    "pta":                    "PTA",
+    "cotton_lint":            "Pamuk (Ham)",
+    "cotton_yarn":            "Pamuk İpliği",
+    "polyamide_fdy":          "Naylon FDY (PA6)",
+    "pa6_chip":               "PA6 Chip",
+    "pa66_chip":              "PA66 Chip",
+    "rayon_yarn":             "Rayon İpliği",
+    "adipic_acid":            "Adipik Asit",
+}
+
 app = FastAPI(title="Rayon Intelligence API", docs_url="/api/docs")
 
 
@@ -58,10 +75,10 @@ def stats():
     ).get("n", 0)
 
     latest_poly = _one(
-        """SELECT price_usd::float AS price, unit
-           FROM price_signals
-           WHERE source = 'sunsirs' AND material = 'polyester_staple_fiber'
-           ORDER BY period DESC LIMIT 1""",
+        """SELECT price::float AS price, 'RMB/ton' AS unit
+           FROM price_metrics_daily
+           WHERE material = 'polyester_staple_fiber' AND frequency = 'daily'
+           ORDER BY metric_date DESC LIMIT 1""",
     )
 
     hs5407_export = _one(
@@ -125,46 +142,143 @@ def signals(
 # ── /api/prices ────────────────────────────────────────────────────────────────
 
 @app.get("/api/prices")
-def prices(
-    materials: str = Query(
-        "polyester_staple_fiber,polyester_fdy,polyester_poy,"
-        "polyamide_fdy,cotton_lint,pa6_chip,pa66_chip"
-    ),
-):
-    mat_list = [m.strip() for m in materials.split(",") if m.strip()]
-    placeholders = ",".join(["%s"] * len(mat_list))
-    sql = f"""
-        SELECT material,
-               to_char(period, 'YYYY-MM-DD') AS period,
-               price_usd::float               AS price,
-               unit
-        FROM price_signals
-        WHERE source = 'sunsirs'
-          AND material IN ({placeholders})
-        ORDER BY material, period
+def prices():
     """
-    rows = _rows(sql, mat_list)
+    Query price_metrics_daily (gold layer) for all daily-frequency materials.
+    Returns JSON keyed by material slug:
+      { material: { latest: {...}, series: [{date, price, ma7, ma30, normalized_idx}] } }
+    """
+    rows = _rows("""
+        SELECT material,
+               to_char(metric_date, 'YYYY-MM-DD') AS metric_date,
+               price::float,
+               change_1d::float,
+               change_7d::float,
+               change_30d::float,
+               ma7::float,
+               ma30::float,
+               volatility_7d::float,
+               normalized_idx::float,
+               trend_direction
+        FROM price_metrics_daily
+        WHERE frequency = 'daily'
+          AND metric_date >= NOW() - INTERVAL '90 days'
+        ORDER BY material, metric_date
+    """)
 
-    # Group by material → {material: {periods:[], prices:[], unit:""}}
     grouped: dict = {}
     for r in rows:
         m = r["material"]
         if m not in grouped:
-            grouped[m] = {"periods": [], "prices": [], "unit": r["unit"]}
-        grouped[m]["periods"].append(r["period"])
-        grouped[m]["prices"].append(r["price"])
-
-    # Attach % change over series
-    for m, d in grouped.items():
-        prices_list = d["prices"]
-        if len(prices_list) >= 2 and prices_list[0]:
-            d["pct_change"] = round(
-                (prices_list[-1] - prices_list[0]) / prices_list[0] * 100, 1
-            )
-        else:
-            d["pct_change"] = None
+            grouped[m] = {"latest": None, "series": []}
+        grouped[m]["series"].append({
+            "date":          r["metric_date"],
+            "price":         r["price"],
+            "ma7":           r["ma7"],
+            "ma30":          r["ma30"],
+            "normalized_idx": r["normalized_idx"],
+        })
+        grouped[m]["latest"] = {
+            "price":          r["price"],
+            "change_1d":      r["change_1d"],
+            "change_7d":      r["change_7d"],
+            "change_30d":     r["change_30d"],
+            "volatility_7d":  r["volatility_7d"],
+            "trend_direction": r["trend_direction"],
+        }
 
     return grouped
+
+
+# ── /api/price_signals ─────────────────────────────────────────────────────────
+
+@app.get("/api/price_signals")
+def price_signals_auto():
+    """
+    Compute auto-signals from the latest price_metrics_daily row per material.
+    Rules:
+      - change_7d > +3%  → rise warning
+      - change_7d < -3%  → drop warning
+      - volatility_7d > 2× average → volatility info
+      - polyamide_fdy/polyester_fdy spread change > ±5% vs 30d ago → spread info
+    Skips materials with < 7 data points (insufficient series).
+    """
+    latest = _rows("""
+        WITH counts AS (
+            SELECT material, COUNT(*) AS data_points
+            FROM price_metrics_daily
+            WHERE frequency = 'daily'
+            GROUP BY material
+        )
+        SELECT DISTINCT ON (pmd.material)
+            pmd.material,
+            pmd.price::float         AS price,
+            pmd.change_7d::float     AS change_7d,
+            pmd.change_30d::float    AS change_30d,
+            pmd.volatility_7d::float AS volatility_7d,
+            pmd.trend_direction,
+            c.data_points::int       AS data_points
+        FROM price_metrics_daily pmd
+        JOIN counts c ON c.material = pmd.material
+        WHERE pmd.frequency = 'daily'
+        ORDER BY pmd.material, pmd.metric_date DESC
+    """)
+
+    # Average volatility across all materials that have it
+    vols = [r["volatility_7d"] for r in latest if r["volatility_7d"] is not None]
+    avg_vol = sum(vols) / len(vols) if vols else None
+
+    by_mat = {r["material"]: r for r in latest}
+    signals = []
+
+    for r in latest:
+        if (r["data_points"] or 0) < 7:
+            continue
+        mat   = r["material"]
+        label = MATERIAL_LABELS.get(mat, mat)
+        c7    = r["change_7d"]
+        vol   = r["volatility_7d"]
+
+        if c7 is not None and c7 > 3:
+            signals.append({
+                "material": mat, "type": "rise", "severity": "warning",
+                "text": f"{label} 7 günde +{c7:.1f}% yükseldi",
+            })
+        elif c7 is not None and c7 < -3:
+            signals.append({
+                "material": mat, "type": "drop", "severity": "warning",
+                "text": f"{label} 7 günde {c7:.1f}% geriledi",
+            })
+
+        if vol is not None and avg_vol and avg_vol > 0 and vol > 2 * avg_vol:
+            signals.append({
+                "material": mat, "type": "volatility", "severity": "info",
+                "text": f"{label} yüksek volatilite (7G σ={vol:.1f})",
+            })
+
+    # Spread signal: polyamide_fdy / polyester_fdy ratio change vs 30d ago
+    pa  = by_mat.get("polyamide_fdy")
+    pf  = by_mat.get("polyester_fdy")
+    if (pa and pf
+            and (pa["data_points"] or 0) >= 7 and (pf["data_points"] or 0) >= 7
+            and pa["price"] and pf["price"] and pf["price"] != 0
+            and pa["change_30d"] is not None and pf["change_30d"] is not None):
+        ratio_now  = pa["price"] / pf["price"]
+        pa_30d     = pa["price"]  / (1 + pa["change_30d"]  / 100)
+        poly_30d   = pf["price"]  / (1 + pf["change_30d"]  / 100)
+        if poly_30d != 0:
+            ratio_30d   = pa_30d / poly_30d
+            spread_chg  = (ratio_now - ratio_30d) / ratio_30d * 100
+            if abs(spread_chg) > 5:
+                direction = "genişledi" if spread_chg > 0 else "daraldı"
+                signals.append({
+                    "material": "polyamide_fdy/polyester_fdy",
+                    "type": "spread", "severity": "info",
+                    "text": (f"Naylon/Polyester FDY fiyat makası {direction} "
+                             f"({spread_chg:+.1f}%)"),
+                })
+
+    return signals
 
 
 # ── /api/exports ───────────────────────────────────────────────────────────────

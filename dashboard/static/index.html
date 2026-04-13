@@ -114,9 +114,45 @@
 
   <!-- 2. Price Intelligence -->
   <section id="section-prices" class="section">
-    <div class="section-title">Commodity Price Intelligence</div>
-    <div class="price-grid" id="price-grid">
-      <div class="loading">Loading price data…</div>
+    <div class="section-title">Emtia Fiyat İstihbaratı</div>
+
+    <!-- 1. Auto-signals bar -->
+    <div id="price-signals-bar" class="price-signals-bar">
+      <span class="price-signal-badge badge-neutral">Sinyaller yükleniyor…</span>
+    </div>
+
+    <!-- 2. Polyester family -->
+    <div class="price-block">
+      <div class="price-block-header">
+        <span class="price-block-title">Polyester Ailesi</span>
+        <div class="chart-toggle" id="poly-toggle">
+          <button class="toggle-btn active" data-mode="price">Fiyat</button>
+          <button class="toggle-btn" data-mode="normalize">Normalize (baz=100)</button>
+          <button class="toggle-btn" data-mode="spread">Spread</button>
+        </div>
+      </div>
+      <div id="chart-polyester" class="chart-wrap-tall"></div>
+      <div id="poly-metric-cards" class="poly-metric-cards"></div>
+    </div>
+
+    <!-- 3. Secondary row -->
+    <div class="two-col price-secondary-row">
+      <div class="chart-panel">
+        <div class="chart-panel-title">Pamuk &amp; Ham Madde</div>
+        <div class="chart-wrap" id="chart-cotton-raw"></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-title">Naylon Ailesi</div>
+        <div class="chart-wrap" id="chart-nylon"></div>
+      </div>
+    </div>
+
+    <!-- 4. Summary table (collapsible) -->
+    <div class="table-wrap price-summary-wrap">
+      <div class="table-title price-table-toggle-header" id="price-table-toggle">
+        Tüm Materyaller — Özet <span id="price-table-arrow">▼</span>
+      </div>
+      <div id="price-summary-table"></div>
     </div>
   </section>
 
