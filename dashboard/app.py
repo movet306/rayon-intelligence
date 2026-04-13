@@ -58,24 +58,6 @@ section[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
     color: #1e293b !important;
 }
 
-/* ── Tab bar ── */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
-    border-bottom: 2px solid #e2e8f0;
-}
-.stTabs [data-baseweb="tab"] {
-    padding: 8px 20px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #64748b;
-    border-radius: 6px 6px 0 0;
-}
-.stTabs [aria-selected="true"] {
-    background: white !important;
-    color: #1f77b4 !important;
-    border-bottom: 2px solid #1f77b4 !important;
-}
-
 /* ── Section divider ── */
 hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
 
