@@ -42,6 +42,9 @@ jobs:
       - name: Run price signals scraper
         run: python scrapers/price_signals.py --months 12
 
+      - name: Run SunSirs fiber prices scraper
+        run: python scrapers/sunsirs_prices.py --all
+
       - name: Run LLM analyzer
         run: python scrapers/llm_analyzer.py --limit 50
 
