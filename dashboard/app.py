@@ -13,7 +13,7 @@ Run:
 """
 
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -22,13 +22,9 @@ import streamlit as st
 from dotenv import load_dotenv
 from plotly.subplots import make_subplots
 
-# Qualitative colour palette (replaces px.colors.qualitative.Bold)
-_BOLD = ["#7F3C8D", "#11A579", "#3969AC", "#F2B701", "#E73F74",
-         "#80BA5A", "#E68310", "#008695", "#CF1C90", "#f97b72"]
-
 load_dotenv()
 
-# ── Page config ────────────────────────────────────────────────────────────────
+# ── Page config (must be first Streamlit call) ─────────────────────────────────
 st.set_page_config(
     page_title="Rayon Intelligence",
     page_icon="🧵",
@@ -36,25 +32,45 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Constants ──────────────────────────────────────────────────────────────────
-RMB_USD_RATE = float(os.getenv("RMB_USD_RATE", "0.138"))
+# ── Colour palette ─────────────────────────────────────────────────────────────
+C_BLUE   = "#1f77b4"
+C_ORANGE = "#ff7f0e"
+C_RED    = "#d62728"
+C_GREEN  = "#2ca02c"
+C_TEAL   = "#17becf"
+C_GREY   = "#7f7f7f"
+C_PURPLE = "#9467bd"
 
 SIGNAL_COLORS = {
-    "competitor_mention": "#FF6B35",
-    "price_move":         "#4CAF50",
-    "price_signal":       "#2196F3",
-    "capacity_change":    "#AB47BC",
-    "regulation":         "#EF5350",
-    "trend":              "#26C6DA",
-    "new_market":         "#9CCC65",
-    "fair_participation": "#FFA726",
-    "other":              "#78909C",
+    "competitor_mention": C_ORANGE,
+    "price_move":         C_GREEN,
+    "price_signal":       C_BLUE,
+    "capacity_change":    C_PURPLE,
+    "regulation":         C_RED,
+    "trend":              C_TEAL,
+    "new_market":         "#8c564b",
+    "fair_participation": "#e377c2",
+    "other":              C_GREY,
 }
 SEVERITY_COLORS = {
-    "alert":   "#EF5350",
-    "warning": "#FFA726",
-    "info":    "#42A5F5",
+    "alert":   C_RED,
+    "warning": C_ORANGE,
+    "info":    C_BLUE,
 }
+_PALETTE = [C_BLUE, C_ORANGE, C_GREEN, C_RED, C_PURPLE, C_TEAL, "#8c564b", "#e377c2"]
+
+# Shared plotly layout for light theme
+_CHART = dict(
+    paper_bgcolor="white",
+    plot_bgcolor="#fafafa",
+    font=dict(color="#333", size=12),
+    margin=dict(l=10, r=10, t=40, b=10),
+    hovermode="x unified",
+)
+_GRID = "#e5e5e5"
+
+# ── Constants ──────────────────────────────────────────────────────────────────
+RMB_USD_RATE = float(os.getenv("RMB_USD_RATE", "0.138"))
 
 MATERIAL_LABELS = {
     "polyester_staple_fiber": "Polyester Staple Fibre",
@@ -81,19 +97,19 @@ HS_LABELS = {
 }
 
 COUNTRY_NAMES = {
-    "US": "USA", "DE": "Germany", "NL": "Netherlands", "GB": "UK",
-    "FR": "France", "IT": "Italy", "ES": "Spain", "PL": "Poland",
-    "RU": "Russia", "UA": "Ukraine", "BY": "Belarus", "KZ": "Kazakhstan",
-    "RO": "Romania", "BG": "Bulgaria", "IQ": "Iraq", "SA": "Saudi Arabia",
-    "AE": "UAE", "EG": "Egypt", "MA": "Morocco", "GE": "Georgia",
-    "AZ": "Azerbaijan", "AM": "Armenia", "UZ": "Uzbekistan", "TM": "Turkmenistan",
-    "IR": "Iran", "IL": "Israel", "GR": "Greece", "CZ": "Czech Rep.",
-    "SK": "Slovakia", "HU": "Hungary", "HR": "Croatia", "RS": "Serbia",
-    "PT": "Portugal", "BE": "Belgium", "SE": "Sweden", "DK": "Denmark",
-    "AT": "Austria", "CH": "Switzerland", "CN": "China", "TW": "Taiwan",
-    "PK": "Pakistan", "BD": "Bangladesh", "IN": "India", "VN": "Vietnam",
-    "MX": "Mexico", "BR": "Brazil", "TR": "Turkey (re-export)",
-    "NG": "Nigeria", "ZA": "South Africa", "TN": "Tunisia", "DZ": "Algeria",
+    "US": "USA",        "DE": "Germany",     "NL": "Netherlands", "GB": "UK",
+    "FR": "France",     "IT": "Italy",       "ES": "Spain",       "PL": "Poland",
+    "RU": "Russia",     "UA": "Ukraine",     "BY": "Belarus",     "KZ": "Kazakhstan",
+    "RO": "Romania",    "BG": "Bulgaria",    "IQ": "Iraq",        "SA": "Saudi Arabia",
+    "AE": "UAE",        "EG": "Egypt",       "MA": "Morocco",     "GE": "Georgia",
+    "AZ": "Azerbaijan", "AM": "Armenia",     "UZ": "Uzbekistan",  "TM": "Turkmenistan",
+    "IR": "Iran",       "IL": "Israel",      "GR": "Greece",      "CZ": "Czech Rep.",
+    "SK": "Slovakia",   "HU": "Hungary",     "HR": "Croatia",     "RS": "Serbia",
+    "PT": "Portugal",   "BE": "Belgium",     "SE": "Sweden",      "DK": "Denmark",
+    "AT": "Austria",    "CH": "Switzerland", "CN": "China",       "TW": "Taiwan",
+    "PK": "Pakistan",   "BD": "Bangladesh",  "IN": "India",       "VN": "Vietnam",
+    "MX": "Mexico",     "BR": "Brazil",      "TR": "Turkey (re-export)",
+    "NG": "Nigeria",    "ZA": "South Africa","TN": "Tunisia",     "DZ": "Algeria",
 }
 
 DB_URL = os.environ.get("DATABASE_URL", "")
@@ -109,16 +125,8 @@ def _conn():
 def q_market_signals(days_back: int, types_filter: tuple, sev_filter: tuple) -> pd.DataFrame:
     cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
     sql = """
-        SELECT
-            ms.id,
-            ms.signal_type,
-            ms.severity,
-            ms.title,
-            ms.body,
-            ms.source_table,
-            ms.detected_at,
-            ms.tags,
-            c.name AS company_name
+        SELECT ms.id, ms.signal_type, ms.severity, ms.title, ms.body,
+               ms.source_table, ms.detected_at, c.name AS company_name
         FROM market_signals ms
         LEFT JOIN companies c ON ms.company_id = c.id
         WHERE ms.detected_at >= %s
@@ -136,32 +144,24 @@ def q_market_signals(days_back: int, types_filter: tuple, sev_filter: tuple) -> 
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_price_signals() -> pd.DataFrame:
     sql = """
-        SELECT material, period, price_usd, unit
-        FROM price_signals
-        WHERE source = 'sunsirs'
+        SELECT material, period::text AS period, price_usd::float AS price_usd, unit
+        FROM price_signals WHERE source = 'sunsirs'
         ORDER BY material, period
     """
     with _conn() as conn:
-        return pd.read_sql_query(sql, conn, parse_dates=["period"])
+        return pd.read_sql_query(sql, conn)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_trade_top_destinations(hs_code: str) -> pd.DataFrame:
     sql = """
-        SELECT
-            partner_country,
-            SUM(value_usd) AS value_usd
+        SELECT partner_country, SUM(value_usd)::float AS value_usd
         FROM trade_flows
-        WHERE hs_code = %s
-          AND flow_direction = 'export'
-          AND period = (
-              SELECT MAX(period) FROM trade_flows
-              WHERE hs_code = %s AND flow_direction = 'export'
-          )
+        WHERE hs_code = %s AND flow_direction = 'export'
+          AND period = (SELECT MAX(period) FROM trade_flows
+                        WHERE hs_code = %s AND flow_direction = 'export')
           AND partner_country IS NOT NULL
-        GROUP BY partner_country
-        ORDER BY value_usd DESC
-        LIMIT 12
+        GROUP BY partner_country ORDER BY value_usd DESC LIMIT 12
     """
     with _conn() as conn:
         df = pd.read_sql_query(sql, conn, params=(hs_code, hs_code))
@@ -173,89 +173,62 @@ def q_trade_top_destinations(hs_code: str) -> pd.DataFrame:
 def q_trade_monthly_trend(hs_codes: tuple) -> pd.DataFrame:
     placeholders = ",".join(["%s"] * len(hs_codes))
     sql = f"""
-        SELECT
-            hs_code,
-            period,
-            SUM(value_usd) / 1e6 AS value_usd_mn
+        SELECT hs_code, period::text AS period,
+               (SUM(value_usd) / 1e6)::float AS value_usd_mn
         FROM trade_flows
         WHERE hs_code IN ({placeholders})
-          AND flow_direction = 'export'
-          AND partner_country IS NOT NULL
-        GROUP BY hs_code, period
-        ORDER BY period, hs_code
+          AND flow_direction = 'export' AND partner_country IS NOT NULL
+        GROUP BY hs_code, period ORDER BY period, hs_code
     """
     with _conn() as conn:
-        return pd.read_sql_query(sql, conn, params=list(hs_codes), parse_dates=["period"])
+        return pd.read_sql_query(sql, conn, params=list(hs_codes))
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_trade_metrics(hs_code: str) -> dict:
-    sql = """
-        SELECT
-            period,
-            SUM(value_usd) AS total_usd,
-            MAX(CASE WHEN partner_country IS NOT NULL THEN partner_country END) FILTER (
-                WHERE partner_country IS NOT NULL
-            ) AS something
-        FROM trade_flows
-        WHERE hs_code = %s AND flow_direction = 'export'
-        GROUP BY period
-        ORDER BY period DESC
-        LIMIT 2
-    """
-    # Simpler approach
-    sql = """
-        SELECT period, SUM(value_usd) AS total_usd
+    sql_periods = """
+        SELECT period::text AS period, SUM(value_usd)::float AS total_usd
         FROM trade_flows
         WHERE hs_code = %s AND flow_direction = 'export' AND partner_country IS NOT NULL
-        GROUP BY period
-        ORDER BY period DESC
-        LIMIT 2
+        GROUP BY period ORDER BY period DESC LIMIT 2
     """
     sql_top = """
-        SELECT partner_country, SUM(value_usd) AS v
+        SELECT partner_country, SUM(value_usd)::float AS v
         FROM trade_flows
         WHERE hs_code = %s AND flow_direction = 'export'
-          AND period = (SELECT MAX(period) FROM trade_flows WHERE hs_code = %s AND flow_direction = 'export')
+          AND period = (SELECT MAX(period) FROM trade_flows
+                        WHERE hs_code = %s AND flow_direction = 'export')
           AND partner_country IS NOT NULL
-        GROUP BY partner_country
-        ORDER BY v DESC
-        LIMIT 1
+        GROUP BY partner_country ORDER BY v DESC LIMIT 1
     """
     with _conn() as conn:
-        df_periods = pd.read_sql_query(sql, conn, params=(hs_code,))
-        df_top = pd.read_sql_query(sql_top, conn, params=(hs_code, hs_code))
+        df_p = pd.read_sql_query(sql_periods, conn, params=(hs_code,))
+        df_t = pd.read_sql_query(sql_top, conn, params=(hs_code, hs_code))
 
-    result = {}
-    if not df_periods.empty:
-        result["latest_period"] = df_periods.iloc[0]["period"]
-        result["latest_total"] = float(df_periods.iloc[0]["total_usd"])
-        if len(df_periods) > 1:
-            prev = float(df_periods.iloc[1]["total_usd"])
+    result: dict = {}
+    if not df_p.empty:
+        result["latest_period"] = str(df_p.iloc[0]["period"])[:7]   # "YYYY-MM"
+        result["latest_total"]  = float(df_p.iloc[0]["total_usd"])
+        if len(df_p) > 1:
+            prev = float(df_p.iloc[1]["total_usd"])
             result["mom_pct"] = (result["latest_total"] - prev) / prev * 100 if prev else 0
-        else:
-            result["mom_pct"] = None
-    if not df_top.empty:
-        iso = df_top.iloc[0]["partner_country"]
-        result["top_dest"] = COUNTRY_NAMES.get(iso, iso)
-        result["top_dest_val"] = float(df_top.iloc[0]["v"])
+    if not df_t.empty:
+        iso = df_t.iloc[0]["partner_country"]
+        result["top_dest"]     = COUNTRY_NAMES.get(iso, iso)
+        result["top_dest_val"] = float(df_t.iloc[0]["v"])
     return result
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_lescon_by_fabric() -> pd.DataFrame:
     sql = """
-        SELECT
-            COALESCE(NULLIF(TRIM(fabric_type), ''), 'Unknown') AS fabric_type,
-            COUNT(*) AS tx_count,
-            ROUND(SUM(miktar * unit_price_usd)::numeric, 2) AS revenue_usd
+        SELECT COALESCE(NULLIF(TRIM(fabric_type),''),'Unknown') AS fabric_type,
+               COUNT(*)::int AS tx_count,
+               ROUND(SUM(miktar*unit_price_usd)::numeric,2)::float AS revenue_usd
         FROM lescon_sales
-        WHERE NOT is_return
-          AND unit_price_usd IS NOT NULL
-          AND miktar IS NOT NULL
-          AND unit_price_usd > 0
-        GROUP BY 1
-        ORDER BY revenue_usd DESC
+        WHERE NOT is_return AND unit_price_usd > 0
+          AND unit_price_usd IS NOT NULL AND miktar IS NOT NULL
+        GROUP BY 1 ORDER BY revenue_usd DESC
     """
     with _conn() as conn:
         return pd.read_sql_query(sql, conn)
@@ -264,38 +237,28 @@ def q_lescon_by_fabric() -> pd.DataFrame:
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_lescon_monthly() -> pd.DataFrame:
     sql = """
-        SELECT
-            DATE_TRUNC('month', tarih)::date AS month,
-            ROUND(SUM(miktar * unit_price_usd)::numeric, 2) AS revenue_usd,
-            COUNT(*) AS tx_count
+        SELECT DATE_TRUNC('month',tarih)::date::text AS month,
+               ROUND(SUM(miktar*unit_price_usd)::numeric,2)::float AS revenue_usd,
+               COUNT(*)::int AS tx_count
         FROM lescon_sales
-        WHERE NOT is_return
-          AND tarih IS NOT NULL
-          AND unit_price_usd IS NOT NULL
-          AND miktar IS NOT NULL
-          AND unit_price_usd > 0
-        GROUP BY 1
-        ORDER BY 1
+        WHERE NOT is_return AND tarih IS NOT NULL
+          AND unit_price_usd > 0 AND unit_price_usd IS NOT NULL AND miktar IS NOT NULL
+        GROUP BY 1 ORDER BY 1
     """
     with _conn() as conn:
-        return pd.read_sql_query(sql, conn, parse_dates=["month"])
+        return pd.read_sql_query(sql, conn)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_lescon_top_products() -> pd.DataFrame:
     sql = """
-        SELECT
-            COALESCE(NULLIF(TRIM(urun_aciklamasi), ''), 'Unknown') AS product,
-            COUNT(*) AS tx_count,
-            ROUND(SUM(miktar * unit_price_usd)::numeric, 2) AS revenue_usd
+        SELECT COALESCE(NULLIF(TRIM(urun_aciklamasi),''),'Unknown') AS product,
+               COUNT(*)::int AS tx_count,
+               ROUND(SUM(miktar*unit_price_usd)::numeric,2)::float AS revenue_usd
         FROM lescon_sales
-        WHERE NOT is_return
-          AND unit_price_usd IS NOT NULL
-          AND miktar IS NOT NULL
-          AND unit_price_usd > 0
-        GROUP BY 1
-        ORDER BY tx_count DESC
-        LIMIT 10
+        WHERE NOT is_return AND unit_price_usd > 0
+          AND unit_price_usd IS NOT NULL AND miktar IS NOT NULL
+        GROUP BY 1 ORDER BY tx_count DESC LIMIT 10
     """
     with _conn() as conn:
         return pd.read_sql_query(sql, conn)
@@ -304,16 +267,13 @@ def q_lescon_top_products() -> pd.DataFrame:
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_yarn_cost_trend() -> pd.DataFrame:
     sql = """
-        SELECT
-            EXTRACT(YEAR FROM factory_entry_date)::int AS year,
-            ROUND(AVG(unit_cost_usd)::numeric, 4) AS avg_cost_usd_per_mt,
-            COUNT(*) AS records
+        SELECT EXTRACT(YEAR FROM factory_entry_date)::int AS year,
+               ROUND(AVG(unit_cost_usd)::numeric,4)::float AS avg_cost_usd_per_mt,
+               COUNT(*)::int AS records
         FROM yarn_costs
-        WHERE unit_cost_usd IS NOT NULL
+        WHERE unit_cost_usd > 0 AND unit_cost_usd IS NOT NULL
           AND factory_entry_date IS NOT NULL
-          AND unit_cost_usd > 0
-        GROUP BY 1
-        ORDER BY 1
+        GROUP BY 1 ORDER BY 1
     """
     with _conn() as conn:
         return pd.read_sql_query(sql, conn)
@@ -322,116 +282,123 @@ def q_yarn_cost_trend() -> pd.DataFrame:
 @st.cache_data(ttl=3600, show_spinner=False)
 def q_orders_by_supplier() -> pd.DataFrame:
     sql = """
-        SELECT
-            COALESCE(supplier_clean, supplier_raw, 'Unknown') AS supplier,
-            currency_clean,
-            COUNT(*) AS order_count,
-            ROUND(SUM(qty_numeric)::numeric, 0) AS total_kg,
-            ROUND(AVG(price_numeric)::numeric, 4) AS avg_price
+        SELECT COALESCE(supplier_clean,supplier_raw,'Unknown') AS supplier,
+               currency_clean,
+               COUNT(*)::int AS order_count,
+               ROUND(SUM(qty_numeric)::numeric,0)::float AS total_kg,
+               ROUND(AVG(price_numeric)::numeric,4)::float AS avg_price
         FROM orders
         WHERE record_status IS DISTINCT FROM 'exclude'
-        GROUP BY 1, 2
-        ORDER BY order_count DESC
-        LIMIT 15
+        GROUP BY 1,2 ORDER BY order_count DESC LIMIT 15
     """
     with _conn() as conn:
         return pd.read_sql_query(sql, conn)
 
 
-# ── Style helpers ──────────────────────────────────────────────────────────────
+# ── Rendering helpers ──────────────────────────────────────────────────────────
 
-def badge(text: str, color: str) -> str:
-    return (
-        f'<span style="background:{color};color:#fff;padding:2px 9px;'
-        f'border-radius:4px;font-size:11px;font-weight:600;'
-        f'letter-spacing:0.5px">{text.replace("_", " ").upper()}</span>'
+def _html_table(df: pd.DataFrame) -> None:
+    """Render a DataFrame as a plain HTML table — avoids pyarrow used by st.dataframe()."""
+    cols = list(df.columns)
+    th_style = (
+        "text-align:left;padding:6px 12px;background:#f0f4f8;"
+        "border-bottom:2px solid #d0d7de;font-size:12px;white-space:nowrap"
+    )
+    td_style = "padding:5px 12px;border-bottom:1px solid #eaecef;font-size:12px"
+    header = "".join(f'<th style="{th_style}">{c}</th>' for c in cols)
+    rows_html = ""
+    for i, (_, row) in enumerate(df.iterrows()):
+        bg = "white" if i % 2 == 0 else "#f8f9fa"
+        cells = "".join(f'<td style="{td_style};background:{bg}">{v}</td>' for v in row)
+        rows_html += f"<tr>{cells}</tr>"
+    st.markdown(
+        f'<div style="overflow-x:auto">'
+        f'<table style="width:100%;border-collapse:collapse">'
+        f'<thead><tr>{header}</tr></thead>'
+        f'<tbody>{rows_html}</tbody>'
+        f'</table></div>',
+        unsafe_allow_html=True,
     )
 
 
-def signal_card_html(row: pd.Series) -> str:
-    type_color = SIGNAL_COLORS.get(row["signal_type"], "#78909C")
-    sev_color  = SEVERITY_COLORS.get(row["severity"], "#42A5F5")
-    dt = pd.to_datetime(row["detected_at"])
-    dt_str = dt.strftime("%Y-%m-%d %H:%M") if pd.notna(dt) else ""
-    title = str(row["title"] or "")[:140]
-    body  = str(row["body"]  or "")
-    company_html = ""
+def _badge(text: str, color: str) -> str:
+    return (
+        f'<span style="background:{color};color:white;padding:2px 8px;'
+        f'border-radius:3px;font-size:11px;font-weight:600;'
+        f'letter-spacing:0.4px">{text.replace("_"," ").upper()}</span>'
+    )
+
+
+def _signal_card(row: pd.Series) -> str:
+    type_color = SIGNAL_COLORS.get(str(row["signal_type"]), C_GREY)
+    sev_color  = SEVERITY_COLORS.get(str(row["severity"]), C_BLUE)
+    raw_dt     = row["detected_at"]
+    try:
+        dt_str = pd.to_datetime(raw_dt).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        dt_str = str(raw_dt)[:16]
+    title   = str(row["title"] or "")[:140]
+    body    = str(row["body"]  or "")
+    src     = str(row.get("source_table") or "").replace("_", " ")
+    co_html = ""
     if row.get("company_name"):
-        company_html = (
-            f'<div style="margin-top:5px;color:{type_color};font-size:12px;font-weight:600">'
-            f'&#127970; {row["company_name"]}</div>'
+        co_html = (
+            f'<div style="margin-top:4px;color:{type_color};font-size:12px;font-weight:600">'
+            f'&#128198; {row["company_name"]}</div>'
         )
-    src = str(row.get("source_table") or "").replace("_", " ")
-    return f"""
-<div style="
-    background:#1c1c2e;
-    border-left:4px solid {type_color};
-    padding:12px 16px;
-    margin:5px 0;
-    border-radius:0 6px 6px 0;
-">
-  <div style="display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap">
-    {badge(row['signal_type'], type_color)}
-    {badge(row['severity'], sev_color)}
-    <span style="color:#888;font-size:12px;margin-left:auto">{dt_str} &nbsp;·&nbsp; {src}</span>
-  </div>
-  <div style="font-weight:600;font-size:14px;color:#e8e8f0;margin-bottom:5px">{title}</div>
-  <div style="color:#aab;font-size:13px;line-height:1.5">{body}</div>
-  {company_html}
-</div>
-"""
+    return (
+        f'<div style="background:white;border:1px solid #e0e0e0;'
+        f'border-left:3px solid {type_color};padding:11px 15px;margin:4px 0;border-radius:0 5px 5px 0">'
+        f'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+        f'{_badge(row["signal_type"], type_color)}'
+        f'{_badge(row["severity"], sev_color)}'
+        f'<span style="color:#888;font-size:11px;margin-left:auto">{dt_str} · {src}</span>'
+        f'</div>'
+        f'<div style="font-weight:600;font-size:13px;color:#1a1a2e;margin-bottom:3px">{title}</div>'
+        f'<div style="color:#555;font-size:12px;line-height:1.5">{body}</div>'
+        f'{co_html}</div>'
+    )
 
 
-def price_dual_chart(df_mat: pd.DataFrame, title: str) -> go.Figure:
-    """Dual-axis chart: RMB/ton (left) + USD/ton (right)."""
+def _price_chart(df_mat: pd.DataFrame, title: str) -> go.Figure:
+    """Dual-axis price chart: RMB/ton (left) + USD/ton (right)."""
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    rmb = df_mat["price_usd"].astype(float)  # stored as RMB/ton for sunsirs
-    usd = rmb * RMB_USD_RATE
+    rmb = [float(v) for v in df_mat["price_usd"]]
+    usd = [v * RMB_USD_RATE for v in rmb]
+    xs  = df_mat["period"].tolist()
 
     fig.add_trace(
-        go.Scatter(
-            x=df_mat["period"], y=rmb,
-            name="RMB/ton", line=dict(color="#26C6DA", width=2),
-            hovertemplate="%{x|%b %d}<br><b>%{y:,.0f} RMB/ton</b><extra></extra>",
-        ),
+        go.Scatter(x=xs, y=rmb, name="RMB/ton",
+                   line=dict(color=C_BLUE, width=2),
+                   hovertemplate="%{x}<br><b>%{y:,.0f} RMB/ton</b><extra></extra>"),
         secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(
-            x=df_mat["period"], y=usd,
-            name="USD/ton", line=dict(color="#FF8A65", width=1.5, dash="dot"),
-            hovertemplate="%{x|%b %d}<br><b>%{y:,.0f} USD/ton</b><extra></extra>",
-        ),
+        go.Scatter(x=xs, y=usd, name="USD/ton",
+                   line=dict(color=C_ORANGE, width=1.5, dash="dot"),
+                   hovertemplate="%{x}<br><b>%{y:,.0f} USD/ton</b><extra></extra>"),
         secondary_y=True,
     )
     fig.update_layout(
-        title=dict(text=title, font=dict(size=14)),
-        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-        font=dict(color="#ccc"),
+        title=dict(text=title, font=dict(size=13, color="#333")),
         legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
-        margin=dict(l=0, r=0, t=40, b=0),
-        height=260,
-        hovermode="x unified",
+        height=240,
+        **_CHART,
     )
-    fig.update_yaxes(
-        title_text="RMB / ton", secondary_y=False,
-        gridcolor="#2a2a3a", tickformat=",",
-    )
-    fig.update_yaxes(
-        title_text="USD / ton", secondary_y=True,
-        gridcolor="#2a2a3a", tickformat=",",
-    )
-    fig.update_xaxes(gridcolor="#2a2a3a", tickformat="%b %d")
+    fig.update_yaxes(title_text="RMB/ton", secondary_y=False,
+                     gridcolor=_GRID, tickformat=",")
+    fig.update_yaxes(title_text="USD/ton", secondary_y=True,
+                     gridcolor=_GRID, tickformat=",")
+    fig.update_xaxes(gridcolor=_GRID)
     return fig
 
 
-def price_delta(df_mat: pd.DataFrame):
-    """Return (current_rmb, delta_pct_or_None)."""
+def _price_delta(df_mat: pd.DataFrame):
     if df_mat.empty:
         return None, None
-    vals = df_mat["price_usd"].astype(float)
-    cur = vals.iloc[-1]
-    first = vals.iloc[0]
+    vals  = [float(v) for v in df_mat["price_usd"]]
+    cur   = vals[-1]
+    first = vals[0]
     delta = (cur - first) / first * 100 if first else None
     return cur, delta
 
@@ -440,20 +407,11 @@ def price_delta(df_mat: pd.DataFrame):
 
 def render_sidebar():
     with st.sidebar:
-        st.markdown(
-            """
-            <div style="text-align:center;padding:16px 0 8px">
-              <div style="font-size:28px">🧵</div>
-              <div style="font-size:18px;font-weight:700;color:#e0e0ff">Rayon Intelligence</div>
-              <div style="font-size:11px;color:#888;margin-top:2px">Rayon Tekstil Sanayi</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.title("🧵 Rayon Intelligence")
+        st.caption("Rayon Tekstil Sanayi ve Dış Tic.")
         st.divider()
-        st.caption(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        st.caption(f"RMB/USD rate: {RMB_USD_RATE}")
-        if st.button("🔄 Refresh data", use_container_width=True):
+        st.caption(f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        if st.button("↺  Refresh data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
@@ -463,44 +421,34 @@ def render_sidebar():
 def tab_market_signals():
     st.subheader("Market Signals")
 
-    # Filters row
     col_days, col_types, col_sev = st.columns([1, 2, 2])
     with col_days:
         days_back = st.selectbox(
-            "Time window",
-            [7, 14, 30, 60, 90, 365],
-            format_func=lambda d: f"Last {d} days",
-            index=0,
+            "Time window", [7, 14, 30, 60, 90, 365],
+            format_func=lambda d: f"Last {d} days", index=2,
         )
     with col_types:
-        all_types = list(SIGNAL_COLORS.keys())
         types_sel = st.multiselect(
-            "Signal type",
-            all_types,
-            default=[],
+            "Signal type", list(SIGNAL_COLORS.keys()), default=[],
             placeholder="All types",
             format_func=lambda t: t.replace("_", " ").title(),
         )
     with col_sev:
         sev_sel = st.multiselect(
-            "Severity",
-            ["info", "warning", "alert"],
-            default=[],
-            placeholder="All severities",
+            "Severity", ["info", "warning", "alert"],
+            default=[], placeholder="All severities",
         )
 
-    df = q_market_signals(
-        days_back=days_back,
-        types_filter=tuple(types_sel),
-        sev_filter=tuple(sev_sel),
-    )
+    df = q_market_signals(days_back=days_back,
+                          types_filter=tuple(types_sel),
+                          sev_filter=tuple(sev_sel))
 
-    # Summary metrics
-    mc1, mc2, mc3, mc4 = st.columns(4)
-    mc1.metric("Total signals", len(df))
-    mc2.metric("Competitor mentions", int((df["signal_type"] == "competitor_mention").sum()))
-    mc3.metric("Alerts", int((df["severity"] == "alert").sum()))
-    mc4.metric("Warnings", int((df["severity"] == "warning").sum()))
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total signals", len(df))
+    m2.metric("Competitor mentions",
+              int((df["signal_type"] == "competitor_mention").sum()))
+    m3.metric("Alerts",   int((df["severity"] == "alert").sum()))
+    m4.metric("Warnings", int((df["severity"] == "warning").sum()))
 
     st.divider()
 
@@ -508,220 +456,182 @@ def tab_market_signals():
         st.info("No signals in this period. Try expanding the time window.")
         return
 
-    # Signal cards
-    html_parts = []
-    for _, row in df.iterrows():
-        html_parts.append(signal_card_html(row))
-
-    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
+    st.markdown(
+        "\n".join(_signal_card(row) for _, row in df.iterrows()),
+        unsafe_allow_html=True,
+    )
 
 
 # ── Tab 2: Price Intelligence ──────────────────────────────────────────────────
 
 def tab_price_intelligence():
     st.subheader("Commodity Price Intelligence")
-    st.caption("Source: SunSirs (sunsirs.com) · RMB/ton · dual axis shows USD equivalent")
+    st.caption("Source: SunSirs · prices in RMB/ton · right axis shows USD equivalent")
 
     df_all = q_price_signals()
     if df_all.empty:
-        st.info("No price data yet. Run scrapers/price_scraper.py to populate.")
+        st.info("No price data yet.")
         return
 
-    # ── Row 1: Polyester Staple Fibre + Nylon FDY ──────────────────────────────
+    # Row 1: Polyester Staple + Nylon FDY
     c1, c2 = st.columns(2)
-
-    with c1:
-        mat = "polyester_staple_fiber"
-        label = MATERIAL_LABELS.get(mat, mat)
-        df_mat = df_all[df_all["material"] == mat].copy()
-        cur, delta = price_delta(df_mat)
-        if cur is not None:
-            st.metric(
-                label,
-                f"{cur:,.0f} RMB/ton  ({cur * RMB_USD_RATE:,.0f} USD/ton)",
-                delta=f"{delta:+.1f}% vs dataset start" if delta is not None else None,
-                delta_color="inverse",
-            )
-            st.plotly_chart(price_dual_chart(df_mat, label), use_container_width=True)
-        else:
-            st.info(f"No data for {label}")
-
-    with c2:
-        mat = "polyamide_fdy"
-        label = MATERIAL_LABELS.get(mat, mat)
-        df_mat = df_all[df_all["material"] == mat].copy()
-        cur, delta = price_delta(df_mat)
-        if cur is not None:
-            st.metric(
-                label,
-                f"{cur:,.0f} RMB/ton  ({cur * RMB_USD_RATE:,.0f} USD/ton)",
-                delta=f"{delta:+.1f}% vs dataset start" if delta is not None else None,
-                delta_color="inverse",
-            )
-            st.plotly_chart(price_dual_chart(df_mat, label), use_container_width=True)
-        else:
-            st.info(f"No data for {label}")
+    for col, mat in [(c1, "polyester_staple_fiber"), (c2, "polyamide_fdy")]:
+        with col:
+            label  = MATERIAL_LABELS.get(mat, mat)
+            df_mat = df_all[df_all["material"] == mat].copy()
+            cur, delta = _price_delta(df_mat)
+            if cur is not None:
+                st.metric(
+                    label,
+                    f"{cur:,.0f} RMB  /  {cur*RMB_USD_RATE:,.0f} USD  (per ton)",
+                    delta=f"{delta:+.1f}% vs period start" if delta is not None else None,
+                    delta_color="inverse",
+                )
+                st.plotly_chart(_price_chart(df_mat, label), use_container_width=True)
+            else:
+                st.info(f"No data for {label}")
 
     st.divider()
 
-    # ── Row 2: Cotton Lint + PA6 vs PA66 ───────────────────────────────────────
+    # Row 2: Cotton Lint + PA6 vs PA66
     c3, c4 = st.columns(2)
-
     with c3:
-        mat = "cotton_lint"
+        mat   = "cotton_lint"
         label = MATERIAL_LABELS.get(mat, mat)
         df_mat = df_all[df_all["material"] == mat].copy()
-        cur, delta = price_delta(df_mat)
+        cur, delta = _price_delta(df_mat)
         if cur is not None:
             st.metric(
                 label,
-                f"{cur:,.0f} RMB/ton  ({cur * RMB_USD_RATE:,.0f} USD/ton)",
-                delta=f"{delta:+.1f}% vs dataset start" if delta is not None else None,
+                f"{cur:,.0f} RMB  /  {cur*RMB_USD_RATE:,.0f} USD  (per ton)",
+                delta=f"{delta:+.1f}% vs period start" if delta is not None else None,
                 delta_color="inverse",
             )
-            st.plotly_chart(price_dual_chart(df_mat, label), use_container_width=True)
+            st.plotly_chart(_price_chart(df_mat, label), use_container_width=True)
         else:
             st.info(f"No data for {label}")
 
     with c4:
-        label = "PA6 Chip vs PA66 Chip"
         df_pa6  = df_all[df_all["material"] == "pa6_chip"].copy()
         df_pa66 = df_all[df_all["material"] == "pa66_chip"].copy()
-
         if not df_pa6.empty or not df_pa66.empty:
             fig = go.Figure()
             if not df_pa6.empty:
-                cur6, _ = price_delta(df_pa6)
+                cur6, _ = _price_delta(df_pa6)
                 fig.add_trace(go.Scatter(
-                    x=df_pa6["period"], y=df_pa6["price_usd"].astype(float),
-                    name="PA6 Chip", line=dict(color="#26C6DA", width=2),
-                    hovertemplate="%{x|%b %d}<br><b>PA6: %{y:,.0f} RMB/ton</b><extra></extra>",
+                    x=df_pa6["period"].tolist(),
+                    y=[float(v) for v in df_pa6["price_usd"]],
+                    name="PA6 Chip", mode="lines+markers",
+                    line=dict(color=C_BLUE, width=2),
+                    hovertemplate="PA6: %{y:,.0f} RMB/ton<extra></extra>",
                 ))
             if not df_pa66.empty:
-                cur66, _ = price_delta(df_pa66)
+                cur66, _ = _price_delta(df_pa66)
                 fig.add_trace(go.Scatter(
-                    x=df_pa66["period"], y=df_pa66["price_usd"].astype(float),
-                    name="PA66 Chip", line=dict(color="#FF8A65", width=2),
-                    hovertemplate="%{x|%b %d}<br><b>PA66: %{y:,.0f} RMB/ton</b><extra></extra>",
+                    x=df_pa66["period"].tolist(),
+                    y=[float(v) for v in df_pa66["price_usd"]],
+                    name="PA66 Chip", mode="lines+markers",
+                    line=dict(color=C_ORANGE, width=2),
+                    hovertemplate="PA66: %{y:,.0f} RMB/ton<extra></extra>",
                 ))
             fig.update_layout(
-                title=dict(text=label, font=dict(size=14)),
-                paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                font=dict(color="#ccc"),
+                title="PA6 Chip vs PA66 Chip (RMB/ton)",
                 legend=dict(bgcolor="rgba(0,0,0,0)"),
-                margin=dict(l=0, r=0, t=40, b=0),
-                height=260,
-                hovermode="x unified",
-                yaxis=dict(title="RMB / ton", gridcolor="#2a2a3a", tickformat=","),
-                xaxis=dict(gridcolor="#2a2a3a", tickformat="%b %d"),
+                height=240,
+                yaxis=dict(title="RMB/ton", gridcolor=_GRID, tickformat=","),
+                xaxis=dict(gridcolor=_GRID),
+                **_CHART,
             )
-            pa_col1, pa_col2 = st.columns(2)
+            pa1, pa2 = st.columns(2)
             if not df_pa6.empty:
-                pa_col1.metric("PA6 Chip", f"{cur6:,.0f} RMB/ton")
+                pa1.metric("PA6 Chip",  f"{cur6:,.0f} RMB/ton")
             if not df_pa66.empty:
-                pa_col2.metric("PA66 Chip", f"{cur66:,.0f} RMB/ton")
+                pa2.metric("PA66 Chip", f"{cur66:,.0f} RMB/ton")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No PA chip data yet")
 
     st.divider()
 
-    # ── All materials table ─────────────────────────────────────────────────────
     with st.expander("All materials — latest prices"):
-        latest = (
+        rows = (
             df_all.sort_values("period")
-            .groupby("material")
+            .groupby("material", sort=False)
             .last()
-            .reset_index()[["material", "period", "price_usd", "unit"]]
+            .reset_index()
         )
-        latest["label"] = latest["material"].map(lambda m: MATERIAL_LABELS.get(m, m))
-        latest["price_usd_ton"] = latest.apply(
-            lambda r: r["price_usd"] * RMB_USD_RATE
-            if "RMB" in str(r["unit"]) else r["price_usd"],
-            axis=1,
+        out_rows = []
+        for _, r in rows.iterrows():
+            mat_label = MATERIAL_LABELS.get(r["material"], r["material"])
+            price_f   = float(r["price_usd"])
+            unit_str  = str(r["unit"])
+            usd_eq    = f"{price_f * RMB_USD_RATE:,.0f}" if "RMB" in unit_str else "—"
+            out_rows.append([mat_label, str(r["period"])[:10],
+                             f"{price_f:,.2f}", unit_str, usd_eq])
+        tbl_df = pd.DataFrame(
+            out_rows,
+            columns=["Material", "Date", "Price", "Unit", "USD equiv./ton"],
         )
-        st.dataframe(
-            latest[["label", "period", "price_usd", "unit", "price_usd_ton"]].rename(columns={
-                "label": "Material", "period": "Date",
-                "price_usd": "Price (source unit)", "unit": "Unit",
-                "price_usd_ton": "USD equiv. / ton",
-            }),
-            hide_index=True,
-            use_container_width=True,
-        )
+        _html_table(tbl_df)
 
 
 # ── Tab 3: Export Intelligence ─────────────────────────────────────────────────
 
 def tab_export_intelligence():
     st.subheader("Turkey Textile Export Intelligence")
-    st.caption("Source: UN Comtrade · Turkey (HS reporter) · Export flows · Monthly")
+    st.caption("Source: UN Comtrade · reporter: Turkey · flow: export · monthly")
 
-    # ── Metric cards ────────────────────────────────────────────────────────────
-    metrics = q_trade_metrics("5407")
+    # Metric cards
+    metrics  = q_trade_metrics("5407")
+    metrics6 = q_trade_metrics("6006")
     m1, m2, m3, m4 = st.columns(4)
 
     if metrics:
-        period_label = (
-            pd.to_datetime(metrics["latest_period"]).strftime("%b %Y")
-            if "latest_period" in metrics else "—"
-        )
         m1.metric(
-            f"HS 5407 exports ({period_label})",
-            f"${metrics.get('latest_total', 0) / 1e6:.1f}M",
-            delta=f"{metrics['mom_pct']:+.1f}% MoM" if metrics.get("mom_pct") is not None else None,
+            f"HS 5407 ({metrics.get('latest_period','—')})",
+            f"${metrics.get('latest_total',0)/1e6:.1f}M",
+            delta=f"{metrics['mom_pct']:+.1f}% MoM"
+            if metrics.get("mom_pct") is not None else None,
         )
-        m2.metric("Top destination", metrics.get("top_dest", "—"))
+        m2.metric("Top destination (5407)", metrics.get("top_dest", "—"))
         m3.metric(
             "Top dest. value",
-            f"${metrics.get('top_dest_val', 0) / 1e6:.1f}M" if "top_dest_val" in metrics else "—",
+            f"${metrics.get('top_dest_val',0)/1e6:.1f}M"
+            if "top_dest_val" in metrics else "—",
         )
-
-    metrics6 = q_trade_metrics("6006")
     if metrics6:
-        period_label6 = (
-            pd.to_datetime(metrics6["latest_period"]).strftime("%b %Y")
-            if "latest_period" in metrics6 else "—"
-        )
         m4.metric(
-            f"HS 6006 exports ({period_label6})",
-            f"${metrics6.get('latest_total', 0) / 1e6:.1f}M",
-            delta=f"{metrics6['mom_pct']:+.1f}% MoM" if metrics6.get("mom_pct") is not None else None,
+            f"HS 6006 ({metrics6.get('latest_period','—')})",
+            f"${metrics6.get('latest_total',0)/1e6:.1f}M",
+            delta=f"{metrics6['mom_pct']:+.1f}% MoM"
+            if metrics6.get("mom_pct") is not None else None,
         )
 
     st.divider()
 
-    # ── Top destinations bar chart ───────────────────────────────────────────────
+    # Top destinations bar
     hs_sel = st.selectbox(
-        "HS code for top destinations",
-        list(HS_LABELS.keys()),
-        format_func=lambda k: HS_LABELS[k],
-        index=0,
+        "HS code for top destinations", list(HS_LABELS.keys()),
+        format_func=lambda k: HS_LABELS[k], index=0,
     )
-
     df_top = q_trade_top_destinations(hs_sel)
     if not df_top.empty:
         d10 = df_top.head(10)
+        vals  = d10["value_usd"].tolist()
+        names = d10["country_name"].tolist()
         fig_bar = go.Figure(go.Bar(
-            x=d10["value_usd"].tolist(),
-            y=d10["country_name"].tolist(),
-            orientation="h",
-            text=[f"${v/1e6:.1f}M" for v in d10["value_usd"]],
+            x=vals, y=names, orientation="h",
+            text=[f"${v/1e6:.1f}M" for v in vals],
             textposition="outside",
-            marker=dict(
-                color=d10["value_usd"].tolist(),
-                colorscale="Teal",
-                showscale=False,
-            ),
+            marker=dict(color=vals, colorscale="Blues", showscale=False),
             hovertemplate="%{y}: $%{x:,.0f}<extra></extra>",
         ))
         fig_bar.update_layout(
             title=f"Top 10 destinations — {HS_LABELS[hs_sel]} (latest month)",
-            paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-            font=dict(color="#ccc"),
             yaxis=dict(autorange="reversed"),
-            margin=dict(l=0, r=80, t=40, b=0),
+            xaxis=dict(gridcolor=_GRID),
             height=360,
+            **_CHART,
         )
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
@@ -729,40 +639,37 @@ def tab_export_intelligence():
 
     st.divider()
 
-    # ── Monthly trend line chart ─────────────────────────────────────────────────
+    # Monthly trend
     hs_trend = st.multiselect(
-        "HS codes for trend chart",
-        list(HS_LABELS.keys()),
+        "HS codes for trend chart", list(HS_LABELS.keys()),
         default=["5407", "6006"],
         format_func=lambda k: HS_LABELS[k],
     )
-
     if hs_trend:
         df_trend = q_trade_monthly_trend(tuple(hs_trend))
         if not df_trend.empty:
-            df_trend["label"] = df_trend["hs_code"].map(lambda k: HS_LABELS.get(k, k))
             fig_line = go.Figure()
-            for i, (label, grp) in enumerate(df_trend.groupby("label", sort=False)):
-                grp = grp.sort_values("period")
+            for i, hs in enumerate(hs_trend):
+                grp = df_trend[df_trend["hs_code"] == hs].sort_values("period")
+                if grp.empty:
+                    continue
                 fig_line.add_trace(go.Scatter(
                     x=grp["period"].tolist(),
                     y=grp["value_usd_mn"].tolist(),
-                    name=label,
+                    name=HS_LABELS.get(hs, hs),
                     mode="lines+markers",
-                    line=dict(color=_BOLD[i % len(_BOLD)], width=2),
-                    marker=dict(size=6),
-                    hovertemplate=f"{label}: %{{y:.1f}}M USD<extra></extra>",
+                    line=dict(color=_PALETTE[i % len(_PALETTE)], width=2),
+                    marker=dict(size=5),
+                    hovertemplate=f"{HS_LABELS.get(hs,hs)}: %{{y:.1f}}M USD<extra></extra>",
                 ))
             fig_line.update_layout(
                 title="Monthly export value — Turkey",
-                paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                font=dict(color="#ccc"),
                 legend=dict(bgcolor="rgba(0,0,0,0)", title_text=""),
-                margin=dict(l=0, r=0, t=40, b=0),
                 height=350,
-                hovermode="x unified",
-                yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", ticksuffix="M", title="USD million"),
-                xaxis=dict(gridcolor="#2a2a3a", tickformat="%b %Y"),
+                yaxis=dict(gridcolor=_GRID, tickprefix="$", ticksuffix="M",
+                           title="USD million"),
+                xaxis=dict(gridcolor=_GRID, tickangle=-30),
+                **_CHART,
             )
             st.plotly_chart(fig_line, use_container_width=True)
         else:
@@ -776,220 +683,180 @@ def tab_export_intelligence():
 def tab_internal_data():
     st.subheader("Internal Business Data")
 
-    inner_tab1, inner_tab2, inner_tab3 = st.tabs(
-        ["📦 Lescon Sales", "🧶 Yarn Costs", "🛒 Orders"]
-    )
+    inner1, inner2, inner3 = st.tabs(["📦 Lescon Sales", "🧶 Yarn Costs", "🛒 Orders"])
 
     # ── Lescon Sales ─────────────────────────────────────────────────────────────
-    with inner_tab1:
+    with inner1:
         df_fab = q_lescon_by_fabric()
         df_mon = q_lescon_monthly()
 
         if df_fab.empty:
             st.info("No Lescon sales data.")
         else:
-            # Summary metrics
             total_rev = float(df_fab["revenue_usd"].sum())
             total_tx  = int(df_fab["tx_count"].sum())
-            sc1, sc2, sc3 = st.columns(3)
-            sc1.metric("Total revenue (excl. returns)", f"${total_rev:,.0f}")
-            sc2.metric("Total transactions", f"{total_tx:,}")
-            sc3.metric("Avg transaction value", f"${total_rev/total_tx:,.0f}" if total_tx else "—")
+            s1, s2, s3 = st.columns(3)
+            s1.metric("Total revenue (excl. returns)", f"${total_rev:,.0f}")
+            s2.metric("Total transactions", f"{total_tx:,}")
+            s3.metric("Avg transaction value",
+                      f"${total_rev/total_tx:,.0f}" if total_tx else "—")
 
-            col_a, col_b = st.columns(2)
-            with col_a:
-                fig_fab = go.Figure(go.Bar(
-                    x=df_fab["revenue_usd"].tolist(),
-                    y=df_fab["fabric_type"].tolist(),
-                    orientation="h",
-                    text=[f"${v/1e3:.0f}K" for v in df_fab["revenue_usd"]],
+            ca, cb = st.columns(2)
+            with ca:
+                revs  = df_fab["revenue_usd"].tolist()
+                fabs  = df_fab["fabric_type"].tolist()
+                fig_r = go.Figure(go.Bar(
+                    x=revs, y=fabs, orientation="h",
+                    text=[f"${v/1e3:.0f}K" for v in revs],
                     textposition="outside",
-                    marker=dict(
-                        color=df_fab["revenue_usd"].tolist(),
-                        colorscale="Teal",
-                        showscale=False,
-                    ),
+                    marker=dict(color=revs, colorscale="Teal", showscale=False),
                     hovertemplate="%{y}: $%{x:,.0f}<extra></extra>",
                 ))
-                fig_fab.update_layout(
+                fig_r.update_layout(
                     title="Revenue by fabric type (USD)",
-                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                    font=dict(color="#ccc"),
                     yaxis=dict(autorange="reversed"),
-                    margin=dict(l=0, r=60, t=40, b=0),
+                    xaxis=dict(gridcolor=_GRID),
                     height=360,
+                    **_CHART,
                 )
-                st.plotly_chart(fig_fab, use_container_width=True)
+                st.plotly_chart(fig_r, use_container_width=True)
 
-            with col_b:
-                fig_tx = go.Figure(go.Bar(
-                    x=df_fab["tx_count"].tolist(),
-                    y=df_fab["fabric_type"].tolist(),
-                    orientation="h",
-                    text=df_fab["tx_count"].tolist(),
-                    textposition="outside",
-                    marker=dict(
-                        color=df_fab["tx_count"].tolist(),
-                        colorscale="Blues",
-                        showscale=False,
-                    ),
+            with cb:
+                txs   = df_fab["tx_count"].tolist()
+                fig_t = go.Figure(go.Bar(
+                    x=txs, y=fabs, orientation="h",
+                    text=txs, textposition="outside",
+                    marker=dict(color=txs, colorscale="Blues", showscale=False),
                     hovertemplate="%{y}: %{x} transactions<extra></extra>",
                 ))
-                fig_tx.update_layout(
+                fig_t.update_layout(
                     title="Transaction count by fabric type",
-                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                    font=dict(color="#ccc"),
                     yaxis=dict(autorange="reversed"),
-                    margin=dict(l=0, r=0, t=40, b=0),
+                    xaxis=dict(gridcolor=_GRID),
                     height=360,
+                    **_CHART,
                 )
-                st.plotly_chart(fig_tx, use_container_width=True)
+                st.plotly_chart(fig_t, use_container_width=True)
 
-            # Monthly revenue trend
             if not df_mon.empty:
                 fig_mon = go.Figure(go.Scatter(
                     x=df_mon["month"].tolist(),
                     y=df_mon["revenue_usd"].tolist(),
                     mode="lines",
                     fill="tozeroy",
-                    line=dict(color="#26C6DA", width=2),
-                    fillcolor="rgba(38,198,218,0.15)",
-                    hovertemplate="%{x|%b %Y}: $%{y:,.0f}<extra></extra>",
+                    line=dict(color=C_BLUE, width=2),
+                    fillcolor="rgba(31,119,180,0.12)",
+                    hovertemplate="%{x}: $%{y:,.0f}<extra></extra>",
                 ))
                 fig_mon.update_layout(
                     title="Monthly revenue trend (Lescon account)",
-                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                    font=dict(color="#ccc"),
-                    margin=dict(l=0, r=0, t=40, b=0),
                     height=280,
-                    yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", title="Revenue (USD)"),
-                    xaxis=dict(gridcolor="#2a2a3a", tickformat="%b %Y"),
+                    yaxis=dict(gridcolor=_GRID, tickprefix="$", title="Revenue (USD)"),
+                    xaxis=dict(gridcolor=_GRID, tickangle=-30),
+                    **_CHART,
                 )
                 st.plotly_chart(fig_mon, use_container_width=True)
 
-            # Top products table
             df_prod = q_lescon_top_products()
             if not df_prod.empty:
                 st.markdown("**Top 10 products by transaction count**")
-                st.dataframe(
-                    df_prod.rename(columns={
-                        "product": "Product description",
-                        "tx_count": "# Transactions",
-                        "revenue_usd": "Revenue (USD)",
-                    }),
-                    hide_index=True,
-                    use_container_width=True,
+                disp = df_prod.copy()
+                disp.columns = ["Product", "# Transactions", "Revenue (USD)"]
+                disp["Revenue (USD)"] = disp["Revenue (USD)"].apply(
+                    lambda v: f"${float(v):,.0f}"
                 )
+                _html_table(disp)
 
     # ── Yarn Costs ───────────────────────────────────────────────────────────────
-    with inner_tab2:
+    with inner2:
         df_yarn = q_yarn_cost_trend()
-
         if df_yarn.empty:
             st.info("No yarn cost data.")
         else:
-            yc1, yc2, yc3 = st.columns(3)
-            latest_year = df_yarn.iloc[-1]
-            earliest_year = df_yarn.iloc[0]
-            chg = (
-                (float(latest_year["avg_cost_usd_per_mt"]) - float(earliest_year["avg_cost_usd_per_mt"]))
-                / float(earliest_year["avg_cost_usd_per_mt"]) * 100
-                if float(earliest_year["avg_cost_usd_per_mt"]) else 0
+            last  = df_yarn.iloc[-1]
+            first = df_yarn.iloc[0]
+            chg   = (
+                (float(last["avg_cost_usd_per_mt"]) - float(first["avg_cost_usd_per_mt"]))
+                / float(first["avg_cost_usd_per_mt"]) * 100
+                if float(first["avg_cost_usd_per_mt"]) else 0
             )
-            yc1.metric(
-                f"Avg unit cost {int(latest_year['year'])}",
-                f"${float(latest_year['avg_cost_usd_per_mt']):.2f} / MT",
-            )
-            yc2.metric(
-                f"Avg unit cost {int(earliest_year['year'])}",
-                f"${float(earliest_year['avg_cost_usd_per_mt']):.2f} / MT",
-            )
-            yc3.metric(
-                f"Change {int(earliest_year['year'])} → {int(latest_year['year'])}",
-                f"{chg:+.1f}%",
-                delta_color="inverse",
-            )
+            y1, y2, y3 = st.columns(3)
+            y1.metric(f"Avg cost {int(last['year'])}",
+                      f"${float(last['avg_cost_usd_per_mt']):.2f}/MT")
+            y2.metric(f"Avg cost {int(first['year'])}",
+                      f"${float(first['avg_cost_usd_per_mt']):.2f}/MT")
+            y3.metric(f"Change {int(first['year'])} → {int(last['year'])}",
+                      f"{chg:+.1f}%", delta_color="inverse")
 
-            fig_yarn = go.Figure()
-            fig_yarn.add_trace(go.Bar(
-                x=df_yarn["year"].astype(str),
-                y=df_yarn["avg_cost_usd_per_mt"].astype(float),
-                marker_color="#26C6DA",
-                text=df_yarn["avg_cost_usd_per_mt"].astype(float).apply(lambda v: f"${v:.2f}"),
+            years = [str(int(v)) for v in df_yarn["year"].tolist()]
+            costs = [float(v) for v in df_yarn["avg_cost_usd_per_mt"].tolist()]
+            recs  = df_yarn["records"].tolist()
+
+            fig_yarn = go.Figure(go.Bar(
+                x=years, y=costs,
+                marker_color=C_BLUE,
+                text=[f"${v:.2f}" for v in costs],
                 textposition="outside",
-                name="Avg USD/MT",
-                hovertemplate="Year %{x}<br><b>%{y:.2f} USD/MT</b><br>Records: %{customdata}<extra></extra>",
-                customdata=df_yarn["records"],
+                customdata=recs,
+                hovertemplate="Year %{x}<br><b>%{y:.2f} USD/MT</b>"
+                              "<br>Records: %{customdata}<extra></extra>",
             ))
             fig_yarn.update_layout(
-                title="Average yarn unit cost USD/MT by year",
-                paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                font=dict(color="#ccc"),
-                margin=dict(l=0, r=0, t=40, b=0),
+                title="Average yarn unit cost (USD/MT) by year",
                 height=360,
-                yaxis=dict(gridcolor="#2a2a3a", tickprefix="$", title="USD / MT"),
+                yaxis=dict(gridcolor=_GRID, tickprefix="$", title="USD/MT"),
                 xaxis=dict(title="Year"),
+                **_CHART,
             )
             st.plotly_chart(fig_yarn, use_container_width=True)
 
             with st.expander("Raw data by year"):
-                st.dataframe(
-                    df_yarn.rename(columns={
-                        "year": "Year",
-                        "avg_cost_usd_per_mt": "Avg cost (USD/MT)",
-                        "records": "Records",
-                    }),
-                    hide_index=True,
-                    use_container_width=True,
+                disp = df_yarn.copy()
+                disp.columns = ["Year", "Avg cost (USD/MT)", "Records"]
+                disp["Avg cost (USD/MT)"] = disp["Avg cost (USD/MT)"].apply(
+                    lambda v: f"${float(v):.4f}"
                 )
+                _html_table(disp)
 
     # ── Orders ──────────────────────────────────────────────────────────────────
-    with inner_tab3:
+    with inner3:
         df_sup = q_orders_by_supplier()
-
         if df_sup.empty:
             st.info("No orders data.")
         else:
-            oc1, oc2 = st.columns(2)
-            oc1.metric("Total orders", "1,484")
-            oc2.metric("Total suppliers", str(df_sup["supplier"].nunique()))
+            o1, o2 = st.columns(2)
+            o1.metric("Total orders", "1,484")
+            o2.metric("Distinct suppliers", str(int(df_sup["supplier"].nunique())))
 
-            d12 = df_sup.head(12)
+            d12  = df_sup.head(12)
+            ords = d12["order_count"].tolist()
+            sups = d12["supplier"].tolist()
             fig_sup = go.Figure(go.Bar(
-                x=d12["order_count"].tolist(),
-                y=d12["supplier"].tolist(),
-                orientation="h",
-                text=d12["order_count"].tolist(),
-                textposition="outside",
-                marker=dict(
-                    color=d12["order_count"].tolist(),
-                    colorscale="Purples",
-                    showscale=False,
-                ),
+                x=ords, y=sups, orientation="h",
+                text=ords, textposition="outside",
+                marker=dict(color=ords, colorscale="Purples", showscale=False),
                 hovertemplate="%{y}: %{x} orders<extra></extra>",
             ))
             fig_sup.update_layout(
                 title="Top suppliers by order count",
-                paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-                font=dict(color="#ccc"),
                 yaxis=dict(autorange="reversed"),
-                margin=dict(l=0, r=40, t=40, b=0),
+                xaxis=dict(gridcolor=_GRID),
                 height=420,
+                **_CHART,
             )
             st.plotly_chart(fig_sup, use_container_width=True)
 
             with st.expander("Full supplier table"):
-                st.dataframe(
-                    df_sup.rename(columns={
-                        "supplier": "Supplier",
-                        "currency_clean": "Currency",
-                        "order_count": "# Orders",
-                        "total_kg": "Total KG",
-                        "avg_price": "Avg price",
-                    }),
-                    hide_index=True,
-                    use_container_width=True,
+                disp = df_sup.copy()
+                disp.columns = ["Supplier", "Currency", "# Orders",
+                                 "Total KG", "Avg price"]
+                disp["Total KG"]  = disp["Total KG"].apply(
+                    lambda v: f"{float(v):,.0f}" if v is not None else "—"
                 )
+                disp["Avg price"] = disp["Avg price"].apply(
+                    lambda v: f"{float(v):.4f}" if v is not None else "—"
+                )
+                _html_table(disp)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -1007,7 +874,6 @@ def main():
         "🌍 Export Intelligence",
         "🏭 Internal Data",
     ])
-
     with tab1:
         tab_market_signals()
     with tab2:
