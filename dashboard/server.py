@@ -137,37 +137,115 @@ def stats():
 @app.get("/api/signals")
 def signals(
     days: int = Query(30, ge=1, le=365),
-    type: str = Query("all"),
-    severity: str = Query("all"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(200, ge=1, le=500),
+    min_impact: int = Query(0, ge=0, le=100),
+    category: str = Query("all"),
+    horizon: str = Query("all"),
+    action: str = Query("all"),
 ):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     conditions = ["ms.detected_at >= %s"]
     params: list = [cutoff]
 
-    if type != "all":
-        conditions.append("ms.signal_type = %s")
-        params.append(type)
-    if severity != "all":
-        conditions.append("ms.severity = %s")
-        params.append(severity)
+    conditions.append("(ms.impact_score >= %s OR ms.impact_score IS NULL)")
+    params.append(min_impact)
+
+    if category != "all":
+        conditions.append("ms.signal_category = %s")
+        params.append(category)
+    if horizon != "all":
+        conditions.append("ms.time_horizon = %s")
+        params.append(horizon)
+    if action != "all":
+        conditions.append("ms.action_tag = %s")
+        params.append(action)
 
     where = " AND ".join(conditions)
     sql = f"""
         SELECT ms.signal_type, ms.severity, ms.title,
-               ms.body        AS summary,
+               ms.body            AS summary,
                ms.source_table,
                ms.source_url,
                to_char(ms.detected_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') AS detected_at,
+               ms.impact_score,
+               ms.time_horizon,
+               ms.action_tag,
+               ms.signal_category,
+               ms.material_form,
+               ms.theme,
+               ms.affected_products,
+               ms.rayon_relevance,
                c.name AS company_name
         FROM market_signals ms
         LEFT JOIN companies c ON ms.company_id = c.id
         WHERE {where}
-        ORDER BY ms.detected_at DESC
+        ORDER BY
+            CASE WHEN ms.impact_score IS NULL THEN 0 ELSE ms.impact_score END DESC,
+            ms.detected_at DESC
         LIMIT %s
     """
     params.append(limit)
     return _rows(sql, params)
+
+
+# ── /api/signal_stats ──────────────────────────────────────────────────────────
+
+@app.get("/api/signal_stats")
+def signal_stats():
+    cutoff_7d  = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    cutoff_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    high_impact_7d = _one(
+        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND impact_score >= 60",
+        [cutoff_7d],
+    ).get("n", 0)
+
+    critical_count = _one(
+        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND impact_score >= 80",
+        [cutoff_7d],
+    ).get("n", 0)
+
+    cost_pressure_count = _one(
+        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND signal_category = 'COST_IMPACT'",
+        [cutoff_30d],
+    ).get("n", 0)
+
+    risk_count = _one(
+        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND action_tag = 'RISK'",
+        [cutoff_30d],
+    ).get("n", 0)
+
+    opportunity_count = _one(
+        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND action_tag = 'OPPORTUNITY'",
+        [cutoff_30d],
+    ).get("n", 0)
+
+    top_themes = _rows(
+        """SELECT theme, COUNT(*)::int AS count
+           FROM market_signals
+           WHERE detected_at >= %s AND theme IS NOT NULL
+           GROUP BY theme ORDER BY count DESC LIMIT 5""",
+        [cutoff_30d],
+    )
+
+    cat_rows = _rows(
+        """SELECT signal_category, COUNT(*)::int AS count
+           FROM market_signals
+           WHERE detected_at >= %s AND signal_category IS NOT NULL
+           GROUP BY signal_category ORDER BY count DESC""",
+        [cutoff_30d],
+    )
+    category_breakdown = {r["signal_category"]: r["count"] for r in cat_rows}
+
+    return {
+        "high_impact_7d":       high_impact_7d,
+        "critical_count":       critical_count,
+        "cost_pressure_count":  cost_pressure_count,
+        "risk_count":           risk_count,
+        "opportunity_count":    opportunity_count,
+        "top_themes":           top_themes,
+        "category_breakdown":   category_breakdown,
+    }
 
 
 # ── /api/prices ────────────────────────────────────────────────────────────────

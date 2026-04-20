@@ -46,21 +46,20 @@
   <div class="header-title">Rayon Intelligence Platform</div>
   <div class="kpi-strip">
     <div class="kpi-card">
-      <div class="kpi-label">Signals (30d)</div>
-      <div class="kpi-value" id="kpi-signals">—</div>
+      <div class="kpi-label">High Impact (7d)</div>
+      <div class="kpi-value" id="kpi-high-impact">—</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Competitors</div>
-      <div class="kpi-value" id="kpi-competitors">—</div>
+      <div class="kpi-label">Cost Pressure (30d)</div>
+      <div class="kpi-value" id="kpi-cost-pressure">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Risk Signals (30d)</div>
+      <div class="kpi-value" id="kpi-risk">—</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Polyester (USD/t)</div>
       <div class="kpi-value" id="kpi-polyester">—</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">HS5407 Export</div>
-      <div class="kpi-value" id="kpi-hs5407">—</div>
-      <div class="kpi-sub" id="kpi-hs5407-period"></div>
     </div>
   </div>
 </header>
@@ -72,43 +71,35 @@
   <section id="section-signals" class="section active">
     <div class="section-title">Market Signals</div>
 
-    <div class="filter-bar">
-      <label>Window</label>
-      <select id="filter-days">
-        <option value="7">Last 7 days</option>
-        <option value="14">Last 14 days</option>
-        <option value="30" selected>Last 30 days</option>
-        <option value="60">Last 60 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last year</option>
-      </select>
-
-      <label>Type</label>
-      <select id="filter-type">
-        <option value="all">All types</option>
-        <option value="competitor_mention">Competitor mention</option>
-        <option value="price_move">Price move</option>
-        <option value="price_signal">Price signal</option>
-        <option value="trend">Trend</option>
-        <option value="regulation">Regulation</option>
-        <option value="capacity_change">Capacity change</option>
-        <option value="fair_participation">Fair participation</option>
-        <option value="other">Other</option>
-      </select>
-
-      <label>Severity</label>
-      <select id="filter-severity">
-        <option value="all">All severities</option>
-        <option value="alert">Alert</option>
-        <option value="warning">Warning</option>
-        <option value="info">Info</option>
-      </select>
-
-      <span class="signal-count" id="signal-count"></span>
+    <!-- Panel A: Critical Signals (impact ≥ 80, last 7 days) -->
+    <div class="signals-panel panel-critical">
+      <div class="panel-header">
+        <span class="panel-title">Critical Signals</span>
+        <span class="panel-label-dim">impact ≥ 80 · last 7 days</span>
+      </div>
+      <div id="critical-list"><div class="loading">Loading…</div></div>
     </div>
 
-    <div id="signals-list">
-      <div class="loading">Loading signals…</div>
+    <!-- Panel B: Top Themes (hidden until populated) -->
+    <div class="signals-panel panel-themes" id="panel-themes" style="display:none">
+      <div class="panel-header">
+        <span class="panel-title">Top Themes</span>
+        <span class="panel-label-dim theme-clear-link" id="theme-clear" style="display:none">× Clear filter</span>
+      </div>
+      <div id="theme-chips" class="theme-chips-row"></div>
+    </div>
+
+    <!-- Panel C: Intelligence Feed (impact ≥ 60, last 30 days) -->
+    <div class="signals-panel">
+      <div class="panel-header">
+        <span class="panel-title">Intelligence Feed</span>
+        <span class="panel-label-dim" id="feed-subtitle">impact ≥ 60 · last 30 days</span>
+        <span class="signal-count" id="signal-count"></span>
+      </div>
+      <div id="signals-list"><div class="loading">Loading signals…</div></div>
+      <div class="feed-archive-row" id="feed-archive-row">
+        <span class="archive-link" id="archive-toggle">Showing signals with impact ≥ 60 · View all →</span>
+      </div>
     </div>
   </section>
 

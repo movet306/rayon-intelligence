@@ -129,17 +129,17 @@ function lazyLoad(section) {
 /* ── Header KPIs ────────────────────────────────────────────────────────────── */
 async function loadStats() {
   try {
-    const d = await api('/api/stats');
-    setText('kpi-signals',    d.signal_count_30d ?? '—');
-    setText('kpi-competitors', d.competitor_count ?? '—');
+    const [d, sigStats] = await Promise.all([
+      api('/api/stats'),
+      api('/api/signal_stats'),
+    ]);
+    setText('kpi-high-impact',   sigStats.high_impact_7d   ?? '—');
+    setText('kpi-cost-pressure', sigStats.cost_pressure_count ?? '—');
+    setText('kpi-risk',          sigStats.risk_count        ?? '—');
     const polyUsd = d.polyester_price_usd ?? (d.polyester_price_rmb != null && d.rmb_usd_rate
       ? d.polyester_price_rmb * d.rmb_usd_rate : null);
     setText('kpi-polyester', polyUsd != null
       ? `$${polyUsd.toLocaleString('en', {maximumFractionDigits:0})}` : '—');
-    setText('kpi-hs5407',     d.hs5407_export_mn != null
-      ? `$${d.hs5407_export_mn.toFixed(1)}M`
-      : '—');
-    setText('kpi-hs5407-period', d.hs5407_period ?? '');
     setText('last-refresh', `Refreshed ${new Date().toLocaleTimeString()}`);
   } catch (e) {
     console.error('stats error', e);
@@ -147,53 +147,167 @@ async function loadStats() {
 }
 
 /* ── Market Signals ──────────────────────────────────────────────────────────── */
-async function loadSignals() {
-  const days = document.getElementById('filter-days').value;
-  const type = document.getElementById('filter-type').value;
-  const sev  = document.getElementById('filter-severity').value;
-  const list = document.getElementById('signals-list');
-  list.innerHTML = '<div class="loading">Loading signals…</div>';
 
+// Signal category → left-border color
+const CAT_COLORS = {
+  COST_IMPACT:     '#f0883e',
+  DEMAND_SHIFT:    '#58a6ff',
+  SUPPLY_RISK:     '#f85149',
+  COMPETITOR_MOVE: '#a371f7',
+  REGULATORY:      '#3fb950',
+};
+
+let _feedRawData   = null;   // latest fetched feed dataset
+let _feedMinImpact = 60;
+let _feedThemeFilter = null;
+
+function loadSignalsPanels() {
+  _loadCriticalSignals();
+  _loadSignalStats();
+  _loadFeedSignals();
+}
+
+// Panel A — critical signals (impact ≥ 80, last 7 days)
+async function _loadCriticalSignals() {
+  const el = document.getElementById('critical-list');
+  el.innerHTML = '<div class="loading">Loading…</div>';
   try {
-    const data = await api(`/api/signals?days=${days}&type=${type}&severity=${sev}&limit=200`);
-    setText('signal-count', `${data.length} signal${data.length !== 1 ? 's' : ''}`);
-
-    if (!data.length) {
-      list.innerHTML = '<div class="empty-state">No signals found for this filter combination.</div>';
+    const data = await api('/api/signals?min_impact=80&days=7&limit=5');
+    const real = data.filter(r => r.impact_score != null && r.impact_score >= 80);
+    if (!real.length) {
+      el.innerHTML = '<div class="empty-state-sm">No critical signals in the last 7 days.</div>';
       return;
     }
-    list.innerHTML = data.map(renderSignalCard).join('');
-
-    // Attach click handlers after DOM is ready — avoids inline onclick quoting issues
-    list.querySelectorAll('.signal-card[data-url]').forEach(card => {
-      const url = card.dataset.url;
-      card.style.cursor = 'pointer';
-      card.title = 'Haberi aç';
-      card.addEventListener('click', function () {
-        if (url && url.startsWith('http')) window.open(url, '_blank');
-      });
-    });
+    el.innerHTML = real.map(renderCriticalCard).join('');
+    _attachUrlHandlers(el);
   } catch (e) {
-    list.innerHTML = `<div class="empty-state">Error loading signals: ${e.message}</div>`;
+    el.innerHTML = `<div class="empty-state-sm">Error: ${esc(e.message)}</div>`;
   }
 }
 
+// Panel B — themes from signal_stats
+async function _loadSignalStats() {
+  try {
+    const stats = await api('/api/signal_stats');
+    _renderThemeChips(stats.top_themes || []);
+  } catch (_) {}
+}
+
+// Panel C — full feed
+async function _loadFeedSignals() {
+  const list = document.getElementById('signals-list');
+  list.innerHTML = '<div class="loading">Loading signals…</div>';
+  const url = `/api/signals?min_impact=${_feedMinImpact}&days=30&limit=200`;
+  try {
+    _feedRawData = await api(url);
+    _renderFeed();
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state">Error loading signals: ${esc(e.message)}</div>`;
+  }
+}
+
+function _renderFeed() {
+  const list = document.getElementById('signals-list');
+  const data = _feedThemeFilter
+    ? (_feedRawData || []).filter(r => r.theme === _feedThemeFilter)
+    : (_feedRawData || []);
+
+  setText('signal-count', `${data.length} signal${data.length !== 1 ? 's' : ''}`);
+
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state">No signals found.</div>';
+  } else {
+    list.innerHTML = data.map(renderSignalCard).join('');
+    _attachUrlHandlers(list);
+  }
+
+  // Archive row
+  const archiveRow    = document.getElementById('feed-archive-row');
+  const archiveToggle = document.getElementById('archive-toggle');
+  if (_feedMinImpact > 0) {
+    archiveRow.style.display = '';
+    archiveToggle.textContent = `Showing signals with impact ≥ ${_feedMinImpact} · View all →`;
+  } else {
+    archiveRow.style.display = 'none';
+  }
+}
+
+function _renderThemeChips(themes) {
+  const panel = document.getElementById('panel-themes');
+  const container = document.getElementById('theme-chips');
+  if (!themes.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  container.innerHTML = themes.map(t =>
+    `<span class="theme-chip" data-theme="${esc(t.theme)}">${esc(t.theme)} <span class="theme-chip-count">${t.count}</span></span>`
+  ).join('');
+  container.querySelectorAll('.theme-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const theme = chip.dataset.theme;
+      const active = chip.classList.contains('active');
+      container.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+      _feedThemeFilter = active ? null : theme;
+      if (!active) chip.classList.add('active');
+      const clearEl = document.getElementById('theme-clear');
+      if (clearEl) clearEl.style.display = _feedThemeFilter ? '' : 'none';
+      _renderFeed();
+    });
+  });
+}
+
+// Critical card (large format for Panel A)
+function renderCriticalCard(r) {
+  const borderColor = CAT_COLORS[r.signal_category] || '#f85149';
+  const hasUrl  = r.source_url && r.source_url.startsWith('http');
+  const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
+  const impact  = r.impact_score != null ? r.impact_score : '—';
+  const catHtml = r.signal_category
+    ? `<span class="cat-badge cat-${r.signal_category}">${r.signal_category.replace(/_/g,' ')}</span>` : '';
+  const actionHtml = r.action_tag
+    ? `<span class="action-badge action-${r.action_tag.toLowerCase()}">${r.action_tag}</span>` : '';
+  const horizonHtml = r.time_horizon
+    ? `<span class="horizon-tag">${r.time_horizon.toUpperCase()}</span>` : '';
+  const company = r.company_name ? `<span class="signal-company-inline">⬡ ${esc(r.company_name)}</span>` : '';
+  const matHtml = r.material_form ? `<span class="signal-mat-sm">${esc(r.material_form)}</span>` : '';
+  const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
+  return `
+    <div class="critical-card"${urlAttr} style="border-left: 4px solid ${borderColor}">
+      <div class="critical-card-head">
+        <div class="critical-card-badges">${catHtml}${actionHtml}</div>
+        <div class="impact-score-badge">${impact}</div>
+      </div>
+      <div class="critical-card-title">${esc(r.title || '')}</div>
+      <div class="critical-card-body">${esc(r.summary || '')}</div>
+      <div class="critical-card-footer">
+        ${company}${matHtml}${horizonHtml}
+        <span class="signal-dt" style="margin-left:auto">${esc(r.detected_at || '')}${linkIcon}</span>
+      </div>
+    </div>`;
+}
+
+// Feed card (compact format for Panel C)
 function renderSignalCard(r) {
-  const typeBadge = `<span class="badge badge-type-${r.signal_type || 'other'}">${(r.signal_type || 'other').replace(/_/g,' ')}</span>`;
-  const sevBadge  = `<span class="badge badge-sev-${r.severity || 'info'}">${r.severity || 'info'}</span>`;
-  const company   = r.company_name
-    ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
-  const src     = (r.source_table || '').replace(/_/g,' ');
+  const borderColor = CAT_COLORS[r.signal_category] || C.border;
   const hasUrl  = r.source_url && r.source_url.startsWith('http');
   const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
   const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
+  const impact  = r.impact_score != null
+    ? `<span class="impact-score-sm">${r.impact_score}</span>` : '';
+  const catHtml = r.signal_category
+    ? `<span class="cat-badge cat-${r.signal_category}">${r.signal_category.replace(/_/g,' ')}</span>` : '';
+  const actionHtml = r.action_tag
+    ? `<span class="action-badge action-${r.action_tag.toLowerCase()}">${r.action_tag}</span>` : '';
+  const horizonHtml = r.time_horizon
+    ? `<span class="horizon-tag">${r.time_horizon.toUpperCase()}</span>` : '';
+  const matHtml = r.material_form
+    ? `<span class="signal-mat-sm">· ${esc(r.material_form)}</span>` : '';
+  const company = r.company_name
+    ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
   return `
-    <div class="signal-card type-${r.signal_type || 'other'}"${urlAttr}>
+    <div class="signal-card"${urlAttr} style="border-left-color: ${borderColor}">
       <div class="signal-meta">
-        ${typeBadge}${sevBadge}
-        <span class="signal-source">${esc(src)}</span>
+        ${catHtml}${actionHtml}${horizonHtml}${matHtml}
         <span class="signal-dt">${esc(r.detected_at || '')}</span>
-        ${linkIcon}
+        ${linkIcon}${impact}
       </div>
       <div class="signal-title">${esc(r.title || '')}</div>
       <div class="signal-body">${esc(r.summary || '')}</div>
@@ -201,10 +315,34 @@ function renderSignalCard(r) {
     </div>`;
 }
 
-function initSignalFilters() {
-  ['filter-days','filter-type','filter-severity'].forEach(id => {
-    document.getElementById(id).addEventListener('change', loadSignals);
+function _attachUrlHandlers(container) {
+  container.querySelectorAll('[data-url]').forEach(el => {
+    const url = el.dataset.url;
+    el.style.cursor = 'pointer';
+    el.title = 'Haberi aç';
+    el.addEventListener('click', () => {
+      if (url && url.startsWith('http')) window.open(url, '_blank');
+    });
   });
+}
+
+function initSignalsSection() {
+  const archiveToggle = document.getElementById('archive-toggle');
+  if (archiveToggle) {
+    archiveToggle.addEventListener('click', () => {
+      _feedMinImpact = _feedMinImpact > 0 ? 0 : 60;
+      _loadFeedSignals();
+    });
+  }
+  const clearEl = document.getElementById('theme-clear');
+  if (clearEl) {
+    clearEl.addEventListener('click', () => {
+      _feedThemeFilter = null;
+      clearEl.style.display = 'none';
+      document.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+      _renderFeed();
+    });
+  }
 }
 
 /* ── Price Intelligence ──────────────────────────────────────────────────────── */
@@ -912,7 +1050,7 @@ function initRefresh() {
     Object.keys(_exportData).forEach(k => delete _exportData[k]);
     _loaded.clear();
     loadStats();
-    loadSignals();
+    loadSignalsPanels();
     // Re-render whichever section is active
     const active = document.querySelector('.nav-item.active');
     if (active) {
@@ -927,10 +1065,10 @@ function initRefresh() {
 /* ── Boot ────────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
-  initSignalFilters();
+  initSignalsSection();
   initExportSelector();
   initPriceSection();
   initRefresh();
   loadStats();
-  loadSignals();         // signals is the default active section
+  loadSignalsPanels();   // signals is the default active section
 });
