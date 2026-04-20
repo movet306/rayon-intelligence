@@ -30,7 +30,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 PIPELINE       = "telegram_reporter"
 TELEGRAM_API   = "https://api.telegram.org/bot{token}/sendMessage"
-MSG_MAX_CHARS  = 4096   # Telegram hard limit per message
+MSG_MAX_CHARS  = 4000   # stay 96 chars under Telegram's 4096 hard limit
 DEFAULT_HOURS  = 24
 
 # Severity ordering: highest priority first
@@ -156,50 +156,66 @@ def _signal_block(signal: dict) -> str:
 def build_messages(signals: list[dict], hours: int) -> list[str]:
     """
     Build one or more Telegram HTML messages from the signal list.
-    Splits into a new message whenever the running length would exceed MSG_MAX_CHARS.
-    Each message after the first omits the header.
+    Splits on signal boundaries so no message exceeds MSG_MAX_CHARS.
+    Each continuation message gets its own header.
     """
     total   = len(signals)
     now_str = datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
 
-    header = (
+    main_header = (
         f"<b>📊 Rayon Intelligence — Pazar Sinyalleri</b>\n"
         f"<i>Son {hours} saat  •  {total} sinyal  •  {now_str}</i>"
     )
+    cont_header = "<b>📊 Rayon Intelligence — Pazar Sinyalleri (devam)</b>"
 
     if not signals:
-        return [f"{header}\n\nℹ️ Bu periyotta bildirilecek sinyal yok."]
+        return [f"{main_header}\n\nℹ️ Bu periyotta bildirilecek sinyal yok."]
 
     # Group by severity (already ordered alert → warning → info from DB)
     groups: dict[str, list[dict]] = {s: [] for s in SEVERITY_ORDER}
     for sig in signals:
         groups[sig["severity"]].append(sig)
 
-    # Build section strings
-    sections: list[str] = []
+    # Flatten into (severity_heading_or_None, signal_block) pairs.
+    # The heading is emitted before the first signal of each group,
+    # and re-emitted at the top of a new message if the group spans messages.
+    items: list[tuple[str | None, str]] = []
     for sev in SEVERITY_ORDER:
         grp = groups[sev]
         if not grp:
             continue
         label   = SEVERITY_LABELS[sev]
         heading = f"\n\n<b>{label} ({len(grp)})</b>"
-        blocks  = "\n\n".join(_signal_block(s) for s in grp)
-        sections.append(f"{heading}\n{blocks}")
+        for i, sig in enumerate(grp):
+            items.append((heading if i == 0 else None, _signal_block(sig)))
 
-    # Pack sections into messages respecting the char limit
+    # Pack signal by signal, tracking which severity heading is "pending"
+    # so it can be re-emitted if a group spans a message boundary.
     messages: list[str] = []
-    current  = header
+    current  = main_header
+    pending_heading: str | None = None   # heading to prepend if new msg starts mid-group
 
-    for section in sections:
-        if len(current) + len(section) <= MSG_MAX_CHARS:
-            current += section
+    for heading, block in items:
+        if heading is not None:
+            # Start of a new severity group
+            candidate = current + heading + "\n" + block
+            if len(candidate) <= MSG_MAX_CHARS:
+                current = candidate
+                pending_heading = heading
+            else:
+                # Flush current message and start fresh
+                messages.append(current)
+                current = cont_header + heading + "\n" + block
+                pending_heading = heading
         else:
-            messages.append(current)
-            # Start next message with a continuation header
-            current = (
-                f"<b>📊 Rayon Intelligence — Pazar Sinyalleri (devam)</b>"
-                + section
-            )
+            # Continuation signal within the same severity group
+            candidate = current + "\n\n" + block
+            if len(candidate) <= MSG_MAX_CHARS:
+                current = candidate
+            else:
+                messages.append(current)
+                # Re-emit the group heading so the new message is self-contained
+                current = cont_header + (pending_heading or "") + "\n" + block
 
     messages.append(current)
     return messages
