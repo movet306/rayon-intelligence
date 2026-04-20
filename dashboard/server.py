@@ -149,7 +149,7 @@ def stats():
 def signals(
     days: int = Query(30, ge=1, le=365),
     limit: int = Query(200, ge=1, le=500),
-    min_impact: int = Query(60, ge=0, le=100),
+    min_impact: int = Query(50, ge=0, le=100),
     category: str = Query("all"),
     horizon: str = Query("all"),
     action: str = Query("all"),
@@ -158,7 +158,7 @@ def signals(
 ):
     # Server-side floor: never serve below impact=60 unless view_all is explicitly requested
     if not view_all:
-        min_impact = max(min_impact, 60)
+        min_impact = max(min_impact, 50)
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     conditions = ["ms.detected_at >= %s"]

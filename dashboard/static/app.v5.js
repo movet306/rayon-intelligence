@@ -158,7 +158,7 @@ const CAT_COLORS = {
 };
 
 let _feedRawData    = null;   // latest fetched feed dataset
-let _feedMinImpact  = 60;
+let _feedMinImpact  = 50;
 let _feedViewAll    = false;  // true only when user explicitly clicks "View all"
 let _feedThemeFilter = null;
 
@@ -333,7 +333,7 @@ function initSignalsSection() {
   if (archiveToggle) {
     archiveToggle.addEventListener('click', () => {
       _feedViewAll = !_feedViewAll;
-      _feedMinImpact = _feedViewAll ? 0 : 60;
+      _feedMinImpact = _feedViewAll ? 0 : 50;
       _loadFeedSignals();
     });
   }
