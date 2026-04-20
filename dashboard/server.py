@@ -201,33 +201,39 @@ def signal_stats():
     cutoff_7d  = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     cutoff_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
+    # All counts use DISTINCT source_id to match the deduplication in /api/signals
     high_impact_7d = _one(
-        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND impact_score >= 60",
+        """SELECT COUNT(DISTINCT source_id)::int AS n FROM market_signals
+           WHERE detected_at >= %s AND impact_score >= 60""",
         [cutoff_7d],
     ).get("n", 0)
 
     critical_count = _one(
-        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND impact_score >= 80",
+        """SELECT COUNT(DISTINCT source_id)::int AS n FROM market_signals
+           WHERE detected_at >= %s AND impact_score >= 80""",
         [cutoff_7d],
     ).get("n", 0)
 
     cost_pressure_count = _one(
-        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND signal_category = 'COST_IMPACT'",
+        """SELECT COUNT(DISTINCT source_id)::int AS n FROM market_signals
+           WHERE detected_at >= %s AND signal_category = 'COST_IMPACT'""",
         [cutoff_30d],
     ).get("n", 0)
 
     risk_count = _one(
-        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND action_tag = 'RISK'",
+        """SELECT COUNT(DISTINCT source_id)::int AS n FROM market_signals
+           WHERE detected_at >= %s AND action_tag = 'RISK'""",
         [cutoff_30d],
     ).get("n", 0)
 
     opportunity_count = _one(
-        "SELECT COUNT(*)::int AS n FROM market_signals WHERE detected_at >= %s AND action_tag = 'OPPORTUNITY'",
+        """SELECT COUNT(DISTINCT source_id)::int AS n FROM market_signals
+           WHERE detected_at >= %s AND action_tag = 'OPPORTUNITY'""",
         [cutoff_30d],
     ).get("n", 0)
 
     top_themes = _rows(
-        """SELECT theme, COUNT(*)::int AS count
+        """SELECT theme, COUNT(DISTINCT source_id)::int AS count
            FROM market_signals
            WHERE detected_at >= %s AND theme IS NOT NULL
            GROUP BY theme ORDER BY count DESC LIMIT 5""",
@@ -235,7 +241,7 @@ def signal_stats():
     )
 
     cat_rows = _rows(
-        """SELECT signal_category, COUNT(*)::int AS count
+        """SELECT signal_category, COUNT(DISTINCT source_id)::int AS count
            FROM market_signals
            WHERE detected_at >= %s AND signal_category IS NOT NULL
            GROUP BY signal_category ORDER BY count DESC""",
