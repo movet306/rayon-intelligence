@@ -107,7 +107,7 @@ CHAIN_PAIRS = {
     'polyester_dty':   'polyester_poy',
     'polyester_yarn':  'polyester_dty',
     'polyamide_fdy':   'pa6_chip',
-    'cotton_yarn':     'cotton_lint',
+    'cotton_yarn':     'cotton_lint',   # sunsirs china spot chain
 }
 
 # (chain_name, upstream_slug, downstream_slug) for price_chain_spreads
@@ -118,7 +118,7 @@ CHAIN_SPREADS = [
     ('polyester', 'polyester_fdy',   'polyester_yarn'),
     ('nylon',     'pa6_chip',        'polyamide_fdy'),
     ('nylon',     'pa66_chip',       'polyamide_fdy'),
-    ('cotton',    'cotton_lint',     'cotton_yarn'),
+    ('cotton',    'cotton_lint',     'cotton_yarn'),     # sunsirs china spot chain
     ('polyester', 'pta',             'polyester_staple_fiber'),
 ]
 
@@ -653,22 +653,22 @@ def main():
 
     # ── Load all price_signals ordered by material + date ─────────────────
     raw = _fetch(conn, """
-        SELECT material, source, period, price_usd
+        SELECT material, source, period, price_usd, unit
         FROM price_signals
         WHERE price_usd IS NOT NULL
         ORDER BY material, period
     """)
     log.info("Loaded %d price_signals rows", len(raw))
 
-    # Group by (material, frequency)
+    # Group by (material, source, frequency) — keeps ice_cotton separate from sunsirs
     groups: dict[tuple, list] = {}
     for row in raw:
         freq = source_freq.get(row["source"], "daily")
-        groups.setdefault((row["material"], freq), []).append(row)
+        groups.setdefault((row["material"], row["source"], freq), []).append(row)
 
     # ── Dual-source validation ─────────────────────────────────────────────
     by_material: dict[str, set] = {}
-    for (material, freq) in groups:
+    for (material, source, freq) in groups:
         by_material.setdefault(material, set()).add(freq)
 
     dual = [m for m, freqs in by_material.items() if len(freqs) > 1]
@@ -686,30 +686,43 @@ def main():
     monthly_total = 0
     mat_stats: dict[str, dict] = {}
 
-    for (material, freq), rows in sorted(groups.items()):
+    USc_LB_TO_USD_TON = 0.01 * 2204.62  # 22.0462 USD/ton per USc/lb
+
+    for (material, source, freq), rows in sorted(groups.items()):
         n_total    = len(rows)
         conf_total = _confidence_level(n_total)
 
+        # Determine conversion factor from native unit to USD/ton
+        first_unit = rows[0].get("unit") if rows else None
+        if first_unit == "USc/lb":
+            conversion_factor = USc_LB_TO_USD_TON
+            unit_label = "USc/lb -> USD/ton"
+        else:
+            conversion_factor = rmb_usd_rate
+            unit_label = "RMB/ton -> USD/ton"
+
+        mat_key = f"{material}:{source}" if source != "sunsirs" else material
+
         if freq == "daily":
-            metric_rows = build_daily_metrics(rows, rmb_usd_rate)
-            daily_mats.add(material)
+            metric_rows = build_daily_metrics(rows, conversion_factor)
+            daily_mats.add(mat_key)
             daily_total += len(metric_rows)
         else:
-            metric_rows = build_monthly_metrics(rows, rmb_usd_rate)
-            monthly_mats.add(material)
+            metric_rows = build_monthly_metrics(rows, conversion_factor)
+            monthly_mats.add(mat_key)
             monthly_total += len(metric_rows)
 
         if args.dry_run:
-            log.info("  [DRY-RUN] %s (%s): %d rows, confidence=%s",
-                     material, freq, n_total, conf_total)
+            log.info("  [DRY-RUN] %s/%s (%s) [%s]: %d rows, confidence=%s",
+                     material, source, freq, unit_label, n_total, conf_total)
         else:
             upsert_metrics(conn, material, metric_rows)
-            log.info("  %s (%s): %d rows upserted, confidence=%s",
-                     material, freq, len(metric_rows), conf_total)
+            log.info("  %s/%s (%s) [%s]: %d rows upserted, confidence=%s",
+                     material, source, freq, unit_label, len(metric_rows), conf_total)
 
         # Capture latest-row stats for summary
         latest = metric_rows[-1] if metric_rows else {}
-        mat_stats[material] = {
+        mat_stats[mat_key] = {
             "n":               n_total,
             "conf":            conf_total,
             "freq":            freq,
