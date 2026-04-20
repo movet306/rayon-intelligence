@@ -28,7 +28,9 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install openai==1.58.1
 
       - name: Run fibre2fashion scraper
         run: python scrapers/fibre2fashion.py --pages 2

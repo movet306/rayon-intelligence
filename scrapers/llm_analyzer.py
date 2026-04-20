@@ -424,7 +424,7 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set")
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key, http_client=None)
 
     try:
         conn = get_connection()
