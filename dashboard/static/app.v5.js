@@ -157,8 +157,9 @@ const CAT_COLORS = {
   REGULATORY:      '#3fb950',
 };
 
-let _feedRawData   = null;   // latest fetched feed dataset
-let _feedMinImpact = 60;
+let _feedRawData    = null;   // latest fetched feed dataset
+let _feedMinImpact  = 60;
+let _feedViewAll    = false;  // true only when user explicitly clicks "View all"
 let _feedThemeFilter = null;
 
 function loadSignalsPanels() {
@@ -197,7 +198,8 @@ async function _loadSignalStats() {
 async function _loadFeedSignals() {
   const list = document.getElementById('signals-list');
   list.innerHTML = '<div class="loading">Loading signals…</div>';
-  const url = `/api/signals?min_impact=${_feedMinImpact}&days=30&limit=200&exclude_critical=true`;
+  const viewAllParam = _feedViewAll ? '&view_all=true' : '';
+  const url = `/api/signals?days=30&limit=200&exclude_critical=true${viewAllParam}`;
   try {
     _feedRawData = await api(url);
     _renderFeed();
@@ -330,7 +332,8 @@ function initSignalsSection() {
   const archiveToggle = document.getElementById('archive-toggle');
   if (archiveToggle) {
     archiveToggle.addEventListener('click', () => {
-      _feedMinImpact = _feedMinImpact > 0 ? 0 : 60;
+      _feedViewAll = !_feedViewAll;
+      _feedMinImpact = _feedViewAll ? 0 : 60;
       _loadFeedSignals();
     });
   }
@@ -1048,7 +1051,8 @@ function initRefresh() {
     _internalData    = null;
     _priceData       = null;
     _feedRawData     = null;
-    _feedMinImpact   = 60;     // reset to default — don't persist "View all" across refresh
+    _feedMinImpact   = 60;
+    _feedViewAll     = false;  // reset to default — don't persist "View all" across refresh
     _feedThemeFilter = null;
     Object.keys(_exportData).forEach(k => delete _exportData[k]);
     _loaded.clear();
