@@ -29,10 +29,13 @@ import textwrap
 import traceback
 from datetime import datetime, timezone
 
+import requests as req
+
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-from openai import OpenAI
+
+# OpenAI called via direct HTTP requests (no SDK needed)
 
 load_dotenv()
 
@@ -347,27 +350,39 @@ def build_user_message(item: dict) -> str:
     return f"TITLE: {title}\n\nBODY:\n{body}"
 
 
-def call_openai(client: OpenAI, system_prompt: str, user_message: str) -> tuple[dict, int, int, float]:
+def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, int, int, float]:
     """
     Send one article to GPT-4o-mini and return (analysis_dict, tokens_in, tokens_out, cost_usd).
     Raises on API error or JSON parse failure.
+    Uses direct HTTP requests — no OpenAI SDK required.
     """
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_message},
-        ],
-        temperature=0.1,
-        max_tokens=400,
+    api_key = os.environ.get("OPENAI_API_KEY")
+    response = req.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": LLM_MODEL,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_message},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 400,
+        },
+        timeout=30,
     )
+    response.raise_for_status()
+    data = response.json()
 
-    tokens_in  = response.usage.prompt_tokens
-    tokens_out = response.usage.completion_tokens
+    tokens_in  = data["usage"]["prompt_tokens"]
+    tokens_out = data["usage"]["completion_tokens"]
     cost       = tokens_in * COST_PER_INPUT_TOKEN + tokens_out * COST_PER_OUTPUT_TOKEN
 
-    raw = response.choices[0].message.content
+    raw = data["choices"][0]["message"]["content"]
     analysis = json.loads(raw)
 
     # --- Validate and sanitize ---
@@ -420,11 +435,8 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
     Fetch up to `limit` unanalyzed news_items, run LLM analysis, persist results.
     Returns summary counts.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
+    if not os.environ.get("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY environment variable is not set")
-
-    client = OpenAI(api_key=api_key, http_client=None)
 
     try:
         conn = get_connection()
@@ -456,7 +468,7 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
         user_msg = build_user_message(item)
 
         try:
-            analysis, tokens_in, tokens_out, cost = call_openai(client, system_prompt, user_msg)
+            analysis, tokens_in, tokens_out, cost = call_openai(None, system_prompt, user_msg)
         except Exception as e:
             failed += 1
             log.warning("  LLM error: %s", e)
