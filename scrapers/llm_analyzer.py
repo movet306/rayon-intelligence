@@ -57,17 +57,19 @@ VALID_SIGNAL_TYPES = {
     "price_move", "capacity_change", "new_market", "trend",
     "regulation", "competitor_mention", "price_signal", "other",
 }
-VALID_SEVERITIES = {"info", "warning", "alert"}
+VALID_SEVERITIES      = {"info", "warning", "alert"}
+VALID_TIME_HORIZONS   = {"short", "mid", "long"}
+VALID_ACTION_TAGS     = {"MONITOR", "RISK", "OPPORTUNITY"}
+VALID_SIGNAL_CATS     = {"COST_IMPACT", "DEMAND_SHIFT", "SUPPLY_RISK", "COMPETITOR_MOVE", "REGULATORY"}
+VALID_RAYON_REL       = {"direct", "indirect", "none"}
+VALID_AFFECTED        = {"woven", "knit", "technical", "laminated"}
 
-# HS codes tracked by Rayon Tekstil
-HS_CODE_CONTEXT = """\
-  • 5407 — Woven fabrics of synthetic filament yarn (polyester/nylon woven)
-  • 5512 — Woven fabrics of ≥85% synthetic staple fibres
-  • 5515 — Other woven fabrics of synthetic staple fibres
-  • 6006 — Other knitted or crocheted fabrics (technical knit)
-  • 6001 — Pile fabrics / velour knit
-  • 5402 — Synthetic filament yarn (e.g. polyester, nylon, PP)
-  • 5509 — Yarn of synthetic staple fibres"""
+# Generic Turkish phrases that indicate a vague/low-quality summary
+GENERIC_TR_PHRASES = [
+    "piyasası artıyor", "piyasası düşüyor", "sektör büyüyor",
+    "fiyatlar artıyor", "fiyatlar düşüyor", "piyasa hareketleniyor",
+    "sektörde gelişmeler", "önemli gelişmeler",
+]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,76 +85,118 @@ log = logging.getLogger(__name__)
 
 def build_system_prompt(competitor_names: list[str]) -> str:
     """
-    Build the LLM system prompt injecting the current competitor list.
+    Build the v2 LLM system prompt injecting the current competitor list.
+    Enforces material-form-level reasoning, structured taxonomy, and
+    Rayon-specific relevance scoring.
     Called once at startup after fetching companies from DB.
     """
     names_block = "\n".join(f"  • {n}" for n in sorted(competitor_names))
 
     return textwrap.dedent(f"""\
-        You are a market intelligence analyst for Rayon Tekstil Sanayi, a Turkish B2B fabric manufacturer.
+        You are a market intelligence analyst for Rayon Tekstil Sanayi, a Turkish B2B technical fabric manufacturer.
 
-        == RAYON'S BUSINESS PROFILE ==
-        Products: woven and knit technical fabrics — FR (flame-retardant), military, outdoor, workwear, laminated.
-        Yarn input: polyester/nylon filament and staple, PP, FR-modified fibres.
+        ══ A. RAYON BUSINESS CONTEXT ══
+        Products:
+          • Woven technical fabrics (military, workwear, outdoor, FR flame-retardant)
+          • Knitted performance fabrics (sportswear, activewear)
+          • Laminated/coated technical fabrics
+        Yarn inputs: polyester filament (FDY/POY/DTY), nylon FDY, PSF staple, PP, FR-modified fibres.
         Export markets: Eastern Europe, Caucasus, Russia, Ukraine, Middle East.
         Customers: garment manufacturers, tender companies, wholesalers.
-        Relevant HS codes:
-        {HS_CODE_CONTEXT}
 
-        == TRACKED COMPETITOR COMPANIES ==
-        Flag ANY article that names one or more of these companies explicitly:
+        ══ B. MATERIAL HIERARCHY (reason at Level 2 minimum — material FORM, never just fiber family) ══
+
+        Polyester family:
+          PSF  (polyester staple fiber)   → knit and woven fabrics          [relevance: HIGH]
+          FDY  (fully drawn yarn)         → woven fabrics, core cost driver  [relevance: CRITICAL]
+          POY  (partially oriented yarn)  → texturizing input for DTY        [relevance: CRITICAL]
+          DTY  (draw textured yarn)       → knit fabrics                     [relevance: CRITICAL]
+          PTA  (purified terephthalic acid) → upstream leading indicator     [relevance: MEDIUM]
+
+        Polyamide/Nylon family:
+          Nylon FDY  → military and technical fabrics                        [relevance: HIGH]
+          PA6 chip   → upstream nylon input                                  [relevance: MEDIUM]
+          PA66 chip  → upstream high-performance nylon                       [relevance: LOW]
+
+        Cotton family:
+          Cotton lint → raw input for yarn                                   [relevance: LOW]
+          Cotton yarn (OE/ring/compact) → secondary woven/knit products      [relevance: LOW-MEDIUM]
+
+        Rayon/Viscose:
+          Rayon yarn → blended fabrics                                       [relevance: MEDIUM]
+
+        RULE: If an article mentions material data, you MUST identify the specific form
+        (e.g. "FDY", "PSF", "Nylon FDY", "DTY") — never just "polyester" or "nylon" alone.
+
+        ══ C. TRACKED COMPETITOR COMPANIES ══
+        Flag ANY article that explicitly names one or more of these companies:
         {names_block}
 
-        == TASK ==
-        Analyse the news article provided and return ONLY a JSON object with these exact keys:
-
+        ══ D. MANDATORY JSON OUTPUT (return ONLY this object, no markdown) ══
         {{
-          "relevance_score": <float 0.0–1.0>,
-          "signal_type": <see types below>,
-          "severity": <"info" | "warning" | "alert">,
-          "summary_tr": <one sentence in Turkish — be specific: name companies, geographies, percentages>,
-          "competitors_mentioned": <list of exact company names from the article that appear in the tracked list above; [] if none>,
-          "price_signal": <object or null — see structure below>
+          "relevance_score":    <float 0.0–1.0>,
+          "signal_category":    <"COST_IMPACT"|"DEMAND_SHIFT"|"SUPPLY_RISK"|"COMPETITOR_MOVE"|"REGULATORY"|null>,
+          "signal_type":        <"price_move"|"price_signal"|"capacity_change"|"new_market"|"trend"|"regulation"|"competitor_mention"|"other">,
+          "severity":           <"info"|"warning"|"alert">,
+          "impact_score":       <integer 0–100, see rubric below>,
+          "time_horizon":       <"short"|"mid"|"long"|null>,
+          "action_tag":         <"MONITOR"|"RISK"|"OPPORTUNITY"|null>,
+          "material_form":      <specific form from hierarchy above, e.g. "FDY", "PSF", "Nylon FDY"|null if no material data>,
+          "affected_products":  <array from ["woven","knit","technical","laminated"], empty array if unclear>,
+          "theme":              <short label, e.g. "Polyester Cost Pressure", "US Trade Risk", "Nylon Supply Squeeze"|null>,
+          "rayon_relevance":    <"direct"|"indirect"|"none">,
+          "summary_tr":         <ONE specific Turkish sentence — MUST name the material form, direction, and magnitude or geography>,
+          "competitors_mentioned": <list of exact company names from article that appear in the tracked list; [] if none>,
+          "price_signal": {{
+            "material":      <specific material form, e.g. "Polyester FDY">,
+            "direction":     <"up"|"down"|"stable">,
+            "price_usd_kg":  <float or null>,
+            "note":          <brief quote or context, max 80 chars>
+          }} or null
         }}
 
-        signal_type values:
-          "competitor_mention"  — article names one or more tracked competitor companies
-          "price_move"          — raw material or fabric prices moving (polyester, nylon, cotton, yarn)
-          "price_signal"        — article gives a specific USD/kg or price index figure
-          "capacity_change"     — factory expansion, closure, new line, or major CapEx
-          "new_market"          — new geography, new customer segment, or new certification
-          "trend"               — broader industry direction (sustainability, reshoring, demand shift)
-          "regulation"          — tariff, sanction, standard, or compliance change
-          "other"               — relevant but doesn't fit above categories
+        ══ E. IMPACT SCORE RUBRIC (strict) ══
+        90–100: Direct material cost change >5% affecting FDY/POY/DTY/Nylon FDY (Rayon's core inputs)
+        70–89:  Competitor strategic move OR supply disruption in key materials
+        50–69:  Regulatory change or demand shift in Rayon's key export markets
+        30–49:  Indirect market development worth monitoring
+        0–29:   Background context, no immediate operational impact
 
-        Use "competitor_mention" if the article names any tracked competitor AND that is the primary intelligence.
-        Use "price_signal" if a specific price figure (USD/kg, index level, percentage change) is given.
-        Use "price_move" if only a direction or qualitative trend is described without a specific figure.
+        ══ F. FIELD RULES ══
+        signal_type:
+          "competitor_mention" → article names a tracked competitor (primary signal)
+          "price_signal"       → specific price figure given (USD/kg, index, % change)
+          "price_move"         → only directional/qualitative price trend, no specific figure
+          "capacity_change"    → factory expansion, closure, new production line, CapEx
+          "new_market"         → new geography, customer segment, or certification
+          "trend"              → broader industry direction
+          "regulation"         → tariff, sanction, standard, compliance change
 
-        price_signal structure (include when specific price data exists, otherwise null):
-        {{
-          "material": <e.g. "polyester filament", "nylon 6.6", "FR polyester fabric">,
-          "direction": <"up" | "down" | "stable">,
-          "price_usd_kg": <float or null if not stated>,
-          "note": <brief quote or context from the article, max 80 chars>
-        }}
+        rayon_relevance:
+          "direct"   → directly affects Rayon's input costs, production, or key markets
+          "indirect" → affects the broader industry in which Rayon competes
+          "none"     → no plausible connection to Rayon's business
 
-        Relevance scoring:
-          1.0 = directly affects fabric/yarn pricing, capacity, or export trade in Rayon's markets
-          0.7 = affects broader textile/garment industry in relevant geographies
-          0.4 = general textile news with indirect relevance
-          0.1 = tangential (fashion/retail consumer news, unrelated raw materials)
-          0.0 = completely unrelated
+        time_horizon:
+          "short" → effect within 1 month
+          "mid"   → effect within 1–6 months
+          "long"  → structural/strategic, 6+ months
 
-        Severity:
-          alert   = immediate action needed (major price shock, supply disruption, sanctions)
-          warning = developing situation worth tracking (capacity shifts, new entrant, regulatory proposal)
-          info    = background context or trend
+        action_tag:
+          "RISK"        → negative impact on costs or supply
+          "OPPORTUNITY" → potential advantage (competitor weakness, new market)
+          "MONITOR"     → watch but no action yet
 
-        summary_tr MUST be specific. Bad: "Polyester piyasası geriliyor."
-        Good: "Kipaş Mensucat, FR kumaş kapasitesini %30 artırarak yeni askeri tedarik sözleşmesi aldı."
+        severity:
+          alert   → immediate operational risk (major price shock, supply disruption, sanctions)
+          warning → developing situation requiring tracking
+          info    → background context or slow-moving trend
 
-        Return ONLY the JSON object — no markdown, no explanation.\
+        summary_tr MUST be specific.
+        BAD:  "Polyester piyasası artıyor."
+        BAD:  "Sektörde önemli gelişmeler yaşanıyor."
+        GOOD: "Çin'de POY fiyatları %4 artarak 7.200 RMB/ton seviyesine ulaştı, DTY maliyetlerini doğrudan etkiliyor."
+        GOOD: "ABD gümrük tarifeleri Bangladeş menşeli polyester dokuma kumaşlara %25 ek vergi getiriyor."
     """)
 
 
@@ -257,8 +301,11 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
         INSERT INTO market_signals
             (signal_type, severity, title, body,
              source_table, source_id, source_url, company_id,
-             llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
+             impact_score, time_horizon, action_tag, signal_category,
+             material_form, theme, affected_products, rayon_relevance)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             analysis["signal_type"],
@@ -273,6 +320,14 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
             tokens_in,
             tokens_out,
             cost,
+            analysis.get("impact_score"),
+            analysis.get("time_horizon"),
+            analysis.get("action_tag"),
+            analysis.get("signal_category"),
+            analysis.get("material_form"),
+            analysis.get("theme"),
+            analysis.get("affected_products"),
+            analysis.get("rayon_relevance"),
         ),
     )
 
@@ -292,8 +347,11 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
         INSERT INTO market_signals
             (signal_type, severity, title, body,
              source_table, source_id, source_url, company_id,
-             llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
+             impact_score, time_horizon, action_tag, signal_category,
+             material_form, theme, affected_products, rayon_relevance)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             "competitor_mention",
@@ -308,6 +366,14 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
             tokens_in,
             tokens_out,
             cost,
+            analysis.get("impact_score"),
+            analysis.get("time_horizon"),
+            analysis.get("action_tag"),
+            "COMPETITOR_MOVE",   # always for competitor signals
+            analysis.get("material_form"),
+            analysis.get("theme"),
+            analysis.get("affected_products"),
+            analysis.get("rayon_relevance"),
         ),
     )
 
@@ -385,20 +451,25 @@ def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, in
     raw = data["choices"][0]["message"]["content"]
     analysis = json.loads(raw)
 
-    # --- Validate and sanitize ---
+    # ── Validate and sanitize ──────────────────────────────────────────────
+
+    # relevance_score
     score = float(analysis.get("relevance_score", 0.0))
     analysis["relevance_score"] = round(max(0.0, min(1.0, score)), 3)
 
+    # signal_type
     signal_type = analysis.get("signal_type", "other")
     if signal_type not in VALID_SIGNAL_TYPES:
         signal_type = "other"
     analysis["signal_type"] = signal_type
 
+    # severity
     severity = analysis.get("severity", "info")
     if severity not in VALID_SEVERITIES:
         severity = "info"
     analysis["severity"] = severity
 
+    # summary_tr
     analysis["summary_tr"] = (analysis.get("summary_tr") or "").strip() or None
 
     # competitors_mentioned: always a list of strings
@@ -421,6 +492,70 @@ def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, in
         analysis["price_signal"] = ps
     else:
         analysis["price_signal"] = None
+
+    # ── New v2 fields ──────────────────────────────────────────────────────
+
+    # impact_score: int 0-100
+    try:
+        impact = int(analysis.get("impact_score") or 0)
+        analysis["impact_score"] = max(0, min(100, impact))
+    except (TypeError, ValueError):
+        analysis["impact_score"] = 0
+
+    # time_horizon
+    th = analysis.get("time_horizon")
+    analysis["time_horizon"] = th if th in VALID_TIME_HORIZONS else None
+
+    # action_tag
+    at = analysis.get("action_tag")
+    analysis["action_tag"] = at if at in VALID_ACTION_TAGS else None
+
+    # signal_category
+    sc = analysis.get("signal_category")
+    analysis["signal_category"] = sc if sc in VALID_SIGNAL_CATS else None
+
+    # material_form: free text, just strip
+    mf = (analysis.get("material_form") or "").strip()
+    analysis["material_form"] = mf or None
+
+    # theme: free text, just strip
+    theme = (analysis.get("theme") or "").strip()
+    analysis["theme"] = theme or None
+
+    # affected_products: filter to valid values
+    raw_ap = analysis.get("affected_products") or []
+    if isinstance(raw_ap, str):
+        raw_ap = [raw_ap]
+    analysis["affected_products"] = [p for p in raw_ap if p in VALID_AFFECTED] or None
+
+    # rayon_relevance
+    rr = analysis.get("rayon_relevance")
+    analysis["rayon_relevance"] = rr if rr in VALID_RAYON_REL else "indirect"
+
+    # ── Post-processing rules (F1–F4) ─────────────────────────────────────
+
+    # F1: no material_form but high relevance → cap score
+    if analysis["material_form"] is None and analysis["relevance_score"] > 0.4:
+        log.debug("F1: material_form null, capping relevance_score %.3f → 0.35",
+                  analysis["relevance_score"])
+        analysis["relevance_score"] = min(analysis["relevance_score"], 0.35)
+
+    # F2: generic summary_tr → cap impact_score
+    summary_lower = (analysis["summary_tr"] or "").lower()
+    if any(phrase in summary_lower for phrase in GENERIC_TR_PHRASES):
+        log.warning("F2: generic summary_tr detected — capping impact_score %d → 30",
+                    analysis["impact_score"])
+        analysis["impact_score"] = min(analysis["impact_score"], 30)
+
+    # F3: high impact but no time_horizon → default to 'mid'
+    if analysis["impact_score"] > 60 and analysis["time_horizon"] is None:
+        analysis["time_horizon"] = "mid"
+
+    # F4: no signal_category but relevance above threshold → infer
+    if analysis["signal_category"] is None and analysis["relevance_score"] > 0.4:
+        analysis["signal_category"] = (
+            "COST_IMPACT" if analysis["price_signal"] is not None else "DEMAND_SHIFT"
+        )
 
     return analysis, tokens_in, tokens_out, cost
 
@@ -498,10 +633,16 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
                 price_tag += f"@${ps['price_usd_kg']:.2f}/kg"
 
         log.info(
-            "  score=%.3f  type=%-18s sev=%-7s  tokens=%d+%d  cost=$%.6f%s%s",
+            "  score=%.3f  impact=%3s  cat=%-16s  type=%-18s  sev=%-7s  "
+            "mat=%-12s  rel=%-8s  horizon=%-5s  tokens=%d+%d  cost=$%.6f%s%s",
             analysis["relevance_score"],
+            analysis.get("impact_score") if analysis.get("impact_score") is not None else "—",
+            analysis.get("signal_category") or "—",
             analysis["signal_type"],
             analysis["severity"],
+            analysis.get("material_form") or "—",
+            analysis.get("rayon_relevance") or "—",
+            analysis.get("time_horizon") or "—",
             tokens_in, tokens_out,
             cost,
             competitor_tag,
@@ -517,13 +658,21 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
                 competitor_signals += len(matched)
             if print_signals and (matched or analysis["relevance_score"] >= RELEVANCE_THRESHOLD):
                 sample_signals.append({
-                    "title":       item["title"],
-                    "score":       analysis["relevance_score"],
-                    "type":        analysis["signal_type"],
-                    "severity":    analysis["severity"],
-                    "summary_tr":  analysis["summary_tr"],
-                    "competitors": [c["name"] for c in matched],
-                    "price":       analysis["price_signal"],
+                    "title":          item["title"],
+                    "score":          analysis["relevance_score"],
+                    "type":           analysis["signal_type"],
+                    "severity":       analysis["severity"],
+                    "summary_tr":     analysis["summary_tr"],
+                    "competitors":    [c["name"] for c in matched],
+                    "price":          analysis["price_signal"],
+                    "impact_score":   analysis.get("impact_score"),
+                    "signal_category": analysis.get("signal_category"),
+                    "material_form":  analysis.get("material_form"),
+                    "theme":          analysis.get("theme"),
+                    "action_tag":     analysis.get("action_tag"),
+                    "time_horizon":   analysis.get("time_horizon"),
+                    "rayon_relevance": analysis.get("rayon_relevance"),
+                    "affected_products": analysis.get("affected_products"),
                 })
             continue
 
@@ -545,8 +694,12 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
                             log.info("  → competitor_mention: %s", company["name"])
 
                     # 2. Primary signal — emit when above threshold
-                    #    Skip if signal_type is competitor_mention and we already wrote per-company signals
-                    emit_primary = analysis["relevance_score"] >= RELEVANCE_THRESHOLD
+                    #    F5: skip entirely if rayon_relevance='none' and no competitor match
+                    rayon_rel = analysis.get("rayon_relevance", "indirect")
+                    f5_gate = rayon_rel != "none" or bool(matched)
+                    emit_primary = (
+                        f5_gate and analysis["relevance_score"] >= RELEVANCE_THRESHOLD
+                    )
                     if emit_primary:
                         # If all intelligence is captured by competitor signals, skip redundant signal
                         if analysis["signal_type"] == "competitor_mention" and signals_written > 0:
@@ -563,13 +716,21 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
 
             if print_signals and signals_written > 0:
                 sample_signals.append({
-                    "title":       item["title"],
-                    "score":       analysis["relevance_score"],
-                    "type":        analysis["signal_type"],
-                    "severity":    analysis["severity"],
-                    "summary_tr":  analysis["summary_tr"],
-                    "competitors": [c["name"] for c in matched],
-                    "price":       analysis["price_signal"],
+                    "title":          item["title"],
+                    "score":          analysis["relevance_score"],
+                    "type":           analysis["signal_type"],
+                    "severity":       analysis["severity"],
+                    "summary_tr":     analysis["summary_tr"],
+                    "competitors":    [c["name"] for c in matched],
+                    "price":          analysis["price_signal"],
+                    "impact_score":   analysis.get("impact_score"),
+                    "signal_category": analysis.get("signal_category"),
+                    "material_form":  analysis.get("material_form"),
+                    "theme":          analysis.get("theme"),
+                    "action_tag":     analysis.get("action_tag"),
+                    "time_horizon":   analysis.get("time_horizon"),
+                    "rayon_relevance": analysis.get("rayon_relevance"),
+                    "affected_products": analysis.get("affected_products"),
                 })
 
         except psycopg2.Error as e:
@@ -625,15 +786,27 @@ def _print_sample_signals(signals: list[dict]):
         sep,
     ]
     for i, s in enumerate(signals, 1):
-        lines.append(f"\n[{i}] score={s['score']:.2f}  type={s['type']}  severity={s['severity']}")
-        lines.append(f"    Title : {_safe(s['title'], 90)}")
-        lines.append(f"    Signal: {_safe(s['summary_tr'])}")
+        lines.append(
+            f"\n[{i}] score={s['score']:.2f}  impact={s.get('impact_score','—')}  "
+            f"cat={s.get('signal_category') or '—'}  type={s['type']}  sev={s['severity']}"
+        )
+        lines.append(f"    Title   : {_safe(s['title'], 90)}")
+        lines.append(f"    Signal  : {_safe(s['summary_tr'])}")
+        lines.append(
+            f"    Material: {s.get('material_form') or '—'}  "
+            f"Products: {s.get('affected_products') or '—'}  "
+            f"Horizon: {s.get('time_horizon') or '—'}  "
+            f"Action: {s.get('action_tag') or '—'}  "
+            f"Relevance: {s.get('rayon_relevance') or '—'}"
+        )
+        if s.get("theme"):
+            lines.append(f"    Theme   : {_safe(s['theme'])}")
         if s["competitors"]:
             lines.append(f"    Companies: {_safe(', '.join(s['competitors']))}")
         if s["price"]:
             ps = s["price"]
             p = f"${ps['price_usd_kg']:.2f}/kg" if ps.get("price_usd_kg") else ps.get("direction", "")
-            lines.append(f"    Price: {_safe(ps['material'])} {p} - {_safe(ps.get('note', ''))}")
+            lines.append(f"    Price   : {_safe(ps['material'])} {p} — {_safe(ps.get('note', ''))}")
     lines += ["", sep, ""]
     print("\n".join(lines))
 
