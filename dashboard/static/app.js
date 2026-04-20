@@ -1045,8 +1045,11 @@ function hexAlpha(hex, alpha) {
 /* ── Refresh ─────────────────────────────────────────────────────────────────── */
 function initRefresh() {
   document.getElementById('refresh-btn').addEventListener('click', () => {
-    _internalData = null;
-    _priceData    = null;
+    _internalData    = null;
+    _priceData       = null;
+    _feedRawData     = null;
+    _feedMinImpact   = 60;     // reset to default — don't persist "View all" across refresh
+    _feedThemeFilter = null;
     Object.keys(_exportData).forEach(k => delete _exportData[k]);
     _loaded.clear();
     loadStats();

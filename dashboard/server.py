@@ -169,7 +169,7 @@ def signals(
 
     where = " AND ".join(conditions)
     sql = f"""
-        SELECT DISTINCT ON (ms.source_id)
+        SELECT DISTINCT ON (COALESCE(ms.source_id::text, ms.id::text))
                ms.signal_type, ms.severity, ms.title,
                ms.body            AS summary,
                ms.source_table,
@@ -187,7 +187,8 @@ def signals(
         FROM market_signals ms
         LEFT JOIN companies c ON ms.company_id = c.id
         WHERE {where}
-        ORDER BY ms.source_id, ms.impact_score DESC NULLS LAST, ms.detected_at DESC
+        ORDER BY COALESCE(ms.source_id::text, ms.id::text),
+                 ms.impact_score DESC NULLS LAST, ms.detected_at DESC
         LIMIT %s
     """
     params.append(limit)
