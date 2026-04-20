@@ -203,6 +203,13 @@ def fetch_api_page(session: requests.Session,
         log.warning("JSON parse error (page %d): %s", page, e)
         return None
 
+    # WP REST API sometimes returns an error object instead of a list
+    # (e.g. {"code":"rest_forbidden","message":"..."}) — treat as empty page
+    if not isinstance(posts, list):
+        log.warning("Unexpected API response type (page %d): %s — body: %.200s",
+                    page, type(posts).__name__, str(posts))
+        return [], 0
+
     total_pages = int(resp.headers.get("X-WP-TotalPages", 0))
     return posts, total_pages
 
@@ -212,6 +219,10 @@ def extract_article(post: dict) -> dict | None:
     Convert a WP REST API post object into {url, title, body_raw}.
     Returns None if the post is missing essential fields.
     """
+    if not isinstance(post, dict):
+        log.warning("Skipping non-dict post item: %r", post)
+        return None
+
     url = post.get("link", "").strip()
     if not url:
         return None
