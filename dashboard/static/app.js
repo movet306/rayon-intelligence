@@ -163,6 +163,16 @@ async function loadSignals() {
       return;
     }
     list.innerHTML = data.map(renderSignalCard).join('');
+
+    // Attach click handlers after DOM is ready — avoids inline onclick quoting issues
+    list.querySelectorAll('.signal-card[data-url]').forEach(card => {
+      const url = card.dataset.url;
+      card.style.cursor = 'pointer';
+      card.title = 'Haberi aç';
+      card.addEventListener('click', function () {
+        if (url && url.startsWith('http')) window.open(url, '_blank');
+      });
+    });
   } catch (e) {
     list.innerHTML = `<div class="empty-state">Error loading signals: ${e.message}</div>`;
   }
@@ -173,13 +183,12 @@ function renderSignalCard(r) {
   const sevBadge  = `<span class="badge badge-sev-${r.severity || 'info'}">${r.severity || 'info'}</span>`;
   const company   = r.company_name
     ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
-  const src = (r.source_table || '').replace(/_/g,' ');
-  const hasUrl    = !!r.source_url;
-  const clickable = hasUrl ? ` style="cursor:pointer" title="Haberi aç"` : '';
-  const linkIcon  = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
+  const src     = (r.source_table || '').replace(/_/g,' ');
+  const hasUrl  = r.source_url && r.source_url.startsWith('http');
+  const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
+  const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
   return `
-    <div class="signal-card type-${r.signal_type || 'other'}"${clickable}
-         ${hasUrl ? `onclick="window.open(${JSON.stringify(r.source_url)},'_blank')"` : ''}>
+    <div class="signal-card type-${r.signal_type || 'other'}"${urlAttr}>
       <div class="signal-meta">
         ${typeBadge}${sevBadge}
         <span class="signal-source">${esc(src)}</span>

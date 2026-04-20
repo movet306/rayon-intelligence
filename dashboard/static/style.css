@@ -227,6 +227,7 @@ html, body {
   transition: border-color 0.15s;
 }
 .signal-card:hover { border-color: var(--blue); border-left-color: inherit; }
+.signal-card[data-url]:hover { border-color: #58a6ff; background: rgba(88,166,255,0.04); }
 
 .signal-card.type-competitor_mention { border-left-color: var(--orange); }
 .signal-card.type-alert              { border-left-color: var(--red); }
