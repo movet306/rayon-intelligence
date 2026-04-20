@@ -157,10 +157,13 @@ def build_system_prompt(competitor_names: list[str]) -> str:
 
         ══ E. IMPACT SCORE RUBRIC (strict) ══
         90–100: Direct material cost change >5% affecting FDY/POY/DTY/Nylon FDY (Rayon's core inputs)
-        70–89:  Competitor strategic move OR supply disruption in key materials
-        50–69:  Regulatory change or demand shift in Rayon's key export markets
-        30–49:  Indirect market development worth monitoring
-        0–29:   Background context, no immediate operational impact
+        70–89:  Competitor strategic move OR supply disruption in key materials OR
+                major trade policy directly affecting Rayon's export markets (tariffs, sanctions)
+        50–69:  Industry demand shift in Rayon's markets OR regulatory change affecting
+                Turkish textile sector OR significant competitor capacity change OR
+                Turkish government textile policy with direct industry impact
+        30–49:  Indirect market development OR general industry trend worth monitoring
+        0–29:   Background context, no operational relevance
 
         ══ F. FIELD RULES ══
         signal_type:
@@ -204,8 +207,17 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           - production supply (factory capacity, disruption, availability)
           - demand in Rayon's markets (EU, US, Middle East, Eastern Europe)
           - direct competitor moves (capacity, pricing, new markets)
+          - Turkish government/industry textile policy
+          - major buyer or trade-flow decisions affecting Turkish textile exporters
 
         Then set rayon_relevance="none" and relevance_score < 0.2.
+
+        Do NOT discard — these are rayon_relevance="indirect" minimum:
+          - Turkish government textile/industry policy statements
+          - Trade association statements about sector challenges (ITKIB, TIM, TTGB)
+          - Major buyer decisions affecting Turkish suppliers (e.g. brand cutting orders)
+          - Turkish textile export performance data (volumes, destinations, trends)
+          - US/EU/regional tariff or trade policy affecting Turkish textile exports
 
         Articles about the following topics are almost always irrelevant — set rayon_relevance="none":
           - design competitions, sustainability awards, CSR initiatives
