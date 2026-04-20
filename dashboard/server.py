@@ -69,6 +69,17 @@ MATERIAL_LABELS = {
 app = FastAPI(title="Rayon Intelligence API", docs_url="/api/docs")
 
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    path = str(request.url.path)
+    if path.endswith((".js", ".css", ".html")):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 def _conn():
     return psycopg2.connect(DB_URL)
 
