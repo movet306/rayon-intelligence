@@ -139,7 +139,18 @@ async function loadStats() {
     const polyUsd = d.polyester_price_usd ?? (d.polyester_price_rmb != null && d.rmb_usd_rate
       ? d.polyester_price_rmb * d.rmb_usd_rate : null);
     setText('kpi-polyester', polyUsd != null
-      ? `$${polyUsd.toLocaleString('en', {maximumFractionDigits:0})}` : '—');
+      ? `$${Math.round(polyUsd).toLocaleString('en')}` : '—');
+    const chg7 = d.polyester_change_7d;
+    const chgEl = document.getElementById('kpi-polyester-change');
+    if (chgEl) {
+      if (chg7 != null) {
+        const sign = chg7 >= 0 ? '+' : '';
+        chgEl.textContent = `${sign}${chg7.toFixed(1)}% 7d`;
+        chgEl.style.color = chg7 >= 0 ? '#3fb950' : '#f85149';
+      } else {
+        chgEl.textContent = '';
+      }
+    }
     setText('last-refresh', `Refreshed ${new Date().toLocaleTimeString()}`);
   } catch (e) {
     console.error('stats error', e);

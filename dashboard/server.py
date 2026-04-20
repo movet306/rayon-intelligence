@@ -113,9 +113,10 @@ def stats():
     ).get("n", 0)
 
     latest_poly = _one(
-        """SELECT price::float AS price_rmb, price_usd::float AS price_usd
+        """SELECT price::float AS price_rmb, price_usd::float AS price_usd,
+                  change_7d::float AS change_7d
            FROM price_metrics_daily
-           WHERE material = 'polyester_staple_fiber' AND frequency = 'daily'
+           WHERE material = 'polyester_fdy' AND frequency = 'daily'
            ORDER BY metric_date DESC LIMIT 1""",
     )
 
@@ -136,6 +137,7 @@ def stats():
         "competitor_count": competitor_count,
         "polyester_price_rmb": latest_poly.get("price_rmb"),
         "polyester_price_usd": latest_poly.get("price_usd"),
+        "polyester_change_7d": latest_poly.get("change_7d"),
         "hs5407_export_mn": hs5407_export.get("value_mn"),
         "hs5407_period": hs5407_export.get("period"),
         "rmb_usd_rate": rate,
