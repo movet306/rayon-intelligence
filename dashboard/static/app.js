@@ -197,7 +197,7 @@ async function _loadSignalStats() {
 async function _loadFeedSignals() {
   const list = document.getElementById('signals-list');
   list.innerHTML = '<div class="loading">Loading signals…</div>';
-  const url = `/api/signals?min_impact=${_feedMinImpact}&days=30&limit=200`;
+  const url = `/api/signals?min_impact=${_feedMinImpact}&days=30&limit=200&exclude_critical=true`;
   try {
     _feedRawData = await api(url);
     _renderFeed();

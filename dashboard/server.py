@@ -142,12 +142,13 @@ def signals(
     category: str = Query("all"),
     horizon: str = Query("all"),
     action: str = Query("all"),
+    exclude_critical: bool = Query(False),
 ):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     conditions = ["ms.detected_at >= %s"]
     params: list = [cutoff]
 
-    conditions.append("(ms.impact_score >= %s OR ms.impact_score IS NULL)")
+    conditions.append("ms.impact_score >= %s")
     params.append(min_impact)
 
     if category != "all":
@@ -160,9 +161,16 @@ def signals(
         conditions.append("ms.action_tag = %s")
         params.append(action)
 
+    # Exclude signals already shown in the Critical panel (impact≥80 within last 7 days)
+    if exclude_critical:
+        conditions.append(
+            "(ms.impact_score < 80 OR ms.detected_at < NOW() - INTERVAL '7 days')"
+        )
+
     where = " AND ".join(conditions)
     sql = f"""
-        SELECT ms.signal_type, ms.severity, ms.title,
+        SELECT DISTINCT ON (ms.source_id)
+               ms.signal_type, ms.severity, ms.title,
                ms.body            AS summary,
                ms.source_table,
                ms.source_url,
@@ -179,9 +187,7 @@ def signals(
         FROM market_signals ms
         LEFT JOIN companies c ON ms.company_id = c.id
         WHERE {where}
-        ORDER BY
-            CASE WHEN ms.impact_score IS NULL THEN 0 ELSE ms.impact_score END DESC,
-            ms.detected_at DESC
+        ORDER BY ms.source_id, ms.impact_score DESC NULLS LAST, ms.detected_at DESC
         LIMIT %s
     """
     params.append(limit)

@@ -197,6 +197,22 @@ def build_system_prompt(competitor_names: list[str]) -> str:
         BAD:  "Sektörde önemli gelişmeler yaşanıyor."
         GOOD: "Çin'de POY fiyatları %4 artarak 7.200 RMB/ton seviyesine ulaştı, DTY maliyetlerini doğrudan etkiliyor."
         GOOD: "ABD gümrük tarifeleri Bangladeş menşeli polyester dokuma kumaşlara %25 ek vergi getiriyor."
+
+        ══ G. DISCARD RULE ══
+        If the article does NOT meaningfully impact any of these:
+          - raw material costs (polyester/nylon/cotton input prices)
+          - production supply (factory capacity, disruption, availability)
+          - demand in Rayon's markets (EU, US, Middle East, Eastern Europe)
+          - direct competitor moves (capacity, pricing, new markets)
+
+        Then set rayon_relevance="none" and relevance_score < 0.2.
+
+        Articles about the following topics are almost always irrelevant — set rayon_relevance="none":
+          - design competitions, sustainability awards, CSR initiatives
+          - general industry conferences or trade shows (unless specific price/capacity data)
+          - fashion trends, retail consumer news, influencer/brand marketing
+          - company financial results without supply/pricing implications
+          - generic innovation or R&D announcements without commercial impact
     """)
 
 
