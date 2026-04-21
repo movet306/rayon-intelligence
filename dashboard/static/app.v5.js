@@ -895,7 +895,7 @@ function _renderPriceSummaryTable(data) {
         <th class="num">30G%</th>
         <th class="num">Trend</th>
         <th class="num">Momentum</th>
-        <th class="num">Tier</th>
+        <th class="num" title="Data quality tier: A=60+ days, B=30+, C=14+, D=7+, E=under 7">Quality</th>
         <th class="num">TR Lag</th>
       </tr></thead>
       <tbody>${rows}</tbody>

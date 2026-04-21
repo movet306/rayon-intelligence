@@ -251,10 +251,10 @@ def calculate_momentum(change_1d, change_7d, prev_7d) -> float | None:
     Returns None if fewer than MIN_POINTS_MOMENTUM data points available
     (caller is responsible for that gate).
     """
-    if change_1d is None or change_7d is None:
+    if change_1d is None or change_7d is None or prev_7d is None:
         return None
 
-    acceleration = (change_7d - prev_7d) if prev_7d is not None else 0.0
+    acceleration = change_7d - prev_7d
 
     norm = lambda x, scale: math.tanh(x / scale)
     score = (
