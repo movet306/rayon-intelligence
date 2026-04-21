@@ -61,6 +61,33 @@ CREATE TABLE IF NOT EXISTS fact_supplier_quotes (
     created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Traceability columns (added post-seed in Phase 1 validation pass)
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS raw_yarn_label         TEXT;
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS source_table           TEXT DEFAULT 'lkp_yarn_taxonomy';
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS source_row_id          INTEGER;
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS parse_confidence       TEXT DEFAULT 'medium';
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS manual_review_required BOOLEAN DEFAULT FALSE;
+
+-- Placeholder / eligibility flags (added in consolidation pass)
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS pricing_eligible  BOOLEAN DEFAULT TRUE;
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS is_placeholder    BOOLEAN DEFAULT FALSE;
+
+-- Subspec sensitivity flag (added in Phase 1 final schema pass)
+ALTER TABLE dim_yarn_master ADD COLUMN IF NOT EXISTS subspec_sensitive BOOLEAN DEFAULT FALSE;
+
+-- Label alias table: one row per commercial label variant that maps to a canonical spec
+CREATE TABLE IF NOT EXISTS dim_yarn_label_alias (
+    alias_id      SERIAL PRIMARY KEY,
+    yarn_id       INTEGER REFERENCES dim_yarn_master(yarn_id),
+    raw_label     TEXT NOT NULL,
+    source_table  TEXT DEFAULT 'lkp_yarn_taxonomy',
+    source_row_id INTEGER,
+    alias_type    TEXT DEFAULT 'commercial_label',
+    alias_reason  TEXT,
+    notes         TEXT,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS fact_yarn_price_pressure (
     id               SERIAL PRIMARY KEY,
     calc_date        DATE NOT NULL,
