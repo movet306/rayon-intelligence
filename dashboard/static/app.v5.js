@@ -141,6 +141,7 @@ function lazyLoad(section) {
   if (_loaded.has(section)) return;
   _loaded.add(section);
   if (section === 'prices')   loadPriceDashboard();
+  if (section === 'yarn')     loadYarnIntelligence();
   if (section === 'exports')  loadExports();
   if (section === 'internal') loadInternal();
 }
@@ -937,6 +938,113 @@ function initPriceSection() {
     table.style.display    = collapsed ? 'none' : '';
     arrow.textContent      = collapsed ? '▶' : '▼';
   });
+}
+
+/* ── Yarn Intelligence ───────────────────────────────────────────────────────── */
+async function loadYarnIntelligence() {
+  const tbody   = document.getElementById('yarn-pressure-tbody');
+  const summary = document.getElementById('yarn-pressure-summary');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="11" class="loading">Yukleniyor...</td></tr>';
+
+  try {
+    const data  = await api('/api/yarn_pressure');
+    const yarns = data.flat || [];
+
+    /* ── Summary family cards ─────────────────────────────────────────────── */
+    const families = {};
+    yarns.forEach(y => {
+      families[y.fiber_family] = families[y.fiber_family] || [];
+      families[y.fiber_family].push(y);
+    });
+
+    summary.innerHTML = Object.entries(families).map(([fam, items]) => {
+      const rising   = items.filter(y => y.pressure_signal.includes('rising')).length;
+      const falling  = items.filter(y => y.pressure_signal.includes('falling')).length;
+      const dominant = rising > falling ? 'rising' : falling > rising ? 'falling' : 'stable';
+      const cls      = dominant === 'rising'  ? 'pressure-rising'  :
+                       dominant === 'falling' ? 'pressure-falling' : 'pressure-stable';
+      const icon     = dominant === 'rising'  ? '\u2191' :
+                       dominant === 'falling' ? '\u2193' : '\u2192';
+      return `<div class="yarn-family-card ${cls}">
+        <div class="yarn-family-name">${esc(fam)}</div>
+        <div class="yarn-family-signal">${icon} ${dominant}</div>
+        <div class="yarn-family-count">${items.length} specs</div>
+      </div>`;
+    }).join('');
+
+    /* ── Pressure labels / classes ────────────────────────────────────────── */
+    const PLABEL = {
+      rising_strong:    '\u21911 Guclu Artis',
+      rising:           '\u2191 Artis',
+      stable:           '\u2192 Sakin',
+      falling:          '\u2193 Dusus',
+      falling_strong:   '\u21932 Guclu Dusus',
+      insufficient_data: '\u2014 Yetersiz',
+    };
+    const PCLS = {
+      rising_strong: 'stat-up', rising: 'stat-up',
+      falling: 'stat-down', falling_strong: 'stat-down',
+      insufficient_data: 'muted',
+    };
+
+    /* ── Table rows ───────────────────────────────────────────────────────── */
+    tbody.innerHTML = yarns.map(y => {
+      const pLabel = PLABEL[y.pressure_signal] || y.pressure_signal;
+      const pCls   = PCLS[y.pressure_signal]   || '';
+
+      const c7 = y.driver_change_7d != null
+        ? `<span class="${y.driver_change_7d > 0 ? 'stat-up' : y.driver_change_7d < 0 ? 'stat-down' : ''}">${y.driver_change_7d > 0 ? '+' : ''}${y.driver_change_7d.toFixed(1)}%</span>`
+        : '\u2014';
+
+      const mom = y.driver_momentum != null
+        ? `<span class="${y.driver_momentum > 0.1 ? 'stat-up' : y.driver_momentum < -0.1 ? 'stat-down' : ''}">` +
+          (y.driver_momentum > 0.3 ? '\u21911' : y.driver_momentum > 0.1 ? '\u2191' :
+           y.driver_momentum < -0.3 ? '\u21932' : y.driver_momentum < -0.1 ? '\u2193' : '\u2192') +
+          '</span>'
+        : '\u2014';
+
+      const lag = (y.lag_min_weeks && y.lag_max_weeks)
+        ? `<span class="turkey-lag-badge">${y.lag_min_weeks}\u2013${y.lag_max_weeks} hf</span>`
+        : '\u2014';
+
+      const subspec = y.subspec_sensitive
+        ? ' <span title="Alt-spec varyantlar mevcut \u2014 fiyat farki olabilir" style="color:#f0883e;font-size:10px">\u26a0</span>'
+        : '';
+
+      const price = y.driver_price_usd
+        ? `$${Math.round(y.driver_price_usd).toLocaleString('en')}`
+        : '\u2014';
+
+      const tier = y.driver_data_quality
+        ? `<span class="tier-badge tier-${y.driver_data_quality}">${y.driver_data_quality}</span>`
+        : '\u2014';
+
+      return `<tr>
+        <td>${esc(y.yarn_code)}${subspec}</td>
+        <td>${esc(y.fiber_family)}</td>
+        <td class="num">${y.denier_class || '\u2014'}</td>
+        <td class="num">${y.luster || '\u2014'}</td>
+        <td><span class="driver-badge">${esc(y.primary_driver_slug)}</span></td>
+        <td class="num">${price}</td>
+        <td class="num">${c7}</td>
+        <td class="num">${mom}</td>
+        <td class="num ${pCls}">${pLabel}</td>
+        <td class="num">${lag}</td>
+        <td class="num">${tier}</td>
+      </tr>`;
+    }).join('');
+
+    /* ── Subspec warning ──────────────────────────────────────────────────── */
+    const noteEl = document.getElementById('yarn-subspec-note');
+    if (noteEl && data.subspec_warning) {
+      noteEl.textContent = '\u26a0 ' + data.subspec_warning;
+    }
+
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="11" class="error">Yuklenemedi: ${e.message}</td></tr>`;
+  }
 }
 
 /* ── Export Intelligence ─────────────────────────────────────────────────────── */

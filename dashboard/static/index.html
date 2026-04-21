@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rayon Intelligence Platform</title>
-  <link rel="stylesheet" href="style.v5.css">
+  <link rel="stylesheet" href="style.v5.css?v=6">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js" defer></script>
+  <script src="app.v5.js?v=6" defer></script>
 </head>
 <body>
 
@@ -24,6 +24,9 @@
     </div>
     <div class="nav-item" data-section="prices">
       <span class="nav-icon">💹</span> Price Intelligence
+    </div>
+    <div class="nav-item" data-section="yarn">
+      <span class="nav-icon">🧵</span> Yarn Intelligence
     </div>
     <div class="nav-item" data-section="exports">
       <span class="nav-icon">🌍</span> Export Intelligence
@@ -166,7 +169,45 @@
     </div>
   </section>
 
-  <!-- 3. Export Intelligence -->
+  <!-- 3. Yarn Intelligence -->
+  <section id="section-yarn" class="section">
+    <div class="section-title">Yarn Intelligence</div>
+
+    <div id="yarn-scope-note" class="scope-note">
+      Phase 1: Synthetic yarn driver mapping only.
+      Cotton / viscose / blend = Phase 2.
+      Prices are indicative driver-based estimates, not validated quotes.
+    </div>
+
+    <div id="yarn-pressure-summary" class="yarn-pressure-grid"></div>
+
+    <div id="yarn-table-container">
+      <div class="table-title">Yarn Watchlist — Cost Pressure by Driver</div>
+      <div class="table-wrap">
+        <table id="yarn-pressure-table" class="data-table">
+          <thead>
+            <tr>
+              <th>Yarn Spec</th>
+              <th>Family</th>
+              <th class="num">Denier</th>
+              <th class="num">Luster</th>
+              <th>Primary Driver</th>
+              <th class="num">Driver Price</th>
+              <th class="num">7G%</th>
+              <th class="num">Momentum</th>
+              <th class="num">Pressure</th>
+              <th class="num">TR Lag</th>
+              <th class="num">Quality</th>
+            </tr>
+          </thead>
+          <tbody id="yarn-pressure-tbody"></tbody>
+        </table>
+      </div>
+      <div class="subspec-warning" id="yarn-subspec-note"></div>
+    </div>
+  </section>
+
+  <!-- 4. Export Intelligence -->
   <section id="section-exports" class="section">
     <div class="section-title">Turkey Textile Export Intelligence</div>
 
