@@ -675,6 +675,129 @@ def lescon(months: int = Query(24, ge=1, le=120)):
     }
 
 
+# ── /api/yarn_master ───────────────────────────────────────────────────────────
+
+@app.get("/api/yarn_master")
+def get_yarn_master():
+    """
+    Returns active canonical yarn specs with their price drivers.
+    Phase 1 scope: synthetic yarn exposure and driver mapping only.
+    NOT for exact pricing or quote benchmarking.
+    """
+    rows = _rows("""
+        SELECT
+            ym.yarn_id,
+            ym.yarn_code,
+            ym.display_name,
+            ym.fiber_family,
+            ym.filament_process,
+            ym.denier,
+            ym.filament_count,
+            ym.denier_class,
+            ym.luster,
+            ym.recycle_flag,
+            ym.subspec_sensitive,
+            ym.application,
+            yd.primary_driver_slug,
+            yd.secondary_driver_slug,
+            yd.pricing_method,
+            yd.price_confidence,
+            yd.denier_premium_rule,
+            yd.luster_premium_rule,
+            yd.recycle_factor::float,
+            COUNT(yla.alias_id) AS alias_count
+        FROM dim_yarn_master ym
+        LEFT JOIN dim_yarn_price_driver yd ON yd.yarn_id = ym.yarn_id
+        LEFT JOIN dim_yarn_label_alias yla ON yla.yarn_id = ym.yarn_id
+        WHERE ym.pricing_eligible = TRUE
+          AND ym.is_placeholder = FALSE
+        GROUP BY ym.yarn_id, yd.driver_id
+        ORDER BY ym.fiber_family, ym.denier NULLS LAST
+    """)
+    return {
+        "yarns":        rows,
+        "scope":        "Phase 1 — synthetic yarn driver mapping only",
+        "coverage":     "polyester FDY/DTY + PA6/PA6.6",
+        "not_covered":  ["cotton", "viscose", "blend", "elastane"],
+        "safe_for":     ["driver_mapping", "exposure_grouping", "watchlist"],
+        "not_safe_for": ["exact_pricing", "quote_benchmarking", "landed_cost"],
+    }
+
+
+# ── /api/yarn_pressure ─────────────────────────────────────────────────────────
+
+@app.get("/api/yarn_pressure")
+def get_yarn_pressure():
+    """
+    For each active yarn, returns estimated cost pressure based on primary driver.
+    Uses price_metrics_daily gold layer. Phase 1: indicative only.
+    """
+    rows = _rows("""
+        SELECT
+            ym.yarn_code,
+            ym.display_name,
+            ym.fiber_family,
+            ym.filament_process,
+            ym.denier_class,
+            ym.luster,
+            ym.recycle_flag,
+            ym.subspec_sensitive,
+            yd.primary_driver_slug,
+            yd.price_confidence,
+            pmd.price_usd::float        AS driver_price_usd,
+            pmd.change_7d::float        AS driver_change_7d,
+            pmd.change_1d::float        AS driver_change_1d,
+            pmd.trend_direction         AS driver_trend,
+            pmd.momentum_score::float   AS driver_momentum,
+            pmd.confidence_tier         AS driver_data_quality,
+            dm.lag_min_weeks,
+            dm.lag_max_weeks,
+            CASE
+                WHEN pmd.change_7d IS NULL     THEN 'insufficient_data'
+                WHEN pmd.change_7d > 5         THEN 'rising_strong'
+                WHEN pmd.change_7d > 2         THEN 'rising'
+                WHEN pmd.change_7d < -5        THEN 'falling_strong'
+                WHEN pmd.change_7d < -2        THEN 'falling'
+                ELSE 'stable'
+            END AS pressure_signal
+        FROM dim_yarn_master ym
+        JOIN dim_yarn_price_driver yd ON yd.yarn_id = ym.yarn_id
+        JOIN (
+            SELECT DISTINCT ON (material)
+                material, price_usd, change_7d, change_1d,
+                trend_direction, momentum_score, confidence_tier
+            FROM price_metrics_daily
+            WHERE frequency = 'daily'
+            ORDER BY material, metric_date DESC
+        ) pmd ON pmd.material = yd.primary_driver_slug
+        LEFT JOIN dim_material dm ON dm.slug = yd.primary_driver_slug
+        WHERE ym.pricing_eligible = TRUE
+          AND ym.is_placeholder = FALSE
+        ORDER BY
+            CASE
+                WHEN pmd.change_7d > 5  THEN 1
+                WHEN pmd.change_7d > 2  THEN 2
+                WHEN pmd.change_7d IS NULL THEN 6
+                WHEN pmd.change_7d < -5 THEN 5
+                WHEN pmd.change_7d < -2 THEN 4
+                ELSE 3
+            END,
+            ym.fiber_family, ym.denier NULLS LAST
+    """)
+
+    by_family: dict = {}
+    for r in rows:
+        fam = r["fiber_family"]
+        by_family.setdefault(fam, []).append(r)
+
+    return {
+        "by_family":         by_family,
+        "flat":              rows,
+        "confidence_note":   "indicative — driver-based estimates only, not validated quotes",
+        "subspec_warning":   "yarns with subspec_sensitive=true may have pricing variants not captured here",
+    }
+
+
 # ── Serve static files (must be last) ─────────────────────────────────────────
 
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
