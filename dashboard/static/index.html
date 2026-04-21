@@ -109,12 +109,12 @@
   <section id="section-prices" class="section">
     <div class="section-title">Emtia Fiyat İstihbaratı</div>
 
-    <!-- 1. Auto-signals bar -->
-    <div id="price-signals-bar" class="price-signals-bar">
-      <span class="price-signal-badge badge-neutral">Sinyaller yükleniyor…</span>
+    <!-- A. Early Warning Bar -->
+    <div id="early-warning-bar" class="early-warning-section">
+      <div class="ew-loading">Erken uyarı sinyalleri yükleniyor…</div>
     </div>
 
-    <!-- 1b. Currency toggle -->
+    <!-- Currency toggle -->
     <div class="currency-toggle-row">
       <div class="chart-toggle" id="currency-toggle">
         <button class="toggle-btn" data-currency="rmb">RMB/t</button>
@@ -123,33 +123,41 @@
       <span class="currency-rate-note" id="currency-rate-note"></span>
     </div>
 
-    <!-- 2. Polyester family -->
+    <!-- B. Polyester Chain Panel -->
     <div class="price-block">
       <div class="price-block-header">
-        <span class="price-block-title">Polyester Ailesi</span>
+        <span class="price-block-title">Polyester Zinciri — PTA &#8594; PSF &#8594; FDY &#8594; POY &#8594; DTY</span>
         <div class="chart-toggle" id="poly-toggle">
           <button class="toggle-btn active" data-mode="price">Fiyat</button>
           <button class="toggle-btn" data-mode="normalize">Normalize (baz=100)</button>
           <button class="toggle-btn" data-mode="spread">Spread</button>
         </div>
       </div>
+      <!-- Chain flow visualization -->
+      <div id="chain-flow-polyester" class="chain-flow-wrap"></div>
+      <!-- Price chart -->
       <div id="chart-polyester" class="chart-wrap-tall"></div>
+      <!-- Metric cards -->
       <div id="poly-metric-cards" class="poly-metric-cards"></div>
+      <!-- Turkey lag row -->
+      <div id="poly-lag-row" class="turkey-lag-row"></div>
     </div>
 
-    <!-- 3. Secondary row -->
+    <!-- C. Secondary row -->
     <div class="two-col price-secondary-row">
       <div class="chart-panel">
-        <div class="chart-panel-title">Pamuk &amp; Ham Madde</div>
+        <div class="chart-panel-title">Pamuk — Spot &amp; Vadeli</div>
+        <div id="cotton-series-info" class="cotton-series-info"></div>
         <div class="chart-wrap" id="chart-cotton-raw"></div>
+        <div class="cotton-disclaimer" id="cotton-disclaimer"></div>
       </div>
       <div class="chart-panel">
-        <div class="chart-panel-title">Naylon Ailesi</div>
+        <div class="chart-panel-title">Naylon Ailesi &amp; Adipik Asit</div>
         <div class="chart-wrap" id="chart-nylon"></div>
       </div>
     </div>
 
-    <!-- 4. Summary table (collapsible) -->
+    <!-- D. Summary table (collapsible) -->
     <div class="table-wrap price-summary-wrap">
       <div class="table-title price-table-toggle-header" id="price-table-toggle">
         Tüm Materyaller — Özet <span id="price-table-arrow">▼</span>

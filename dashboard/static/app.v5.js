@@ -44,7 +44,8 @@ const MATERIAL_LABELS = {
   polyester_dty:          'Polyester DTY',
   polyester_yarn:         'Polyester İplik',
   pta:                    'PTA',
-  cotton_lint:            'Pamuk (Ham)',
+  cotton_lint:            'Pamuk (SunSirs Çin)',
+  cotton_lint_futures:    'Pamuk (ICE Vadeli)',
   cotton_yarn:            'Pamuk İpliği',
   polyamide_fdy:          'Naylon FDY (PA6)',
   pa6_chip:               'PA6 Chip',
@@ -70,6 +71,7 @@ const ALL_PRICE_MATS = [
   { key: 'polyester_yarn',         fam: 'polyester' },
   { key: 'pta',                    fam: 'polyester' },
   { key: 'cotton_lint',            fam: 'cotton'    },
+  { key: 'cotton_lint_futures',    fam: 'cotton'    },
   { key: 'cotton_yarn',            fam: 'cotton'    },
   { key: 'polyamide_fdy',          fam: 'nylon'     },
   { key: 'pa6_chip',               fam: 'nylon'     },
@@ -77,6 +79,23 @@ const ALL_PRICE_MATS = [
   { key: 'adipic_acid',            fam: 'nylon'     },
   { key: 'rayon_yarn',             fam: 'rayon'     },
 ];
+
+// Polyester chain nodes in display order (for chain flow visualization)
+const POLY_CHAIN = [
+  { key: 'pta',                    label: 'PTA',  color: C.blue   },
+  { key: 'polyester_staple_fiber', label: 'PSF',  color: C.purple },
+  { key: 'polyester_fdy',          label: 'FDY',  color: C.orange },
+  { key: 'polyester_poy',          label: 'POY',  color: C.green  },
+  { key: 'polyester_dty',          label: 'DTY',  color: '#a371f7'},
+];
+
+// Which node is "upstream" for divergence display (right node key -> left node key)
+const CHAIN_UPSTREAM = {
+  polyester_staple_fiber: 'pta',
+  polyester_fdy:          'pta',
+  polyester_poy:          'pta',
+  polyester_dty:          'polyester_poy',
+};
 
 /* ── State ─────────────────────────────────────────────────────────────────── */
 let _internalData = null;
@@ -371,14 +390,13 @@ const PRICE_CHART_LAYOUT = {
 };
 
 async function loadPriceDashboard() {
-  // Fire signals bar immediately (independent request)
-  _loadPriceSignalsBar();
+  // Fire early warning bar immediately (independent request)
+  _loadEarlyWarningBar();
 
   if (_priceData) {
     _renderPriceDashboard(_priceData);
     return;
   }
-  // Show skeleton while loading
   document.getElementById('chart-polyester').innerHTML =
     '<div class="loading">Fiyat verisi yükleniyor…</div>';
   document.getElementById('poly-metric-cards').innerHTML = '';
@@ -392,45 +410,149 @@ async function loadPriceDashboard() {
   }
 }
 
-async function _loadPriceSignalsBar() {
-  const bar = document.getElementById('price-signals-bar');
+async function _loadEarlyWarningBar() {
+  const bar = document.getElementById('early-warning-bar');
   try {
-    const signals = await api('/api/price_signals');
-    _renderPriceSignalsBar(bar, signals);
+    const signals = await api('/api/price_intelligence_signals');
+    _renderEarlyWarningBar(bar, signals);
   } catch (_) {
-    bar.innerHTML = '<span class="price-signal-badge badge-neutral">Sinyaller yüklenemedi</span>';
+    bar.innerHTML = '<div class="ew-loading">Erken uyarı sinyalleri yüklenemedi.</div>';
   }
 }
 
-function _renderPriceSignalsBar(bar, response) {
-  // Accept both old array format and new {signals, suppressed} format
-  const signals    = Array.isArray(response) ? response : (response.signals || []);
-  const suppressed = Array.isArray(response) ? 0        : (response.suppressed || 0);
-
-  if (!signals.length && !suppressed) {
-    bar.innerHTML = '<span class="price-signal-badge badge-neutral">Sinyal yok — piyasalar sakin</span>';
+function _renderEarlyWarningBar(bar, signals) {
+  if (!signals || !signals.length) {
+    bar.innerHTML = '<div class="no-signals-muted">Aktif fiyat sinyali yok — piyasalar sakin</div>';
     return;
   }
 
-  let html = signals.map(s => {
-    const cls = s.severity === 'warning' ? 'badge-warning'
-              : s.severity === 'alert'   ? 'badge-alert'
-              :                            'badge-info';
-    return `<span class="price-signal-badge ${cls}">${esc(s.text)}</span>`;
-  }).join('');
+  const SEV_LABEL  = { critical: 'KRİTİK', high: 'YÜKSEK', medium: 'ORTA', low: 'DÜŞÜK' };
+  const TYPE_LABEL = {
+    COST_PRESSURE_UP:        'Maliyet Artışı',
+    COST_PRESSURE_DOWN:      'Maliyet Düşüşü',
+    UPSTREAM_DOWNSTREAM_DIVG:'Zincir Uyumsuzluğu',
+    SPREAD_WIDENING:         'Spread Genişleme',
+    SPREAD_TIGHTENING:       'Spread Daralma',
+    VOLATILITY_SPIKE:        'Volatilite',
+    DELAYED_PASS_THROUGH_RISK:'Gecikmiş Yansıma',
+    DATA_QUALITY_WARNING:    'Veri Uyarısı',
+  };
 
-  if (suppressed) {
-    html += `<span class="signals-suppressed-note">${suppressed} materyal susturuldu — yetersiz veri</span>`;
-  }
-  bar.innerHTML = html || '<span class="price-signal-badge badge-neutral">Sinyal yok — piyasalar sakin</span>';
+  bar.innerHTML = signals.map(s => {
+    const sev      = s.severity || 'low';
+    const typeText = TYPE_LABEL[s.signal_type] || s.signal_type;
+    const valChip  = s.value_pct != null
+      ? `<div class="ew-value-chip">${s.value_pct > 0 ? '+' : ''}${s.value_pct.toFixed(1)}%</div>` : '';
+    const lagHtml  = (s.turkey_lag_min && s.turkey_lag_max)
+      ? `<div class="ew-lag">&#8594; Türkiye tahmini: ${s.turkey_lag_min}–${s.turkey_lag_max} hafta</div>` : '';
+    const impl     = s.business_implication
+      ? `<div class="ew-implication">${esc(s.business_implication)}</div>` : '';
+
+    return `
+      <div class="early-warning-card ew-card-${sev}">
+        <div class="ew-left">
+          <span class="ew-type-badge ew-badge-${sev}">${typeText}</span>
+          <span class="ew-sev-text">${SEV_LABEL[sev] || sev}</span>
+        </div>
+        <div class="ew-content">
+          <div class="ew-explanation">${esc(s.explanation)}</div>
+          ${impl}${lagHtml}
+        </div>
+        ${valChip}
+      </div>`;
+  }).join('');
 }
 
 function _renderPriceDashboard(data) {
   _updateRateNote(data);
+  _renderChainFlow(data);
   _renderPolyesterFamily(data, _polyMode);
   _renderPolyMetricCards(data);
+  _renderPolyLagRow(data);
   _renderSecondaryCharts(data);
   _renderPriceSummaryTable(data);
+}
+
+// ── Chain Flow Visualization ──────────────────────────────────────────────────
+
+function _momentumArrow(score) {
+  if (score == null) return { icon: '→', cls: 'momentum-flat' };
+  if (score >  0.3) return { icon: '↑↑', cls: 'momentum-strong-up'   };
+  if (score >  0.1) return { icon: '↑',  cls: 'momentum-up'          };
+  if (score > -0.1) return { icon: '→',  cls: 'momentum-flat'         };
+  if (score > -0.3) return { icon: '↓',  cls: 'momentum-down'         };
+  return                   { icon: '↓↓', cls: 'momentum-strong-down'  };
+}
+
+function _tierBadge(tier) {
+  if (!tier) return '';
+  return `<span class="tier-badge tier-${tier}">${tier}</span>`;
+}
+
+function _renderChainFlow(data) {
+  const el = document.getElementById('chain-flow-polyester');
+  if (!el) return;
+
+  let html = '';
+  POLY_CHAIN.forEach((node, idx) => {
+    const d       = data[node.key];
+    const latest  = d?.latest;
+    const price   = latest?.price_usd != null ? `$${Math.round(latest.price_usd).toLocaleString('en')}` : '—';
+    const c7      = latest?.change_7d;
+    const c7Html  = c7 != null
+      ? `<div class="chain-node-change ${c7 > 0 ? 'stat-up' : c7 < 0 ? 'stat-down' : ''}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</div>`
+      : '<div class="chain-node-change" style="color:var(--muted)">—</div>';
+    const tier    = latest?.confidence_tier;
+    const mom     = _momentumArrow(latest?.momentum_score);
+    const tierHtml = _tierBadge(tier);
+    const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
+
+    // Divergence indicator for separator to the LEFT of this node
+    let divHtml = '';
+    if (idx > 0) {
+      const leftKey    = POLY_CHAIN[idx - 1].key;
+      const upstreamOf = CHAIN_UPSTREAM[node.key];
+      const div        = latest?.divergence_score;
+      const showDiv    = div != null && Math.abs(div) >= 3.0 && upstreamOf === leftKey;
+      divHtml = showDiv
+        ? `<span class="divergence-badge">&#9889; ${div.toFixed(1)}%</span>`
+        : '';
+    }
+
+    if (idx > 0) {
+      html += `<div class="chain-separator"><span class="chain-arrow-icon">&#8594;</span>${divHtml}</div>`;
+    }
+    html += `
+      <div class="chain-node" style="border-top: 2px solid ${node.color}">
+        <div class="chain-node-name">${node.label}</div>
+        <div class="chain-node-price">${price}</div>
+        ${c7Html}
+        <div class="chain-node-footer">${tierHtml}${momHtml}</div>
+      </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── Turkey Lag Row ────────────────────────────────────────────────────────────
+
+function _renderPolyLagRow(data) {
+  const el = document.getElementById('poly-lag-row');
+  if (!el) return;
+
+  const items = POLY_CHAIN.map(node => {
+    const dm      = data[node.key]?.meta;
+    const lagMin  = dm?.lag_min_weeks;
+    const lagMax  = dm?.lag_max_weeks;
+    if (!lagMin || !lagMax) return '';
+    return `<div class="lag-item">
+      <span class="lag-item-name">${node.label}</span>
+      <span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>
+    </div>`;
+  }).filter(Boolean);
+
+  if (!items.length) { el.style.display = 'none'; return; }
+  el.innerHTML = `<span class="lag-row-label">&#127481;&#127479; Türkiye yansıma:</span> ${items.join('')}`;
 }
 
 function _priceVal(point) {
@@ -616,11 +738,18 @@ function _renderPolyMetricCards(data) {
     const vol = l?.volatility_7d != null
       ? `<span class="card-vol">σ ${l.volatility_7d.toFixed(1)}</span>` : '';
 
+    const tier = l?.confidence_tier;
+    const tierHtml = tier ? _tierBadge(tier) : '';
+
+    const mom = _momentumArrow(l?.momentum_score);
+    const momHtml = `<span class="chain-momentum ${mom.cls}" style="font-size:12px">${mom.icon}</span>`;
+
     return `
       <div class="poly-metric-card" style="border-top: 3px solid ${m.color}">
         <div class="card-label">${m.label}</div>
         <div class="card-price">${price}</div>
-        <div class="card-meta">${c7Html}${trendHtml}${vol}</div>
+        <div class="card-meta">${c7Html}${trendHtml}${momHtml}${vol}</div>
+        <div class="card-meta" style="margin-top:4px">${tierHtml}</div>
       </div>`;
   }).join('');
 }
@@ -628,17 +757,46 @@ function _renderPolyMetricCards(data) {
 // ── Secondary charts ──────────────────────────────────────────────────────────
 
 function _renderSecondaryCharts(data) {
-  // Cotton & Raw
-  _renderMultiLine('chart-cotton-raw', [
-    { key: 'cotton_lint', color: C.orange, label: 'Pamuk Ham' },
-    { key: 'pta',         color: C.blue,   label: 'PTA' },
-  ], data);
+  // Cotton: two separate series (sunsirs china spot + ICE futures)
+  _renderCottonPanel(data);
 
-  // Nylon
+  // Nylon + Adipic Acid as leading indicator
   _renderMultiLine('chart-nylon', [
-    { key: 'pa6_chip',     color: C.blue,   label: 'PA6 Chip' },
-    { key: 'pa66_chip',    color: C.orange, label: 'PA66 Chip' },
+    { key: 'pa6_chip',      color: C.blue,   label: 'PA6 Chip' },
+    { key: 'pa66_chip',     color: C.orange, label: 'PA66 Chip' },
     { key: 'polyamide_fdy', color: C.purple, label: 'Naylon FDY' },
+    { key: 'adipic_acid',   color: '#56d364',label: 'Adipik Asit (öncü)' },
+  ], data);
+}
+
+function _renderCottonPanel(data) {
+  // Series info cards
+  const infoEl = document.getElementById('cotton-series-info');
+  if (infoEl) {
+    const sunsirs  = data['cotton_lint']?.latest;
+    const iceFut   = data['cotton_lint_futures']?.latest;
+    const fmtP = v => v?.price_usd != null ? `$${Math.round(v.price_usd).toLocaleString('en')}/t` : '—';
+    infoEl.innerHTML = `
+      <div class="cotton-series-card">
+        <div class="cotton-series-label">SunSirs Çin Spot</div>
+        <div class="cotton-series-price" style="color:${C.orange}">${fmtP(sunsirs)}</div>
+      </div>
+      <div class="cotton-series-card">
+        <div class="cotton-series-label">ICE Vadeli (Küresel)</div>
+        <div class="cotton-series-price" style="color:${C.blue}">${fmtP(iceFut)}</div>
+      </div>`;
+  }
+
+  // Disclaimer
+  const discEl = document.getElementById('cotton-disclaimer');
+  if (discEl) {
+    discEl.textContent = 'Bu iki seri farklı piyasalardır — doğrudan karşılaştırılmamalıdır.';
+  }
+
+  // Chart: both cotton series
+  _renderMultiLine('chart-cotton-raw', [
+    { key: 'cotton_lint',         color: C.orange, label: 'Pamuk — SunSirs Çin Spot' },
+    { key: 'cotton_lint_futures', color: C.blue,   label: 'Pamuk — ICE Vadeli (USD/t)' },
   ], data);
 }
 
@@ -687,35 +845,43 @@ function _renderPriceSummaryTable(data) {
     if (t === 'down') return '<span class="stat-down">↓</span>';
     return '<span class="stat-neutral">→</span>';
   };
-  const confBadge = conf => {
-    if (!conf) return '';
-    const cls = { high: 'conf-high', medium: 'conf-medium', low: 'conf-low', minimal: 'conf-minimal' }[conf] || '';
-    return `<span class="conf-badge ${cls}">${conf}</span>`;
-  };
   const INS = '<span class="muted">—</span>';
 
   const rows = ALL_PRICE_MATS.map(m => {
     const d    = data[m.key];
     const pts  = d?.series.length || 0;
     const l    = d?.latest;
+    const dm   = d?.meta;
+    const tier = l?.confidence_tier;
     const conf = l?.confidence_level || (pts >= 30 ? 'high' : pts >= 14 ? 'medium' : pts >= 7 ? 'low' : 'minimal');
+    const isTierE   = tier === 'E' || conf === 'minimal';
     const isMinimal = conf === 'minimal';
 
-    const famCls  = m.fam === 'polyester' ? 'fam-polyester'
-                  : m.fam === 'nylon'     ? 'fam-nylon' : '';
-    const minCls  = isMinimal ? 'row-minimal' : '';
-    const tooltip = isMinimal ? ` title="7'den az veri noktası — metrikler devre dışı"` : "";
+    const famCls   = m.fam === 'polyester' ? 'fam-polyester'
+                   : m.fam === 'nylon'     ? 'fam-nylon' : '';
+    const tierECls = isTierE ? 'row-tier-e' : '';
+    const minCls   = isMinimal ? 'row-minimal' : '';
+    const tooltip  = isTierE ? ` title="Veri toplanıyor — metrikler devre dışı"` : '';
 
-    return `<tr class="${famCls} ${minCls}"${tooltip}>
+    const tierHtml = tier ? `<span class="tier-badge tier-${tier}">${tier}</span>` : INS;
+    const mom      = _momentumArrow(l?.momentum_score);
+    const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
+
+    const lagMin = dm?.lag_min_weeks;
+    const lagMax = dm?.lag_max_weeks;
+    const lagHtml = (lagMin && lagMax)
+      ? `<span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>` : INS;
+
+    return `<tr class="${famCls} ${tierECls} ${minCls}"${tooltip}>
       <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
       <td class="num">${_priceFmt(_latestPrice(l))}</td>
       <td class="num">${fmtPct(l?.change_1d)}</td>
       <td class="num">${fmtPct(l?.change_7d)}</td>
       <td class="num">${fmtPct(l?.change_30d)}</td>
       <td class="num">${trendArrow(l?.trend_direction)}</td>
-      <td class="num">${l?.volatility_7d != null ? l.volatility_7d.toFixed(1) : INS}</td>
-      <td class="num">${confBadge(conf)}</td>
-      <td class="num" style="color:var(--muted);font-size:11px">${pts}</td>
+      <td class="num">${momHtml}</td>
+      <td class="num">${tierHtml}</td>
+      <td class="num">${lagHtml}</td>
     </tr>`;
   }).join('');
 
@@ -728,9 +894,9 @@ function _renderPriceSummaryTable(data) {
         <th class="num">7G%</th>
         <th class="num">30G%</th>
         <th class="num">Trend</th>
-        <th class="num">Volatilite</th>
-        <th class="num">Güven</th>
-        <th class="num">Veri</th>
+        <th class="num">Momentum</th>
+        <th class="num">Tier</th>
+        <th class="num">TR Lag</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -1062,7 +1228,7 @@ function initRefresh() {
     _internalData    = null;
     _priceData       = null;
     _feedRawData     = null;
-    _feedMinImpact   = 60;
+    _feedMinImpact   = 50;
     _feedViewAll     = false;  // reset to default — don't persist "View all" across refresh
     _feedThemeFilter = null;
     Object.keys(_exportData).forEach(k => delete _exportData[k]);

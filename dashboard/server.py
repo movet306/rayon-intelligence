@@ -131,17 +131,38 @@ def stats():
            GROUP BY period""",
     )
 
+    price_signals_active = _one(
+        """SELECT COUNT(*)::int AS n FROM price_intelligence_signals
+           WHERE signal_date >= NOW() - INTERVAL '7 days' AND suppressed = FALSE""",
+    ).get("n", 0)
+
+    pta_row = _one(
+        """SELECT momentum_score::float AS momentum
+           FROM price_metrics_daily
+           WHERE material = 'pta' AND frequency = 'daily'
+           ORDER BY metric_date DESC LIMIT 1""",
+    )
+    pta_momentum = pta_row.get("momentum")
+    if pta_momentum is not None:
+        if pta_momentum > 0.1:   polyester_pressure = "rising"
+        elif pta_momentum < -0.1: polyester_pressure = "falling"
+        else:                     polyester_pressure = "stable"
+    else:
+        polyester_pressure = None
+
     rate, rate_date = get_rmb_usd_rate()
     return {
-        "signal_count_30d": signal_count,
-        "competitor_count": competitor_count,
+        "signal_count_30d":    signal_count,
+        "competitor_count":    competitor_count,
         "polyester_price_rmb": latest_poly.get("price_rmb"),
         "polyester_price_usd": latest_poly.get("price_usd"),
         "polyester_change_7d": latest_poly.get("change_7d"),
-        "hs5407_export_mn": hs5407_export.get("value_mn"),
-        "hs5407_period": hs5407_export.get("period"),
-        "rmb_usd_rate": rate,
-        "rmb_usd_rate_date": rate_date,
+        "hs5407_export_mn":    hs5407_export.get("value_mn"),
+        "hs5407_period":       hs5407_export.get("period"),
+        "rmb_usd_rate":        rate,
+        "rmb_usd_rate_date":   rate_date,
+        "price_signals_active": price_signals_active,
+        "polyester_pressure":   polyester_pressure,
     }
 
 
@@ -285,13 +306,25 @@ def signal_stats():
 def prices():
     """
     Query price_metrics_daily (gold layer) for all daily-frequency materials.
+    Joins dim_material for family, material_form, and Turkey lag estimates.
     Returns JSON:
       {
         meta: { rmb_usd_rate, rate_date },
-        <material>: { latest: {...}, series: [{date, price, price_usd, ma7, ma30, normalized_idx}] }
+        <material>: {
+          meta: { family, material_form, lag_min_weeks, lag_max_weeks },
+          latest: { price, price_usd, change_1d/7d/30d, confidence_tier,
+                    momentum_score, divergence_score, ... },
+          series: [{date, price, price_usd, ma7, ma30, normalized_idx}]
+        }
       }
     """
     rate, rate_date = get_rmb_usd_rate()
+
+    # Fetch dim_material for lag + family metadata
+    dim_rows = _rows(
+        "SELECT slug, family, material_form, lag_min_weeks, lag_max_weeks FROM dim_material"
+    )
+    dim_mat = {r["slug"]: r for r in dim_rows}
 
     rows = _rows("""
         SELECT material,
@@ -307,7 +340,10 @@ def prices():
                normalized_idx::float,
                trend_direction,
                data_points,
-               confidence_level
+               confidence_level,
+               confidence_tier,
+               momentum_score::float,
+               divergence_score::float
         FROM price_metrics_daily
         WHERE frequency = 'daily'
           AND metric_date >= NOW() - INTERVAL '90 days'
@@ -319,8 +355,18 @@ def prices():
     }
     for r in rows:
         m = r["material"]
+        dm = dim_mat.get(m, {})
         if m not in grouped:
-            grouped[m] = {"latest": None, "series": []}
+            grouped[m] = {
+                "latest": None,
+                "series": [],
+                "meta": {
+                    "family":        dm.get("family"),
+                    "material_form": dm.get("material_form"),
+                    "lag_min_weeks": dm.get("lag_min_weeks"),
+                    "lag_max_weeks": dm.get("lag_max_weeks"),
+                },
+            }
         grouped[m]["series"].append({
             "date":           r["metric_date"],
             "price":          r["price"],
@@ -339,9 +385,52 @@ def prices():
             "trend_direction":  r["trend_direction"],
             "data_points":      r["data_points"],
             "confidence_level": r["confidence_level"],
+            "confidence_tier":  r["confidence_tier"],
+            "momentum_score":   r["momentum_score"],
+            "divergence_score": r["divergence_score"],
         }
 
     return grouped
+
+
+# ── /api/price_intelligence_signals ───────────────────────────────────────────
+
+@app.get("/api/price_intelligence_signals")
+def price_intelligence_signals_endpoint():
+    """
+    Return active price signals from price_intelligence_signals (Etap 1D output).
+    Ordered by severity (critical→high→medium→low), then signal_date DESC.
+    """
+    return _rows("""
+        SELECT
+            id,
+            signal_date::text        AS signal_date,
+            signal_type,
+            chain,
+            material_slug,
+            upstream_slug,
+            downstream_slug,
+            severity,
+            time_horizon,
+            confidence_tier,
+            value_pct::float         AS value_pct,
+            explanation,
+            business_implication,
+            turkey_lag_min,
+            turkey_lag_max,
+            suppressed
+        FROM price_intelligence_signals
+        WHERE signal_date >= NOW() - INTERVAL '7 days'
+          AND suppressed = FALSE
+        ORDER BY
+            CASE severity
+                WHEN 'critical' THEN 1
+                WHEN 'high'     THEN 2
+                WHEN 'medium'   THEN 3
+                ELSE 4
+            END,
+            signal_date DESC
+    """)
 
 
 # ── /api/price_signals ─────────────────────────────────────────────────────────
