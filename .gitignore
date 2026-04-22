@@ -4,3 +4,27 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+# Credentials / service account keys
+*.key
+*.pem
+n8n-textile-bot-*.json
+credentials/
+secrets/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data dumps
+*.sql.backup
+*.dump
+dumps/
+outputs/

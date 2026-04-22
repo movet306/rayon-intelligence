@@ -50,8 +50,14 @@ jobs:
       - name: Run SunSirs fiber prices scraper
         run: python scrapers/sunsirs_prices.py --all
 
+      - name: Run ICE Cotton scraper
+        run: python scrapers/ice_cotton.py
+
       - name: Run LLM analyzer
         run: python scrapers/llm_analyzer.py --limit 50
+
+      - name: Build price intelligence signals
+        run: python scrapers/build_price_signals.py
 
       - name: Run Texhibition exhibitor scraper
         run: python scrapers/texhibition_scraper.py

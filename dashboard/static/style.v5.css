@@ -182,7 +182,6 @@ html, body {
 .section { display: none; }
 .section.active { display: block; }
 
-/* ── Section header ────────────────────────────────────────────────────────── */
 .section-title {
   font-size: 18px;
   font-weight: 600;
@@ -297,8 +296,6 @@ html, body {
 }
 
 /* ── Price Intelligence section ────────────────────────────────────────────── */
-
-/* Auto-signals bar */
 .price-signals-bar {
   display: flex;
   flex-wrap: wrap;
@@ -324,19 +321,14 @@ html, body {
 .badge-info    { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.3); }
 .badge-neutral { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid rgba(139,148,158,0.25); }
 
-/* Currency toggle row */
 .currency-toggle-row {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
 }
-.currency-rate-note {
-  font-size: 11px;
-  color: var(--muted);
-}
+.currency-rate-note { font-size: 11px; color: var(--muted); }
 
-/* Polyester family block */
 .price-block {
   background: var(--card);
   border: 1px solid var(--border);
@@ -359,11 +351,7 @@ html, body {
   color: var(--text);
 }
 
-/* Toggle buttons */
-.chart-toggle {
-  display: flex;
-  gap: 4px;
-}
+.chart-toggle { display: flex; gap: 4px; }
 .toggle-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -379,10 +367,8 @@ html, body {
 .toggle-btn:hover  { color: var(--text); border-color: var(--blue); }
 .toggle-btn.active { background: rgba(88,166,255,0.15); color: var(--blue); border-color: var(--blue); }
 
-/* Tall chart wrap for polyester family */
 .chart-wrap-tall { height: 360px; overflow: hidden; }
 
-/* Polyester metric cards (4-col grid) */
 .poly-metric-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -410,12 +396,7 @@ html, body {
   margin-bottom: 6px;
   font-variant-numeric: tabular-nums;
 }
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pct-badge {
   font-size: 11px;
   font-weight: 700;
@@ -429,28 +410,20 @@ html, body {
 .trend-up   { color: var(--green); }
 .trend-down { color: var(--red); }
 .trend-flat { color: var(--muted); }
-.card-vol {
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 2px;
-}
-.muted-sm { font-size: 11px; color: var(--muted); }
+.card-vol   { font-size: 10px; color: var(--muted); margin-left: 2px; }
+.muted-sm   { font-size: 11px; color: var(--muted); }
 
-/* Secondary row spacing */
 .price-secondary-row { margin-bottom: 0; }
 .price-summary-wrap  { margin-top: 16px; }
 
-/* Summary table row family tinting */
 .data-table tr.fam-polyester td { background: rgba(88,166,255,0.04); }
 .data-table tr.fam-nylon td     { background: rgba(240,136,62,0.04); }
 .data-table tr.fam-polyester:hover td { background: rgba(88,166,255,0.09); }
 .data-table tr.fam-nylon:hover td     { background: rgba(240,136,62,0.09); }
 
-/* Collapsible table header */
 .price-table-toggle-header { cursor: pointer; user-select: none; }
 .price-table-toggle-header:hover { color: var(--blue); }
 
-/* Confidence level badges */
 .conf-badge {
   display: inline-block;
   font-size: 10px;
@@ -465,7 +438,6 @@ html, body {
 .conf-low     { background: rgba(240,136,62,0.18);  color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
 .conf-minimal { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
 
-/* Minimal-confidence rows: grayed out */
 .data-table tr.row-minimal td {
   opacity: 0.42;
   font-style: italic;
@@ -475,7 +447,6 @@ html, body {
   background: rgba(139,148,158,0.06);
 }
 
-/* Suppressed materials note in signals bar */
 .signals-suppressed-note {
   margin-left: auto;
   font-size: 11px;
@@ -484,14 +455,9 @@ html, body {
   white-space: nowrap;
 }
 
-/* ── Early Warning Bar (Etap 2A) ────────────────────────────────────────────── */
+/* ── Early Warning Bar ──────────────────────────────────────────────────────── */
 .early-warning-section { margin-bottom: 16px; }
-.ew-loading {
-  font-size: 12px;
-  color: var(--muted);
-  font-style: italic;
-  padding: 10px 14px;
-}
+.ew-loading { font-size: 12px; color: var(--muted); font-style: italic; padding: 10px 14px; }
 .no-signals-muted {
   font-size: 13px;
   color: var(--muted);
@@ -547,7 +513,7 @@ html, body {
   margin-top: 2px;
 }
 
-/* ── Chain Flow Visualization (Etap 2A) ─────────────────────────────────────── */
+/* ── Chain Flow ─────────────────────────────────────────────────────────────── */
 .chain-flow-wrap {
   display: flex;
   align-items: flex-start;
@@ -600,7 +566,7 @@ html, body {
   white-space: nowrap;
 }
 
-/* ── Confidence Tier Badges (A–E) ───────────────────────────────────────────── */
+/* ── Tier Badges ────────────────────────────────────────────────────────────── */
 .tier-badge {
   display: inline-block;
   font-size: 10px;
@@ -615,7 +581,7 @@ html, body {
 .tier-D { background: rgba(240,136,62,0.2);   color: #f0883e; }
 .tier-E { background: rgba(139,148,158,0.15); color: #8b949e; }
 
-/* ── Turkey Lag Row ──────────────────────────────────────────────────────────── */
+/* ── Turkey Lag ─────────────────────────────────────────────────────────────── */
 .turkey-lag-row {
   display: flex;
   gap: 20px;
@@ -638,7 +604,7 @@ html, body {
   font-weight: 600;
 }
 
-/* ── Cotton Dual-Series Info ─────────────────────────────────────────────────── */
+/* ── Cotton ─────────────────────────────────────────────────────────────────── */
 .cotton-series-info {
   display: flex;
   justify-content: space-around;
@@ -668,10 +634,8 @@ html, body {
   background: var(--bg);
 }
 
-/* ── Summary table enhancements ─────────────────────────────────────────────── */
 .data-table tr.row-tier-e td { opacity: 0.4; font-style: italic; }
 .data-table tr.row-tier-e:hover td { opacity: 0.55; }
-
 /* ── Export section ────────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
@@ -796,7 +760,7 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 
-/* ── Summary metric row (Internal) ────────────────────────────────────────── */
+/* ── Internal metrics ──────────────────────────────────────────────────────── */
 .metric-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -824,8 +788,6 @@ html, body {
 }
 
 /* ── Market Signals v2 ─────────────────────────────────────────────────────── */
-
-/* Panel wrapper */
 .signals-panel {
   background: var(--card);
   border: 1px solid var(--border);
@@ -834,7 +796,6 @@ html, body {
   overflow: hidden;
 }
 
-/* Panel header row */
 .panel-header {
   display: flex;
   align-items: center;
@@ -852,13 +813,11 @@ html, body {
   color: var(--muted);
 }
 
-/* Panel A: Critical — warm top accent */
 .panel-critical {
   border-top: 2px solid var(--red);
   background: color-mix(in srgb, var(--card) 96%, #f85149 4%);
 }
 
-/* Critical signal cards */
 #critical-list {
   padding: 12px;
   display: flex;
@@ -901,7 +860,6 @@ html, body {
   font-size: 12px;
 }
 
-/* Impact score badges */
 .impact-score-badge {
   font-size: 22px;
   font-weight: 800;
@@ -923,7 +881,6 @@ html, body {
   border-radius: 4px;
 }
 
-/* Signal category badges */
 .cat-badge {
   display: inline-block;
   font-size: 10px;
@@ -939,7 +896,6 @@ html, body {
 .cat-COMPETITOR_MOVE { background: rgba(163,113,247,0.18); color: #a371f7; }
 .cat-REGULATORY      { background: rgba(63,185,80,0.18);  color: var(--green); }
 
-/* Action tag badges */
 .action-badge {
   display: inline-block;
   font-size: 10px;
@@ -953,7 +909,6 @@ html, body {
 .action-opportunity { background: var(--green);  color: #fff; }
 .action-monitor     { background: var(--border); color: var(--muted); }
 
-/* Time horizon tag */
 .horizon-tag {
   font-size: 10px;
   font-weight: 600;
@@ -964,18 +919,9 @@ html, body {
   border-radius: 3px;
 }
 
-/* Material label inline */
-.signal-mat-sm {
-  font-size: 11px;
-  color: var(--muted);
-}
-.signal-company-inline {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--orange);
-}
+.signal-mat-sm { font-size: 11px; color: var(--muted); }
+.signal-company-inline { font-size: 12px; font-weight: 600; color: var(--orange); }
 
-/* Panel B: Themes */
 .panel-themes .panel-header { padding-bottom: 10px; }
 .theme-clear-link { cursor: pointer; color: var(--blue) !important; }
 .theme-clear-link:hover { opacity: 0.75; }
@@ -1010,7 +956,6 @@ html, body {
   border-radius: 8px;
 }
 
-/* Feed archive row */
 .feed-archive-row {
   padding: 10px 18px 14px;
   border-top: 1px solid var(--border);
@@ -1022,7 +967,7 @@ html, body {
 }
 .archive-link:hover { color: var(--blue); }
 
-/* ── Yarn Intelligence ───────────────────────────────────────────────────────── */
+/* ── Yarn Intelligence — base ──────────────────────────────────────────────── */
 .yarn-pressure-grid {
   display: flex;
   gap: 12px;
@@ -1042,6 +987,7 @@ html, body {
 .yarn-family-name   { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .yarn-family-signal { font-size: 18px; font-weight: 600; margin: 4px 0; }
 .yarn-family-count  { font-size: 11px; color: var(--muted); }
+
 .scope-note {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1067,26 +1013,269 @@ html, body {
   margin-top: 8px;
   padding: 0 4px;
 }
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+
+/* ── Phase A — Beta pill, amber scope note, coverage strip ─────────────────── */
+.phase-pill {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  background: rgba(240,136,62,0.15);
+  color: var(--orange);
+  border: 1px solid rgba(240,136,62,0.4);
+  text-transform: uppercase;
 }
-.data-table th {
-  padding: 8px 10px;
-  text-align: left;
+
+.scope-note-amber {
+  border-left: 3px solid var(--orange);
+  background: rgba(240,136,62,0.06);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  border-radius: 4px;
+}
+.scope-note-amber strong { color: var(--orange); }
+.scope-note-amber em     { color: var(--muted); font-style: normal; text-decoration: underline dotted; }
+
+.coverage-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+.cov-strip-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+.cov-strip-total {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: 1px solid transparent;
   font-size: 11px;
   font-weight: 600;
+}
+.cov-chip-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.cov-chip-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+.cov-chip-quote-validated { background: rgba(63,185,80,0.1);   color: #3fb950; border-color: rgba(63,185,80,0.3); }
+.cov-chip-quote-validated .cov-chip-dot { background: #3fb950; }
+
+.cov-chip-driver-priced   { background: rgba(88,166,255,0.1);  color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+.cov-chip-driver-priced   .cov-chip-dot { background: #58a6ff; }
+
+.cov-chip-placeholder     { background: rgba(210,153,34,0.1);  color: #d29922; border-color: rgba(210,153,34,0.3); }
+.cov-chip-placeholder     .cov-chip-dot { background: #d29922; }
+
+.cov-chip-not-covered     { background: rgba(139,148,158,0.1); color: #8b949e; border-color: rgba(139,148,158,0.3); }
+.cov-chip-not-covered     .cov-chip-dot { background: #8b949e; }
+
+.cov-chip-small {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.cov-chip-small.cov-chip-quote-validated { background: rgba(63,185,80,0.15);   color: #3fb950; border-color: rgba(63,185,80,0.35); }
+.cov-chip-small.cov-chip-driver-priced   { background: rgba(88,166,255,0.12);  color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+.cov-chip-small.cov-chip-placeholder     { background: rgba(210,153,34,0.15);  color: #d29922; border-color: rgba(210,153,34,0.35); }
+.cov-chip-small.cov-chip-not-covered     { background: rgba(139,148,158,0.12); color: #8b949e; border-color: rgba(139,148,158,0.3); }
+
+/* ── Grouped yarn table ────────────────────────────────────────────────────── */
+.yarn-grouped-table td { vertical-align: middle; }
+.yarn-grouped-table .muted { color: var(--muted); }
+
+.yarn-driver-row {
+  cursor: pointer;
+  background: rgba(88,166,255,0.06);
+  border-top: 2px solid var(--border);
+  border-bottom: 1px solid rgba(88,166,255,0.15);
+  transition: background 0.12s;
+}
+.yarn-driver-row td { font-weight: 700; }
+.yarn-driver-row:hover { background: rgba(88,166,255,0.12); }
+.yarn-driver-row.yarn-driver-open {
+  background: rgba(88,166,255,0.10);
+  border-bottom-color: rgba(88,166,255,0.30);
+}
+.yarn-driver-row-nodriver { background: rgba(139,148,158,0.04); }
+.yarn-driver-row-nodriver:hover { background: rgba(139,148,158,0.08); }
+
+.yarn-expand-cell {
+  text-align: center;
+  padding: 0 !important;
+  width: 24px;
+}
+.yarn-expand-caret {
+  display: inline-block;
+  font-size: 11px;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  transition: transform 0.15s;
+  user-select: none;
 }
-.data-table th.num { text-align: right; }
-.data-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #21262d;
+.yarn-driver-open .yarn-expand-caret { color: var(--blue); }
+
+.yarn-spec-count {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(139,148,158,0.15);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+}
+
+.yarn-spec-row {
+  background: rgba(13,17,23,0.4);
+  font-size: 12px;
+}
+.yarn-spec-row td {
+  color: var(--muted);
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+.yarn-spec-row:hover { background: rgba(88,166,255,0.03); }
+
+.yarn-spec-row td.spec-primary {
   color: var(--text);
-  vertical-align: middle;
+  padding-left: 28px !important;
+  border-left: 2px solid rgba(88,166,255,0.25);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
 }
-.data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.data-table tbody tr:hover { background: #161b22; }
+.yarn-spec-row td.spec-meta-cell {
+  padding-left: 12px;
+}
+
+/* ── Phase A 1.5 — Insight strip, quality legend, metadata chips ───────────── */
+.yarn-insights-strip {
+  background: linear-gradient(90deg, rgba(88,166,255,0.04), rgba(88,166,255,0.01));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.yarn-insights-strip-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.yarn-insight-item {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+  padding: 2px 0;
+}
+.yarn-insight-item + .yarn-insight-item {
+  border-top: 1px solid rgba(139,148,158,0.08);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+.yarn-insight-bullet {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-right: 10px;
+  vertical-align: middle;
+  background: var(--blue);
+}
+.yarn-insight-bullet.bullet-easing  { background: #f0883e; }
+.yarn-insight-bullet.bullet-falling { background: #f85149; }
+.yarn-insight-bullet.bullet-firming { background: #d29922; }
+.yarn-insight-bullet.bullet-rising  { background: #f85149; }
+.yarn-insight-bullet.bullet-stable  { background: #8b949e; }
+.yarn-insight-bullet.bullet-watch   { background: #a371f7; }
+.yarn-insight-emph  { font-weight: 600; color: var(--text); }
+.yarn-insight-muted { color: var(--muted); }
+
+.yarn-quality-legend {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 16px 10px;
+  line-height: 1.7;
+  border-bottom: 1px solid var(--border);
+}
+.yarn-quality-legend strong { color: var(--text); font-weight: 600; }
+.yarn-quality-legend .tier-badge { margin: 0 2px; }
+
+.spec-meta-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(139,148,158,0.12);
+  color: var(--muted);
+  border: 1px solid rgba(139,148,158,0.2);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  margin-right: 4px;
+  letter-spacing: 0.02em;
+}
+.spec-meta-chip.chip-denier      { color: var(--blue);   border-color: rgba(88,166,255,0.25);  background: rgba(88,166,255,0.08); }
+.spec-meta-chip.chip-filament    { color: var(--green);  border-color: rgba(63,185,80,0.25);   background: rgba(63,185,80,0.08); }
+.spec-meta-chip.chip-luster      { color: var(--muted); }
+.spec-meta-chip.chip-recycle     { color: var(--green);  border-color: rgba(63,185,80,0.4);    background: rgba(63,185,80,0.12); font-weight: 700; }
+.spec-meta-chip.chip-alias       { color: var(--purple); border-color: rgba(188,140,255,0.25); background: rgba(188,140,255,0.08); }
+.spec-meta-chip.chip-placeholder { color: #d29922;       border-color: rgba(210,153,34,0.4);   background: rgba(210,153,34,0.12); }
+
+/* ── Pressure pills ────────────────────────────────────────────────────────── */
+.pressure-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 10px;
+  letter-spacing: 0.02em;
+}
+.pressure-rising   { background: rgba(248,81,73,0.18);   color: #f85149; }
+.pressure-firming  { background: rgba(210,153,34,0.18);  color: #d29922; }
+.pressure-stable   { background: rgba(139,148,158,0.15); color: #8b949e; }
+.pressure-easing   { background: rgba(240,136,62,0.18);  color: #f0883e; }
+.pressure-falling  { background: rgba(63,185,80,0.18);   color: #3fb950; }
+.pressure-watch    { background: rgba(188,140,255,0.15); color: #a371f7; }

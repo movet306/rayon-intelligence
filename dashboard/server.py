@@ -729,19 +729,50 @@ def get_yarn_master():
 @app.get("/api/yarn_pressure")
 def get_yarn_pressure():
     """
-    For each active yarn, returns estimated cost pressure based on primary driver.
+    For each yarn, returns estimated cost pressure based on primary driver.
     Uses price_metrics_daily gold layer. Phase 1: indicative only.
+
+    Coverage status is computed per-row in Python (not SQL) because the logic
+    is still evolving. Possible values:
+      - quote-validated : has a supplier quote in fact_supplier_quotes (last 90d)
+      - placeholder     : dim_yarn_master.is_placeholder = true
+      - driver-priced   : pricing_eligible + has driver match + has price data
+      - not-covered     : pricing_eligible = false OR no driver mapping OR no price
+
+    Pressure signals (derived from driver change_7d):
+      - rising  : > +5%
+      - firming : > +2% (and <= +5%)
+      - stable  : -2% to +2%
+      - easing  : < -2% (and >= -5%)
+      - falling : < -5%
+      - watch   : no data / insufficient
     """
+    # Yarn IDs with fresh quotes (last 90 days). Currently empty, future-proof.
+    quote_rows = _rows("""
+        SELECT DISTINCT yarn_id
+        FROM fact_supplier_quotes
+        WHERE quote_date >= CURRENT_DATE - INTERVAL '90 days'
+    """)
+    yarns_with_quotes = {r["yarn_id"] for r in quote_rows}
+
+    # Main query — all yarns, including placeholders and non-eligible specs.
+    # Now includes filament_count and alias_count for spec metadata rendering.
     rows = _rows("""
         SELECT
+            ym.yarn_id,
             ym.yarn_code,
             ym.display_name,
             ym.fiber_family,
             ym.filament_process,
+            ym.denier,
             ym.denier_class,
+            ym.filament_count,
             ym.luster,
             ym.recycle_flag,
             ym.subspec_sensitive,
+            ym.is_placeholder,
+            ym.pricing_eligible,
+            COALESCE(ac.alias_count, 0) AS alias_count,
             yd.primary_driver_slug,
             yd.price_confidence,
             pmd.price_usd::float        AS driver_price_usd,
@@ -753,16 +784,16 @@ def get_yarn_pressure():
             dm.lag_min_weeks,
             dm.lag_max_weeks,
             CASE
-                WHEN pmd.change_7d IS NULL     THEN 'insufficient_data'
-                WHEN pmd.change_7d > 5         THEN 'rising_strong'
-                WHEN pmd.change_7d > 2         THEN 'rising'
-                WHEN pmd.change_7d < -5        THEN 'falling_strong'
-                WHEN pmd.change_7d < -2        THEN 'falling'
+                WHEN pmd.change_7d IS NULL     THEN 'watch'
+                WHEN pmd.change_7d > 5         THEN 'rising'
+                WHEN pmd.change_7d > 2         THEN 'firming'
+                WHEN pmd.change_7d < -5        THEN 'falling'
+                WHEN pmd.change_7d < -2        THEN 'easing'
                 ELSE 'stable'
             END AS pressure_signal
         FROM dim_yarn_master ym
-        JOIN dim_yarn_price_driver yd ON yd.yarn_id = ym.yarn_id
-        JOIN (
+        LEFT JOIN dim_yarn_price_driver yd ON yd.yarn_id = ym.yarn_id
+        LEFT JOIN (
             SELECT DISTINCT ON (material)
                 material, price_usd, change_7d, change_1d,
                 trend_direction, momentum_score, confidence_tier
@@ -771,30 +802,60 @@ def get_yarn_pressure():
             ORDER BY material, metric_date DESC
         ) pmd ON pmd.material = yd.primary_driver_slug
         LEFT JOIN dim_material dm ON dm.slug = yd.primary_driver_slug
-        WHERE ym.pricing_eligible = TRUE
-          AND ym.is_placeholder = FALSE
+        LEFT JOIN (
+            SELECT yarn_id, COUNT(*) AS alias_count
+            FROM dim_yarn_label_alias
+            GROUP BY yarn_id
+        ) ac ON ac.yarn_id = ym.yarn_id
         ORDER BY
+            ym.fiber_family,
             CASE
-                WHEN pmd.change_7d > 5  THEN 1
-                WHEN pmd.change_7d > 2  THEN 2
+                WHEN pmd.change_7d > 5     THEN 1
+                WHEN pmd.change_7d > 2     THEN 2
                 WHEN pmd.change_7d IS NULL THEN 6
-                WHEN pmd.change_7d < -5 THEN 5
-                WHEN pmd.change_7d < -2 THEN 4
+                WHEN pmd.change_7d < -5    THEN 5
+                WHEN pmd.change_7d < -2    THEN 4
                 ELSE 3
             END,
-            ym.fiber_family, ym.denier NULLS LAST
+            ym.denier NULLS LAST
     """)
+
+    # Compute coverage_status per row (interpretation layer, kept in Python).
+    for r in rows:
+        if r["yarn_id"] in yarns_with_quotes:
+            r["coverage_status"] = "quote-validated"
+        elif r.get("is_placeholder"):
+            r["coverage_status"] = "placeholder"
+        elif (
+            not r.get("pricing_eligible")
+            or not r.get("primary_driver_slug")
+            or r.get("driver_price_usd") is None
+        ):
+            r["coverage_status"] = "not-covered"
+        else:
+            r["coverage_status"] = "driver-priced"
 
     by_family: dict = {}
     for r in rows:
         fam = r["fiber_family"]
         by_family.setdefault(fam, []).append(r)
 
+    # Coverage distribution for UI banner / legend
+    coverage_summary = {
+        "quote_validated": sum(1 for r in rows if r["coverage_status"] == "quote-validated"),
+        "placeholder":     sum(1 for r in rows if r["coverage_status"] == "placeholder"),
+        "driver_priced":   sum(1 for r in rows if r["coverage_status"] == "driver-priced"),
+        "not_covered":     sum(1 for r in rows if r["coverage_status"] == "not-covered"),
+        "total":           len(rows),
+    }
+
     return {
         "by_family":         by_family,
         "flat":              rows,
+        "coverage_summary":  coverage_summary,
         "confidence_note":   "indicative — driver-based estimates only, not validated quotes",
         "subspec_warning":   "yarns with subspec_sensitive=true may have pricing variants not captured here",
+        "phase":             "Phase 1 — synthetic yarn driver mapping only. Cotton / viscose / blend = Phase 2.",
     }
 
 

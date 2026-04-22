@@ -1,830 +1,1489 @@
-/* ── Reset & Base ──────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Rayon Intelligence — app.js ─────────────────────────────────────────── */
 
-:root {
-  --bg:        #0d1117;
-  --card:      #161b22;
-  --border:    #30363d;
-  --text:      #e6edf3;
-  --muted:     #8b949e;
-  --blue:      #58a6ff;
-  --green:     #3fb950;
-  --orange:    #f0883e;
-  --red:       #f85149;
-  --purple:    #bc8cff;
-  --sidebar-w: 240px;
-  --header-h:  64px;
-}
+const C = {
+  bg:     '#0d1117',
+  card:   '#161b22',
+  border: '#30363d',
+  text:   '#e6edf3',
+  muted:  '#8b949e',
+  blue:   '#58a6ff',
+  green:  '#3fb950',
+  orange: '#f0883e',
+  red:    '#f85149',
+  purple: '#bc8cff',
+};
 
-html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  height: 100%;
-}
+const PLOTLY_BASE = {
+  paper_bgcolor: C.card,
+  plot_bgcolor:  C.card,
+  font: { color: C.muted, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', size: 11 },
+  margin: { l: 10, r: 16, t: 10, b: 10 },
+  xaxis: { gridcolor: C.border, linecolor: C.border, tickfont: { color: C.muted }, zerolinecolor: C.border },
+  yaxis: { gridcolor: C.border, linecolor: C.border, tickfont: { color: C.muted }, zerolinecolor: C.border },
+};
 
-/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
 
-/* ── Sidebar ───────────────────────────────────────────────────────────────── */
-#sidebar {
-  position: fixed;
-  left: 0; top: 0; bottom: 0;
-  width: var(--sidebar-w);
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-}
+const COUNTRY_NAMES = {
+  US:'USA', DE:'Germany', NL:'Netherlands', GB:'UK', FR:'France', IT:'Italy',
+  ES:'Spain', PL:'Poland', RU:'Russia', UA:'Ukraine', BY:'Belarus',
+  KZ:'Kazakhstan', RO:'Romania', BG:'Bulgaria', IQ:'Iraq', SA:'Saudi Arabia',
+  AE:'UAE', EG:'Egypt', MA:'Morocco', GE:'Georgia', AZ:'Azerbaijan',
+  AM:'Armenia', UZ:'Uzbekistan', TM:'Turkmenistan', IR:'Iran', IL:'Israel',
+  GR:'Greece', CZ:'Czech Rep.', SK:'Slovakia', HU:'Hungary', HR:'Croatia',
+  RS:'Serbia', PT:'Portugal', BE:'Belgium', SE:'Sweden', DK:'Denmark',
+  AT:'Austria', CH:'Switzerland', CN:'China', TW:'Taiwan', PK:'Pakistan',
+  BD:'Bangladesh', IN:'India', VN:'Vietnam', MX:'Mexico', BR:'Brazil',
+  TR:'Turkey (re-export)', NG:'Nigeria', ZA:'S. Africa', TN:'Tunisia', DZ:'Algeria',
+};
 
-.sidebar-logo {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.sidebar-logo .logo-mark {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--blue);
-  letter-spacing: -0.5px;
-}
-.sidebar-logo .logo-sub {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 2px;
-}
+const MATERIAL_LABELS = {
+  polyester_staple_fiber: 'PSF (Polyester Elyaf)',
+  polyester_fdy:          'Polyester FDY',
+  polyester_poy:          'Polyester POY',
+  polyester_dty:          'Polyester DTY',
+  polyester_yarn:         'Polyester İplik',
+  pta:                    'PTA',
+  cotton_lint:            'Pamuk (SunSirs Çin)',
+  cotton_lint_futures:    'Pamuk (ICE Vadeli)',
+  cotton_yarn:            'Pamuk İpliği',
+  polyamide_fdy:          'Naylon FDY (PA6)',
+  pa6_chip:               'PA6 Chip',
+  pa66_chip:              'PA66 Chip',
+  rayon_yarn:             'Rayon İpliği',
+  adipic_acid:            'Adipik Asit',
+};
 
-.sidebar-nav {
-  flex: 1;
-  padding: 12px 0;
-  overflow-y: auto;
-}
+// Polyester family chart definition
+const POLY_MATS = [
+  { key: 'polyester_staple_fiber', color: C.blue,     label: 'PSF' },
+  { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
+  { key: 'polyester_poy',          color: C.green,    label: 'POY' },
+  { key: 'polyester_dty',          color: '#a371f7',  label: 'DTY' },
+];
 
-.nav-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 16px 20px 6px;
-}
+// All materials for summary table (ordered by family)
+const ALL_PRICE_MATS = [
+  { key: 'polyester_staple_fiber', fam: 'polyester' },
+  { key: 'polyester_fdy',          fam: 'polyester' },
+  { key: 'polyester_poy',          fam: 'polyester' },
+  { key: 'polyester_dty',          fam: 'polyester' },
+  { key: 'polyester_yarn',         fam: 'polyester' },
+  { key: 'pta',                    fam: 'polyester' },
+  { key: 'cotton_lint',            fam: 'cotton'    },
+  { key: 'cotton_lint_futures',    fam: 'cotton'    },
+  { key: 'cotton_yarn',            fam: 'cotton'    },
+  { key: 'polyamide_fdy',          fam: 'nylon'     },
+  { key: 'pa6_chip',               fam: 'nylon'     },
+  { key: 'pa66_chip',               fam: 'nylon'     },
+  { key: 'adipic_acid',            fam: 'nylon'     },
+  { key: 'rayon_yarn',             fam: 'rayon'     },
+];
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 20px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  border-left: 3px solid transparent;
-  transition: all 0.15s;
-  user-select: none;
-}
-.nav-item:hover { background: rgba(88,166,255,0.06); color: var(--text); }
-.nav-item.active {
-  background: rgba(88,166,255,0.10);
-  color: var(--blue);
-  border-left-color: var(--blue);
-}
-.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+// Polyester chain nodes in display order (for chain flow visualization)
+const POLY_CHAIN = [
+  { key: 'pta',                    label: 'PTA',  color: C.blue   },
+  { key: 'polyester_staple_fiber', label: 'PSF',  color: C.purple },
+  { key: 'polyester_fdy',          label: 'FDY',  color: C.orange },
+  { key: 'polyester_poy',          label: 'POY',  color: C.green  },
+  { key: 'polyester_dty',          label: 'DTY',  color: '#a371f7'},
+];
 
-.sidebar-footer {
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--muted);
-}
-.sidebar-footer .refresh-btn {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  color: var(--blue);
-  font-size: 12px;
-}
-.sidebar-footer .refresh-btn:hover { opacity: 0.8; }
+// Which node is "upstream" for divergence display (right node key -> left node key)
+const CHAIN_UPSTREAM = {
+  polyester_staple_fiber: 'pta',
+  polyester_fdy:          'pta',
+  polyester_poy:          'pta',
+  polyester_dty:          'polyester_poy',
+};
 
-/* ── Header ────────────────────────────────────────────────────────────────── */
-#header {
-  position: fixed;
-  left: var(--sidebar-w);
-  right: 0;
-  top: 0;
-  height: var(--header-h);
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 28px;
-  gap: 24px;
-  z-index: 99;
+/* ── State ─────────────────────────────────────────────────────────────────── */
+let _internalData = null;
+let _exportData   = {};
+let _priceData    = null;
+let _polyMode     = 'price';
+let _currency     = 'usd';   // 'rmb' | 'usd'
+
+/* ── API helpers ───────────────────────────────────────────────────────────── */
+async function api(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
 }
 
-.header-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  margin-right: auto;
+/* ── Navigation ─────────────────────────────────────────────────────────────── */
+function initNav() {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      const sec = document.getElementById('section-' + el.dataset.section);
+      if (sec) sec.classList.add('active');
+      // Lazy-load section on first visit
+      lazyLoad(el.dataset.section);
+    });
+  });
+
+  document.querySelectorAll('.sub-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sub-nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      const sub = document.getElementById('sub-' + btn.dataset.sub);
+      if (sub) sub.classList.add('active');
+    });
+  });
 }
 
-.kpi-strip {
-  display: flex;
-  gap: 2px;
+const _loaded = new Set();
+function lazyLoad(section) {
+  if (_loaded.has(section)) return;
+  _loaded.add(section);
+  if (section === 'prices')   loadPriceDashboard();
+  if (section === 'yarn')     loadYarnIntelligence();
+  if (section === 'exports')  loadExports();
+  if (section === 'internal') loadInternal();
 }
 
-.kpi-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  min-width: 140px;
-  text-align: right;
-}
-.kpi-label {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  font-weight: 600;
-}
-.kpi-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.2;
-}
-.kpi-sub {
-  font-size: 10px;
-  color: var(--muted);
-}
-
-/* ── Main content ──────────────────────────────────────────────────────────── */
-#main {
-  margin-left: var(--sidebar-w);
-  margin-top: var(--header-h);
-  padding: 28px;
-  min-height: calc(100vh - var(--header-h));
+/* ── Header KPIs ────────────────────────────────────────────────────────────── */
+async function loadStats() {
+  try {
+    const [d, sigStats] = await Promise.all([
+      api('/api/stats'),
+      api('/api/signal_stats'),
+    ]);
+    setText('kpi-high-impact',   sigStats.high_impact_7d   ?? '—');
+    setText('kpi-cost-pressure', sigStats.cost_pressure_count ?? '—');
+    setText('kpi-risk',          sigStats.risk_count        ?? '—');
+    const polyUsd = d.polyester_price_usd ?? (d.polyester_price_rmb != null && d.rmb_usd_rate
+      ? d.polyester_price_rmb * d.rmb_usd_rate : null);
+    setText('kpi-polyester', polyUsd != null
+      ? `$${Math.round(polyUsd).toLocaleString('en')}` : '—');
+    const chg7 = d.polyester_change_7d;
+    const chgEl = document.getElementById('kpi-polyester-change');
+    if (chgEl) {
+      if (chg7 != null) {
+        const sign = chg7 >= 0 ? '+' : '';
+        chgEl.textContent = `${sign}${chg7.toFixed(1)}% 7d`;
+        chgEl.style.color = chg7 >= 0 ? '#3fb950' : '#f85149';
+      } else {
+        chgEl.textContent = '';
+      }
+    }
+    setText('last-refresh', `Refreshed ${new Date().toLocaleTimeString()}`);
+  } catch (e) {
+    console.error('stats error', e);
+  }
 }
 
-.section { display: none; }
-.section.active { display: block; }
+/* ── Market Signals ──────────────────────────────────────────────────────────── */
 
-/* ── Section header ────────────────────────────────────────────────────────── */
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 20px;
-}
+// Signal category → left-border color
+const CAT_COLORS = {
+  COST_IMPACT:     '#f0883e',
+  DEMAND_SHIFT:    '#58a6ff',
+  SUPPLY_RISK:     '#f85149',
+  COMPETITOR_MOVE: '#a371f7',
+  REGULATORY:      '#3fb950',
+};
 
-/* ── Filter bar ────────────────────────────────────────────────────────────── */
-.filter-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.filter-bar label { font-size: 12px; color: var(--muted); }
-.filter-bar select {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 12px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  outline: none;
-}
-.filter-bar select:focus { border-color: var(--blue); }
-.signal-count {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--muted);
+let _feedRawData    = null;   // latest fetched feed dataset
+let _feedMinImpact  = 50;
+let _feedViewAll    = false;  // true only when user explicitly clicks "View all"
+let _feedThemeFilter = null;
+
+function loadSignalsPanels() {
+  _loadCriticalSignals();
+  _loadSignalStats();
+  _loadFeedSignals();
 }
 
-/* ── Signal cards ──────────────────────────────────────────────────────────── */
-#signals-list { display: flex; flex-direction: column; gap: 8px; }
-
-.signal-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--blue);
-  border-radius: 0 8px 8px 0;
-  padding: 14px 18px;
-  transition: border-color 0.15s;
-}
-.signal-card:hover { border-color: var(--blue); border-left-color: inherit; }
-.signal-card[data-url]:hover { border-color: #58a6ff; background: rgba(88,166,255,0.04); }
-
-.signal-card.type-competitor_mention { border-left-color: var(--orange); }
-.signal-card.type-alert              { border-left-color: var(--red); }
-.signal-card.type-price_move         { border-left-color: var(--green); }
-.signal-card.type-price_signal       { border-left-color: var(--blue); }
-.signal-card.type-regulation         { border-left-color: var(--red); }
-.signal-card.type-capacity_change    { border-left-color: var(--purple); }
-.signal-card.type-fair_participation { border-left-color: var(--purple); }
-.signal-card.type-trend              { border-left-color: var(--blue); }
-
-.signal-meta {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+// Panel A — critical signals (impact ≥ 80, last 7 days)
+async function _loadCriticalSignals() {
+  const el = document.getElementById('critical-list');
+  el.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const data = await api('/api/signals?min_impact=80&days=7&limit=5');
+    const real = data.filter(r => r.impact_score != null && r.impact_score >= 80);
+    if (!real.length) {
+      el.innerHTML = '<div class="empty-state-sm">No critical signals in the last 7 days.</div>';
+      return;
+    }
+    el.innerHTML = real.map(renderCriticalCard).join('');
+    _attachUrlHandlers(el);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state-sm">Error: ${esc(e.message)}</div>`;
+  }
 }
 
-.badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-.badge-type-competitor_mention { background: rgba(240,136,62,0.2);  color: var(--orange); }
-.badge-type-price_move         { background: rgba(63,185,80,0.2);   color: var(--green); }
-.badge-type-price_signal       { background: rgba(88,166,255,0.2);  color: var(--blue); }
-.badge-type-regulation         { background: rgba(248,81,73,0.2);   color: var(--red); }
-.badge-type-capacity_change    { background: rgba(188,140,255,0.2); color: var(--purple); }
-.badge-type-fair_participation { background: rgba(188,140,255,0.2); color: var(--purple); }
-.badge-type-trend              { background: rgba(88,166,255,0.2);  color: var(--blue); }
-.badge-type-other              { background: rgba(139,148,158,0.2); color: var(--muted); }
-
-.badge-sev-alert   { background: rgba(248,81,73,0.2);   color: var(--red); }
-.badge-sev-warning { background: rgba(240,136,62,0.2);  color: var(--orange); }
-.badge-sev-info    { background: rgba(88,166,255,0.15); color: var(--blue); }
-
-.signal-dt { margin-left: auto; font-size: 11px; color: var(--muted); }
-.signal-source { font-size: 11px; color: var(--muted); }
-.signal-link-icon { font-size: 11px; color: var(--blue); margin-left: 6px; opacity: 0.7; }
-
-.signal-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 5px;
-  line-height: 1.4;
-}
-.signal-body {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.55;
-}
-.signal-company {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--orange);
+// Panel B — themes from signal_stats
+async function _loadSignalStats() {
+  try {
+    const stats = await api('/api/signal_stats');
+    _renderThemeChips(stats.top_themes || []);
+  } catch (_) {}
 }
 
-/* ── Price Intelligence section ────────────────────────────────────────────── */
-
-/* Auto-signals bar */
-.price-signals-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 14px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  min-height: 42px;
-  align-items: center;
-}
-.price-signal-badge {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 12px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-.badge-warning { background: rgba(240,136,62,0.18); color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
-.badge-alert   { background: rgba(248,81,73,0.18);  color: var(--red);    border: 1px solid rgba(248,81,73,0.35); }
-.badge-info    { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.3); }
-.badge-neutral { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid rgba(139,148,158,0.25); }
-
-/* Currency toggle row */
-.currency-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.currency-rate-note {
-  font-size: 11px;
-  color: var(--muted);
+// Panel C — full feed
+async function _loadFeedSignals() {
+  const list = document.getElementById('signals-list');
+  list.innerHTML = '<div class="loading">Loading signals…</div>';
+  const viewAllParam = _feedViewAll ? '&view_all=true' : '';
+  const url = `/api/signals?days=30&limit=200&exclude_critical=true${viewAllParam}`;
+  try {
+    _feedRawData = await api(url);
+    _renderFeed();
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state">Error loading signals: ${esc(e.message)}</div>`;
+  }
 }
 
-/* Polyester family block */
-.price-block {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-.price-block-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.price-block-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
+function _renderFeed() {
+  const list = document.getElementById('signals-list');
+  const data = _feedThemeFilter
+    ? (_feedRawData || []).filter(r => r.theme === _feedThemeFilter)
+    : (_feedRawData || []);
+
+  setText('signal-count', `${data.length} signal${data.length !== 1 ? 's' : ''}`);
+
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-state">No signals found.</div>';
+  } else {
+    list.innerHTML = data.map(renderSignalCard).join('');
+    _attachUrlHandlers(list);
+  }
+
+  // Archive row
+  const archiveRow    = document.getElementById('feed-archive-row');
+  const archiveToggle = document.getElementById('archive-toggle');
+  if (_feedMinImpact > 0) {
+    archiveRow.style.display = '';
+    archiveToggle.textContent = `Showing signals with impact ≥ ${_feedMinImpact} · View all →`;
+  } else {
+    archiveRow.style.display = 'none';
+  }
 }
 
-/* Toggle buttons */
-.chart-toggle {
-  display: flex;
-  gap: 4px;
-}
-.toggle-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-.toggle-btn:hover  { color: var(--text); border-color: var(--blue); }
-.toggle-btn.active { background: rgba(88,166,255,0.15); color: var(--blue); border-color: var(--blue); }
-
-/* Tall chart wrap for polyester family */
-.chart-wrap-tall { height: 360px; overflow: hidden; }
-
-/* Polyester metric cards (4-col grid) */
-.poly-metric-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  border-top: 1px solid var(--border);
-}
-.poly-metric-card {
-  padding: 14px 16px;
-  border-right: 1px solid var(--border);
-}
-.poly-metric-card:last-child { border-right: none; }
-.card-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-.card-price {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.2;
-  margin-bottom: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.pct-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-.pct-up   { background: rgba(63,185,80,0.2);    color: var(--green); }
-.pct-down { background: rgba(248,81,73,0.2);    color: var(--red); }
-.pct-flat { background: rgba(139,148,158,0.15); color: var(--muted); }
-.trend-arrow { font-size: 14px; font-weight: 700; }
-.trend-up   { color: var(--green); }
-.trend-down { color: var(--red); }
-.trend-flat { color: var(--muted); }
-.card-vol {
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 2px;
-}
-.muted-sm { font-size: 11px; color: var(--muted); }
-
-/* Secondary row spacing */
-.price-secondary-row { margin-bottom: 0; }
-.price-summary-wrap  { margin-top: 16px; }
-
-/* Summary table row family tinting */
-.data-table tr.fam-polyester td { background: rgba(88,166,255,0.04); }
-.data-table tr.fam-nylon td     { background: rgba(240,136,62,0.04); }
-.data-table tr.fam-polyester:hover td { background: rgba(88,166,255,0.09); }
-.data-table tr.fam-nylon:hover td     { background: rgba(240,136,62,0.09); }
-
-/* Collapsible table header */
-.price-table-toggle-header { cursor: pointer; user-select: none; }
-.price-table-toggle-header:hover { color: var(--blue); }
-
-/* Confidence level badges */
-.conf-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-.conf-high    { background: rgba(63,185,80,0.18);   color: var(--green);  border: 1px solid rgba(63,185,80,0.35); }
-.conf-medium  { background: rgba(210,153,34,0.18);  color: #d9a520;       border: 1px solid rgba(210,153,34,0.35); }
-.conf-low     { background: rgba(240,136,62,0.18);  color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
-.conf-minimal { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
-
-/* Minimal-confidence rows: grayed out */
-.data-table tr.row-minimal td {
-  opacity: 0.42;
-  font-style: italic;
-}
-.data-table tr.row-minimal:hover td {
-  opacity: 0.60;
-  background: rgba(139,148,158,0.06);
+function _renderThemeChips(themes) {
+  const panel = document.getElementById('panel-themes');
+  const container = document.getElementById('theme-chips');
+  if (!themes.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  container.innerHTML = themes.map(t =>
+    `<span class="theme-chip" data-theme="${esc(t.theme)}">${esc(t.theme)} <span class="theme-chip-count">${t.count}</span></span>`
+  ).join('');
+  container.querySelectorAll('.theme-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const theme = chip.dataset.theme;
+      const active = chip.classList.contains('active');
+      container.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+      _feedThemeFilter = active ? null : theme;
+      if (!active) chip.classList.add('active');
+      const clearEl = document.getElementById('theme-clear');
+      if (clearEl) clearEl.style.display = _feedThemeFilter ? '' : 'none';
+      _renderFeed();
+    });
+  });
 }
 
-/* Suppressed materials note in signals bar */
-.signals-suppressed-note {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--muted);
-  font-style: italic;
-  white-space: nowrap;
+// Critical card (large format for Panel A)
+function renderCriticalCard(r) {
+  const borderColor = CAT_COLORS[r.signal_category] || '#f85149';
+  const hasUrl  = r.source_url && r.source_url.startsWith('http');
+  const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
+  const impact  = r.impact_score != null ? r.impact_score : '—';
+  const catHtml = r.signal_category
+    ? `<span class="cat-badge cat-${r.signal_category}">${r.signal_category.replace(/_/g,' ')}</span>` : '';
+  const actionHtml = r.action_tag
+    ? `<span class="action-badge action-${r.action_tag.toLowerCase()}">${r.action_tag}</span>` : '';
+  const horizonHtml = r.time_horizon
+    ? `<span class="horizon-tag">${r.time_horizon.toUpperCase()}</span>` : '';
+  const company = r.company_name ? `<span class="signal-company-inline">⬡ ${esc(r.company_name)}</span>` : '';
+  const matHtml = r.material_form ? `<span class="signal-mat-sm">${esc(r.material_form)}</span>` : '';
+  const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
+  return `
+    <div class="critical-card"${urlAttr} style="border-left: 4px solid ${borderColor}">
+      <div class="critical-card-head">
+        <div class="critical-card-badges">${catHtml}${actionHtml}</div>
+        <div class="impact-score-badge">${impact}</div>
+      </div>
+      <div class="critical-card-title">${esc(r.title || '')}</div>
+      <div class="critical-card-body">${esc(r.summary || '')}</div>
+      <div class="critical-card-footer">
+        ${company}${matHtml}${horizonHtml}
+        <span class="signal-dt" style="margin-left:auto">${esc(r.detected_at || '')}${linkIcon}</span>
+      </div>
+    </div>`;
 }
 
-/* ── Export section ────────────────────────────────────────────────────────── */
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
-}
-.stat-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 20px;
-}
-.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
-.stat-value { font-size: 24px; font-weight: 700; color: var(--text); margin: 4px 0 2px; line-height: 1.2; }
-.stat-sub   { font-size: 12px; }
-.stat-up    { color: var(--green); }
-.stat-down  { color: var(--red); }
-.stat-neutral { color: var(--muted); }
-
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-.chart-panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.chart-panel-title {
-  padding: 14px 16px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
-}
-.chart-wrap { height: 320px; }
-
-.hs-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.hs-selector label { font-size: 12px; color: var(--muted); }
-.hs-selector select {
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  outline: none;
-  cursor: pointer;
-}
-.hs-selector select:focus { border-color: var(--blue); }
-
-/* ── Internal Data sub-nav ─────────────────────────────────────────────────── */
-.sub-nav {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 22px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0;
-}
-.sub-nav-btn {
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: all 0.15s;
-  user-select: none;
-}
-.sub-nav-btn:hover { color: var(--text); }
-.sub-nav-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
-
-.sub-section { display: none; }
-.sub-section.active { display: block; }
-
-/* ── Tables ────────────────────────────────────────────────────────────────── */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.data-table thead tr { border-bottom: 2px solid var(--border); }
-.data-table th {
-  padding: 9px 14px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-.data-table td {
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-}
-.data-table tbody tr:hover td { background: rgba(88,166,255,0.04); }
-.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-
-.table-wrap {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-top: 16px;
-}
-.table-title {
-  padding: 13px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
+// Feed card (compact format for Panel C)
+function renderSignalCard(r) {
+  const borderColor = CAT_COLORS[r.signal_category] || C.border;
+  const hasUrl  = r.source_url && r.source_url.startsWith('http');
+  const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
+  const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
+  const impact  = r.impact_score != null
+    ? `<span class="impact-score-sm">${r.impact_score}</span>` : '';
+  const catHtml = r.signal_category
+    ? `<span class="cat-badge cat-${r.signal_category}">${r.signal_category.replace(/_/g,' ')}</span>` : '';
+  const actionHtml = r.action_tag
+    ? `<span class="action-badge action-${r.action_tag.toLowerCase()}">${r.action_tag}</span>` : '';
+  const horizonHtml = r.time_horizon
+    ? `<span class="horizon-tag">${r.time_horizon.toUpperCase()}</span>` : '';
+  const matHtml = r.material_form
+    ? `<span class="signal-mat-sm">· ${esc(r.material_form)}</span>` : '';
+  const company = r.company_name
+    ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
+  return `
+    <div class="signal-card"${urlAttr} style="border-left-color: ${borderColor}">
+      <div class="signal-meta">
+        ${catHtml}${actionHtml}${horizonHtml}${matHtml}
+        <span class="signal-dt">${esc(r.detected_at || '')}</span>
+        ${linkIcon}${impact}
+      </div>
+      <div class="signal-title">${esc(r.title || '')}</div>
+      <div class="signal-body">${esc(r.summary || '')}</div>
+      ${company}
+    </div>`;
 }
 
-/* ── Summary metric row (Internal) ────────────────────────────────────────── */
-.metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 22px;
+function _attachUrlHandlers(container) {
+  container.querySelectorAll('[data-url]').forEach(el => {
+    const url = el.dataset.url;
+    el.style.cursor = 'pointer';
+    el.title = 'Haberi aç';
+    el.addEventListener('click', () => {
+      if (url && url.startsWith('http')) window.open(url, '_blank');
+    });
+  });
 }
 
-/* ── Loading / error states ────────────────────────────────────────────────── */
-.loading {
-  color: var(--muted);
-  text-align: center;
-  padding: 40px;
-  font-size: 13px;
-}
-.empty-state {
-  color: var(--muted);
-  text-align: center;
-  padding: 60px 20px;
-  font-size: 14px;
-}
-.empty-state-sm {
-  color: var(--muted);
-  padding: 20px 18px;
-  font-size: 13px;
-}
-
-/* ── Market Signals v2 ─────────────────────────────────────────────────────── */
-
-/* Panel wrapper */
-.signals-panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 16px;
-  overflow: hidden;
+function initSignalsSection() {
+  const archiveToggle = document.getElementById('archive-toggle');
+  if (archiveToggle) {
+    archiveToggle.addEventListener('click', () => {
+      _feedViewAll = !_feedViewAll;
+      _feedMinImpact = _feedViewAll ? 0 : 50;
+      _loadFeedSignals();
+    });
+  }
+  const clearEl = document.getElementById('theme-clear');
+  if (clearEl) {
+    clearEl.addEventListener('click', () => {
+      _feedThemeFilter = null;
+      clearEl.style.display = 'none';
+      document.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+      _renderFeed();
+    });
+  }
 }
 
-/* Panel header row */
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.panel-label-dim {
-  font-size: 11px;
-  color: var(--muted);
+/* ── Price Intelligence ──────────────────────────────────────────────────────── */
+
+const PRICE_CHART_LAYOUT = {
+  paper_bgcolor: '#161b22',
+  plot_bgcolor:  '#161b22',
+  font: { color: '#8b949e', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', size: 11 },
+  margin: { l: 40, r: 20, t: 10, b: 40 },
+  xaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { color: '#8b949e' }, zerolinecolor: '#30363d' },
+  yaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { color: '#8b949e' }, zerolinecolor: '#30363d' },
+};
+
+async function loadPriceDashboard() {
+  // Fire early warning bar immediately (independent request)
+  _loadEarlyWarningBar();
+
+  if (_priceData) {
+    _renderPriceDashboard(_priceData);
+    return;
+  }
+  document.getElementById('chart-polyester').innerHTML =
+    '<div class="loading">Fiyat verisi yükleniyor…</div>';
+  document.getElementById('poly-metric-cards').innerHTML = '';
+
+  try {
+    _priceData = await api('/api/prices');
+    _renderPriceDashboard(_priceData);
+  } catch (e) {
+    document.getElementById('chart-polyester').innerHTML =
+      `<div class="empty-state">Hata: ${esc(e.message)}</div>`;
+  }
 }
 
-/* Panel A: Critical — warm top accent */
-.panel-critical {
-  border-top: 2px solid var(--red);
-  background: color-mix(in srgb, var(--card) 96%, #f85149 4%);
+async function _loadEarlyWarningBar() {
+  const bar = document.getElementById('early-warning-bar');
+  try {
+    const signals = await api('/api/price_intelligence_signals');
+    _renderEarlyWarningBar(bar, signals);
+  } catch (_) {
+    bar.innerHTML = '<div class="ew-loading">Erken uyarı sinyalleri yüklenemedi.</div>';
+  }
 }
 
-/* Critical signal cards */
-#critical-list {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.critical-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 18px;
-  transition: border-color 0.15s;
-}
-.critical-card[data-url]:hover { border-color: var(--blue); background: rgba(88,166,255,0.04); cursor: pointer; }
-.critical-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-.critical-card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-.critical-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 5px;
-  line-height: 1.4;
-}
-.critical-card-body {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-.critical-card-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12px;
+function _renderEarlyWarningBar(bar, signals) {
+  if (!signals || !signals.length) {
+    bar.innerHTML = '<div class="no-signals-muted">Aktif fiyat sinyali yok — piyasalar sakin</div>';
+    return;
+  }
+
+  const SEV_LABEL  = { critical: 'KRİTİK', high: 'YÜKSEK', medium: 'ORTA', low: 'DÜŞÜK' };
+  const TYPE_LABEL = {
+    COST_PRESSURE_UP:        'Maliyet Artışı',
+    COST_PRESSURE_DOWN:      'Maliyet Düşüşü',
+    UPSTREAM_DOWNSTREAM_DIVG:'Zincir Uyumsuzluğu',
+    SPREAD_WIDENING:         'Spread Genişleme',
+    SPREAD_TIGHTENING:       'Spread Daralma',
+    VOLATILITY_SPIKE:        'Volatilite',
+    DELAYED_PASS_THROUGH_RISK:'Gecikmiş Yansıma',
+    DATA_QUALITY_WARNING:    'Veri Uyarısı',
+  };
+
+  bar.innerHTML = signals.map(s => {
+    const sev      = s.severity || 'low';
+    const typeText = TYPE_LABEL[s.signal_type] || s.signal_type;
+    const valChip  = s.value_pct != null
+      ? `<div class="ew-value-chip">${s.value_pct > 0 ? '+' : ''}${s.value_pct.toFixed(1)}%</div>` : '';
+    const lagHtml  = (s.turkey_lag_min && s.turkey_lag_max)
+      ? `<div class="ew-lag">&#8594; Türkiye tahmini: ${s.turkey_lag_min}–${s.turkey_lag_max} hafta</div>` : '';
+    const impl     = s.business_implication
+      ? `<div class="ew-implication">${esc(s.business_implication)}</div>` : '';
+
+    return `
+      <div class="early-warning-card ew-card-${sev}">
+        <div class="ew-left">
+          <span class="ew-type-badge ew-badge-${sev}">${typeText}</span>
+          <span class="ew-sev-text">${SEV_LABEL[sev] || sev}</span>
+        </div>
+        <div class="ew-content">
+          <div class="ew-explanation">${esc(s.explanation)}</div>
+          ${impl}${lagHtml}
+        </div>
+        ${valChip}
+      </div>`;
+  }).join('');
 }
 
-/* Impact score badges */
-.impact-score-badge {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--red);
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  min-width: 40px;
-  text-align: right;
-}
-.impact-score-sm {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  background: rgba(139,148,158,0.12);
-  padding: 1px 6px;
-  border-radius: 4px;
+function _renderPriceDashboard(data) {
+  _updateRateNote(data);
+  _renderChainFlow(data);
+  _renderPolyesterFamily(data, _polyMode);
+  _renderPolyMetricCards(data);
+  _renderPolyLagRow(data);
+  _renderSecondaryCharts(data);
+  _renderPriceSummaryTable(data);
 }
 
-/* Signal category badges */
-.cat-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-.cat-COST_IMPACT     { background: rgba(240,136,62,0.18); color: var(--orange); }
-.cat-DEMAND_SHIFT    { background: rgba(88,166,255,0.18); color: var(--blue); }
-.cat-SUPPLY_RISK     { background: rgba(248,81,73,0.18);  color: var(--red); }
-.cat-COMPETITOR_MOVE { background: rgba(163,113,247,0.18); color: #a371f7; }
-.cat-REGULATORY      { background: rgba(63,185,80,0.18);  color: var(--green); }
+// ── Chain Flow Visualization ──────────────────────────────────────────────────
 
-/* Action tag badges */
-.action-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-.action-risk        { background: var(--red);    color: #fff; }
-.action-opportunity { background: var(--green);  color: #fff; }
-.action-monitor     { background: var(--border); color: var(--muted); }
-
-/* Time horizon tag */
-.horizon-tag {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: 0.5px;
-  padding: 1px 5px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
+function _momentumArrow(score) {
+  if (score == null) return { icon: '→', cls: 'momentum-flat' };
+  if (score >  0.3) return { icon: '↑↑', cls: 'momentum-strong-up'   };
+  if (score >  0.1) return { icon: '↑',  cls: 'momentum-up'          };
+  if (score > -0.1) return { icon: '→',  cls: 'momentum-flat'         };
+  if (score > -0.3) return { icon: '↓',  cls: 'momentum-down'         };
+  return                   { icon: '↓↓', cls: 'momentum-strong-down'  };
 }
 
-/* Material label inline */
-.signal-mat-sm {
-  font-size: 11px;
-  color: var(--muted);
-}
-.signal-company-inline {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--orange);
+function _tierBadge(tier) {
+  if (!tier) return '';
+  return `<span class="tier-badge tier-${tier}">${tier}</span>`;
 }
 
-/* Panel B: Themes */
-.panel-themes .panel-header { padding-bottom: 10px; }
-.theme-clear-link { cursor: pointer; color: var(--blue) !important; }
-.theme-clear-link:hover { opacity: 0.75; }
+function _renderChainFlow(data) {
+  const el = document.getElementById('chain-flow-polyester');
+  if (!el) return;
 
-.theme-chips-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px 14px;
-}
-.theme-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-}
-.theme-chip:hover { border-color: var(--blue); color: var(--text); }
-.theme-chip.active { background: rgba(88,166,255,0.15); border-color: var(--blue); color: var(--blue); }
-.theme-chip-count {
-  font-size: 11px;
-  background: rgba(139,148,158,0.15);
-  color: var(--muted);
-  padding: 1px 6px;
-  border-radius: 8px;
+  let html = '';
+  POLY_CHAIN.forEach((node, idx) => {
+    const d       = data[node.key];
+    const latest  = d?.latest;
+    const price   = latest?.price_usd != null ? `$${Math.round(latest.price_usd).toLocaleString('en')}` : '—';
+    const c7      = latest?.change_7d;
+    const c7Html  = c7 != null
+      ? `<div class="chain-node-change ${c7 > 0 ? 'stat-up' : c7 < 0 ? 'stat-down' : ''}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</div>`
+      : '<div class="chain-node-change" style="color:var(--muted)">—</div>';
+    const tier    = latest?.confidence_tier;
+    const mom     = _momentumArrow(latest?.momentum_score);
+    const tierHtml = _tierBadge(tier);
+    const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
+
+    // Divergence indicator for separator to the LEFT of this node
+    let divHtml = '';
+    if (idx > 0) {
+      const leftKey    = POLY_CHAIN[idx - 1].key;
+      const upstreamOf = CHAIN_UPSTREAM[node.key];
+      const div        = latest?.divergence_score;
+      const showDiv    = div != null && Math.abs(div) >= 3.0 && upstreamOf === leftKey;
+      divHtml = showDiv
+        ? `<span class="divergence-badge">&#9889; ${div.toFixed(1)}%</span>`
+        : '';
+    }
+
+    if (idx > 0) {
+      html += `<div class="chain-separator"><span class="chain-arrow-icon">&#8594;</span>${divHtml}</div>`;
+    }
+    html += `
+      <div class="chain-node" style="border-top: 2px solid ${node.color}">
+        <div class="chain-node-name">${node.label}</div>
+        <div class="chain-node-price">${price}</div>
+        ${c7Html}
+        <div class="chain-node-footer">${tierHtml}${momHtml}</div>
+      </div>`;
+  });
+
+  el.innerHTML = html;
 }
 
-/* Feed archive row */
-.feed-archive-row {
-  padding: 10px 18px 14px;
-  border-top: 1px solid var(--border);
+// ── Turkey Lag Row ────────────────────────────────────────────────────────────
+
+function _renderPolyLagRow(data) {
+  const el = document.getElementById('poly-lag-row');
+  if (!el) return;
+
+  const items = POLY_CHAIN.map(node => {
+    const dm      = data[node.key]?.meta;
+    const lagMin  = dm?.lag_min_weeks;
+    const lagMax  = dm?.lag_max_weeks;
+    if (!lagMin || !lagMax) return '';
+    return `<div class="lag-item">
+      <span class="lag-item-name">${node.label}</span>
+      <span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>
+    </div>`;
+  }).filter(Boolean);
+
+  if (!items.length) { el.style.display = 'none'; return; }
+  el.innerHTML = `<span class="lag-row-label">&#127481;&#127479; Türkiye yansıma:</span> ${items.join('')}`;
 }
-.archive-link {
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
+
+function _priceVal(point) {
+  // Pick price_usd or price (RMB) depending on current currency selection.
+  // Spread mode always uses raw values (both legs same currency).
+  if (_currency === 'usd') return point.price_usd ?? point.price;
+  return point.price;
 }
-.archive-link:hover { color: var(--blue); }
+
+function _latestPrice(latest) {
+  if (_currency === 'usd') return latest?.price_usd ?? latest?.price;
+  return latest?.price;
+}
+
+function _priceFmt(v) {
+  if (v == null) return '—';
+  if (_currency === 'usd') return `$${v.toLocaleString('en', {maximumFractionDigits: 2})}`;
+  return v.toLocaleString('en', {maximumFractionDigits: 0});
+}
+
+function _updateRateNote(data) {
+  const el = document.getElementById('currency-rate-note');
+  if (!el) return;
+  const meta = data?.meta;
+  if (meta?.rmb_usd_rate && meta?.rate_date) {
+    el.textContent = `1 CNY = ${meta.rmb_usd_rate.toFixed(4)} USD (${meta.rate_date})`;
+  } else if (meta?.rmb_usd_rate) {
+    el.textContent = `1 CNY = ${meta.rmb_usd_rate.toFixed(4)} USD`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+// ── Polyester family chart ────────────────────────────────────────────────────
+
+function _renderPolyesterFamily(data, mode) {
+  const traces = [];
+
+  const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
+
+  if (mode === 'price') {
+    POLY_MATS.forEach(m => {
+      const d = data[m.key];
+      if (!d || !d.series.length) return;
+      const conf = d.latest?.confidence_level || 'minimal';
+      const x = d.series.map(p => p.date);
+      const y = d.series.map(p => _priceVal(p));
+
+      if (conf === 'minimal') {
+        traces.push({
+          x, y, name: `${m.label} (yetersiz veri)`,
+          type: 'scatter', mode: 'lines',
+          line: { color: m.color, width: 1.5, dash: 'dot' },
+          opacity: 0.3,
+          hovertemplate: `${m.label}: %{y:${hoverFmt}} (yetersiz veri)<extra></extra>`,
+        });
+        return;
+      }
+
+      traces.push({
+        x, y, name: m.label, type: 'scatter', mode: 'lines',
+        line: { color: m.color, width: 2.5 },
+        hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
+      });
+      // MA7: scale MA7 (RMB) by same rate if in USD mode
+      const rate = data.meta?.rmb_usd_rate ?? 1;
+      const yMa7 = d.series.map(p => {
+        if (p.ma7 == null) return null;
+        return _currency === 'usd' ? p.ma7 * rate : p.ma7;
+      });
+      if (yMa7.some(v => v != null)) {
+        traces.push({
+          x, y: yMa7, name: `${m.label} MA7`,
+          type: 'scatter', mode: 'lines',
+          line: { color: m.color, width: 1.5, dash: 'dash' },
+          opacity: 0.5, showlegend: false, hoverinfo: 'skip',
+        });
+      }
+    });
+
+  } else if (mode === 'normalize') {
+    POLY_MATS.forEach(m => {
+      const d = data[m.key];
+      if (!d || !d.series.length) return;
+      const conf = d.latest?.confidence_level || 'minimal';
+      if (conf === 'minimal') return;
+      const first = _priceVal(d.series[0]);
+      if (!first) return;
+      traces.push({
+        x: d.series.map(p => p.date),
+        y: d.series.map(p => { const v = _priceVal(p); return v != null ? (v / first) * 100 : null; }),
+        name: m.label, type: 'scatter', mode: 'lines',
+        line: { color: m.color, width: 2.5 },
+        hovertemplate: `${m.label}: %{y:.1f}<extra></extra>`,
+      });
+    });
+
+  } else if (mode === 'spread') {
+    // Always use RMB prices for spreads (consistent basis; USD just scales both legs equally)
+    const pairs = [
+      { matA: 'polyester_staple_fiber', matB: 'polyester_fdy',  label: 'FDY − PSF', color: C.orange },
+      { matA: 'polyester_poy',          matB: 'polyester_dty',  label: 'DTY − POY', color: '#a371f7' },
+    ];
+    pairs.forEach(({ matA, matB, label, color }) => {
+      const dA = data[matA], dB = data[matB];
+      if (!dA || !dB) return;
+      const mapA = Object.fromEntries(dA.series.map(p => [p.date, _priceVal(p)]));
+      const pts = dB.series
+        .filter(p => _priceVal(p) != null && mapA[p.date] != null)
+        .map(p => ({ date: p.date, val: _priceVal(p) - mapA[p.date] }));
+      if (!pts.length) return;
+      traces.push({
+        x: pts.map(p => p.date),
+        y: pts.map(p => p.val),
+        name: label, type: 'scatter', mode: 'lines',
+        fill: 'tozeroy', fillcolor: hexAlpha(color, 0.15),
+        line: { color, width: 2 },
+        hovertemplate: `${label}: %{y:${hoverFmt}}<extra></extra>`,
+      });
+    });
+  }
+
+  const yUnit = _currency === 'usd' ? 'USD/t' : 'RMB/t';
+  const layout = {
+    ...PRICE_CHART_LAYOUT,
+    height: 360,
+    xaxis: {
+      ...PRICE_CHART_LAYOUT.xaxis,
+      rangeslider: { bgcolor: '#0d1117', thickness: 0.08 },
+    },
+    yaxis: {
+      ...PRICE_CHART_LAYOUT.yaxis,
+      tickformat: mode === 'normalize' ? '.0f' : (_currency === 'usd' ? '$.2f' : ',d'),
+      title: { text: yUnit, font: { color: C.muted, size: 11 } },
+    },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 } },
+    showlegend: true,
+  };
+
+  if (!traces.length) {
+    document.getElementById('chart-polyester').innerHTML =
+      '<div class="empty-state" style="padding:40px">Veri yok</div>';
+    return;
+  }
+  Plotly.newPlot('chart-polyester', traces, layout, PLOTLY_CONFIG);
+}
+
+// ── Polyester metric cards ────────────────────────────────────────────────────
+
+function _renderPolyMetricCards(data) {
+  const container = document.getElementById('poly-metric-cards');
+  container.innerHTML = POLY_MATS.map(m => {
+    const d    = data[m.key];
+    const l    = d?.latest;
+    const conf = l?.confidence_level || (d ? 'minimal' : null);
+    const isMinimal = conf === 'minimal' || !d;
+
+    const pv    = _latestPrice(l);
+    const price = _priceFmt(pv);
+
+    // Minimal confidence: show price only, no other metrics
+    if (isMinimal) {
+      return `
+        <div class="poly-metric-card" style="border-top: 3px solid ${m.color}; opacity: 0.5"
+             title="Yetersiz veri — 7'den az veri noktası">
+          <div class="card-label">${m.label}</div>
+          <div class="card-price">${price}</div>
+          <div class="card-meta"><span class="pct-badge pct-flat">—</span></div>
+        </div>`;
+    }
+
+    const c7 = l?.change_7d;
+    const c7Html = c7 != null
+      ? `<span class="pct-badge ${c7 > 0 ? 'pct-up' : c7 < 0 ? 'pct-down' : 'pct-flat'}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</span>`
+      : '';
+
+    const trend = l?.trend_direction;
+    const trendHtml = trend === 'up'   ? '<span class="trend-arrow trend-up">↑</span>'
+                    : trend === 'down' ? '<span class="trend-arrow trend-down">↓</span>'
+                    : trend === 'flat' ? '<span class="trend-arrow trend-flat">→</span>'
+                    : '';
+
+    const vol = l?.volatility_7d != null
+      ? `<span class="card-vol">σ ${l.volatility_7d.toFixed(1)}</span>` : '';
+
+    const tier = l?.confidence_tier;
+    const tierHtml = tier ? _tierBadge(tier) : '';
+
+    const mom = _momentumArrow(l?.momentum_score);
+    const momHtml = `<span class="chain-momentum ${mom.cls}" style="font-size:12px">${mom.icon}</span>`;
+
+    return `
+      <div class="poly-metric-card" style="border-top: 3px solid ${m.color}">
+        <div class="card-label">${m.label}</div>
+        <div class="card-price">${price}</div>
+        <div class="card-meta">${c7Html}${trendHtml}${momHtml}${vol}</div>
+        <div class="card-meta" style="margin-top:4px">${tierHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Secondary charts ──────────────────────────────────────────────────────────
+
+function _renderSecondaryCharts(data) {
+  // Cotton: two separate series (sunsirs china spot + ICE futures)
+  _renderCottonPanel(data);
+
+  // Nylon + Adipic Acid as leading indicator
+  _renderMultiLine('chart-nylon', [
+    { key: 'pa6_chip',      color: C.blue,   label: 'PA6 Chip' },
+    { key: 'pa66_chip',     color: C.orange, label: 'PA66 Chip' },
+    { key: 'polyamide_fdy', color: C.purple, label: 'Naylon FDY' },
+    { key: 'adipic_acid',   color: '#56d364',label: 'Adipik Asit (öncü)' },
+  ], data);
+}
+
+function _renderCottonPanel(data) {
+  // Series info cards
+  const infoEl = document.getElementById('cotton-series-info');
+  if (infoEl) {
+    const sunsirs  = data['cotton_lint']?.latest;
+    const iceFut   = data['cotton_lint_futures']?.latest;
+    const fmtP = v => v?.price_usd != null ? `$${Math.round(v.price_usd).toLocaleString('en')}/t` : '—';
+    infoEl.innerHTML = `
+      <div class="cotton-series-card">
+        <div class="cotton-series-label">SunSirs Çin Spot</div>
+        <div class="cotton-series-price" style="color:${C.orange}">${fmtP(sunsirs)}</div>
+      </div>
+      <div class="cotton-series-card">
+        <div class="cotton-series-label">ICE Vadeli (Küresel)</div>
+        <div class="cotton-series-price" style="color:${C.blue}">${fmtP(iceFut)}</div>
+      </div>`;
+  }
+
+  // Disclaimer
+  const discEl = document.getElementById('cotton-disclaimer');
+  if (discEl) {
+    discEl.textContent = 'Bu iki seri farklı piyasalardır — doğrudan karşılaştırılmamalıdır.';
+  }
+
+  // Chart: both cotton series
+  _renderMultiLine('chart-cotton-raw', [
+    { key: 'cotton_lint',         color: C.orange, label: 'Pamuk — SunSirs Çin Spot' },
+    { key: 'cotton_lint_futures', color: C.blue,   label: 'Pamuk — ICE Vadeli (USD/t)' },
+  ], data);
+}
+
+function _renderMultiLine(elId, mats, data) {
+  const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
+  const traces = mats.map(m => {
+    const d = data[m.key];
+    if (!d || !d.series.length) return null;
+    return {
+      x: d.series.map(p => p.date),
+      y: d.series.map(p => _priceVal(p)),
+      name: m.label, type: 'scatter', mode: 'lines',
+      line: { color: m.color, width: 2 },
+      hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
+    };
+  }).filter(Boolean);
+
+  if (!traces.length) {
+    document.getElementById(elId).innerHTML =
+      '<div class="empty-state" style="padding:40px">Veri yok</div>';
+    return;
+  }
+  Plotly.newPlot(elId, traces, {
+    ...PRICE_CHART_LAYOUT,
+    height: 320,
+    yaxis: {
+      ...PRICE_CHART_LAYOUT.yaxis,
+      tickformat: _currency === 'usd' ? '$.2f' : ',d',
+    },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 10 } },
+    showlegend: true,
+  }, PLOTLY_CONFIG);
+}
+
+// ── Summary table ─────────────────────────────────────────────────────────────
+
+function _renderPriceSummaryTable(data) {
+  const fmtPct = v => {
+    if (v == null) return '<span class="muted">—</span>';
+    const cls = v > 0 ? 'stat-up' : v < 0 ? 'stat-down' : 'stat-neutral';
+    return `<span class="${cls}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+  };
+  const trendArrow = t => {
+    if (!t) return '<span class="muted">—</span>';
+    if (t === 'up')   return '<span class="stat-up">↑</span>';
+    if (t === 'down') return '<span class="stat-down">↓</span>';
+    return '<span class="stat-neutral">→</span>';
+  };
+  const INS = '<span class="muted">—</span>';
+
+  const rows = ALL_PRICE_MATS.map(m => {
+    const d    = data[m.key];
+    const pts  = d?.series.length || 0;
+    const l    = d?.latest;
+    const dm   = d?.meta;
+    const tier = l?.confidence_tier;
+    const conf = l?.confidence_level || (pts >= 30 ? 'high' : pts >= 14 ? 'medium' : pts >= 7 ? 'low' : 'minimal');
+    const isTierE   = tier === 'E' || conf === 'minimal';
+    const isMinimal = conf === 'minimal';
+
+    const famCls   = m.fam === 'polyester' ? 'fam-polyester'
+                   : m.fam === 'nylon'     ? 'fam-nylon' : '';
+    const tierECls = isTierE ? 'row-tier-e' : '';
+    const minCls   = isMinimal ? 'row-minimal' : '';
+    const tooltip  = isTierE ? ` title="Veri toplanıyor — metrikler devre dışı"` : '';
+
+    const tierHtml = tier ? `<span class="tier-badge tier-${tier}">${tier}</span>` : INS;
+    const mom      = _momentumArrow(l?.momentum_score);
+    const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
+
+    const lagMin = dm?.lag_min_weeks;
+    const lagMax = dm?.lag_max_weeks;
+    const lagHtml = (lagMin && lagMax)
+      ? `<span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>` : INS;
+
+    return `<tr class="${famCls} ${tierECls} ${minCls}"${tooltip}>
+      <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
+      <td class="num">${_priceFmt(_latestPrice(l))}</td>
+      <td class="num">${fmtPct(l?.change_1d)}</td>
+      <td class="num">${fmtPct(l?.change_7d)}</td>
+      <td class="num">${fmtPct(l?.change_30d)}</td>
+      <td class="num">${trendArrow(l?.trend_direction)}</td>
+      <td class="num">${momHtml}</td>
+      <td class="num">${tierHtml}</td>
+      <td class="num">${lagHtml}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('price-summary-table').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Materyal</th>
+        <th class="num">Fiyat (${_currency === 'usd' ? 'USD/t' : 'RMB/t'})</th>
+        <th class="num">1G%</th>
+        <th class="num">7G%</th>
+        <th class="num">30G%</th>
+        <th class="num">Trend</th>
+        <th class="num">Momentum</th>
+        <th class="num" title="Data quality tier: A=60+ days, B=30+, C=14+, D=7+, E=under 7">Quality</th>
+        <th class="num">TR Lag</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Price section init ────────────────────────────────────────────────────────
+
+function initPriceSection() {
+  // Currency toggle buttons
+  document.querySelectorAll('#currency-toggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#currency-toggle .toggle-btn')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _currency = btn.dataset.currency;
+      if (_priceData) _renderPriceDashboard(_priceData);
+    });
+  });
+
+  // Polyester chart-mode toggle buttons
+  document.querySelectorAll('#poly-toggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#poly-toggle .toggle-btn')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _polyMode = btn.dataset.mode;
+      if (_priceData) _renderPolyesterFamily(_priceData, _polyMode);
+    });
+  });
+
+  // Collapsible summary table
+  const header  = document.getElementById('price-table-toggle');
+  const table   = document.getElementById('price-summary-table');
+  const arrow   = document.getElementById('price-table-arrow');
+  let collapsed = false;
+  header.addEventListener('click', () => {
+    collapsed = !collapsed;
+    table.style.display    = collapsed ? 'none' : '';
+    arrow.textContent      = collapsed ? '▶' : '▼';
+  });
+}
+
+/* ── Yarn Intelligence ───────────────────────────────────────────────────────── */
+async function loadYarnIntelligence() {
+  const tbody    = document.getElementById('yarn-pressure-tbody');
+  const summary  = document.getElementById('yarn-pressure-summary');
+  const covStrip = document.getElementById('yarn-coverage-strip');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="12" class="loading">Yukleniyor...</td></tr>';
+
+  try {
+    const data  = await api('/api/yarn_pressure');
+    const yarns = data.flat || [];
+    const cov   = data.coverage_summary || {};
+
+    /* ── Summary family cards ─────────────────────────────────────────────── */
+    const families = {};
+    yarns.forEach(y => {
+      families[y.fiber_family] = families[y.fiber_family] || [];
+      families[y.fiber_family].push(y);
+    });
+
+    summary.innerHTML = Object.entries(families).map(([fam, items]) => {
+      const rising   = items.filter(y => y.pressure_signal.includes('rising')).length;
+      const falling  = items.filter(y => y.pressure_signal.includes('falling')).length;
+      const dominant = rising > falling ? 'rising' : falling > rising ? 'falling' : 'stable';
+      const cls      = dominant === 'rising'  ? 'pressure-rising'  :
+                       dominant === 'falling' ? 'pressure-falling' : 'pressure-stable';
+      const icon     = dominant === 'rising'  ? '\u2191' :
+                       dominant === 'falling' ? '\u2193' : '\u2192';
+      return `<div class="yarn-family-card ${cls}">
+        <div class="yarn-family-name">${esc(fam)}</div>
+        <div class="yarn-family-signal">${icon} ${dominant}</div>
+        <div class="yarn-family-count">${items.length} specs</div>
+      </div>`;
+    }).join('');
+
+    /* ── Coverage strip ───────────────────────────────────────────────────── */
+    if (covStrip) {
+      covStrip.innerHTML = `
+        <div class="cov-strip-label">Coverage:</div>
+        <div class="cov-chip cov-chip-quote-validated" title="Has validated supplier quote within 90 days">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Quote-validated</span>
+          <span class="cov-chip-count">${cov.quote_validated ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-driver-priced" title="Priced via commodity driver (indicative)">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Driver-priced</span>
+          <span class="cov-chip-count">${cov.driver_priced ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-placeholder" title="Placeholder entry, not yet priced">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Placeholder</span>
+          <span class="cov-chip-count">${cov.placeholder ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-not-covered" title="No driver or pricing available">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Not covered</span>
+          <span class="cov-chip-count">${cov.not_covered ?? 0}</span>
+        </div>
+        <div class="cov-strip-total">${cov.total ?? yarns.length} specs total</div>
+      `;
+    }
+
+    /* ── Pressure labels / classes ────────────────────────────────────────── */
+    const PLABEL = {
+      rising_strong:    '\u21911 Guclu Artis',
+      rising:           '\u2191 Artis',
+      stable:           '\u2192 Sakin',
+      falling:          '\u2193 Dusus',
+      falling_strong:   '\u21932 Guclu Dusus',
+      insufficient_data: '\u2014 Yetersiz',
+    };
+    const PCLS = {
+      rising_strong: 'stat-up', rising: 'stat-up',
+      falling: 'stat-down', falling_strong: 'stat-down',
+      insufficient_data: 'muted',
+    };
+
+    const covLabel = {
+      'quote-validated': 'Quote',
+      'driver-priced':   'Driver',
+      'placeholder':     'Placeholder',
+      'not-covered':     'Not cov.',
+    };
+
+    const renderCoverageChip = (status) => {
+      const label = covLabel[status] || status;
+      return `<span class="cov-chip-small cov-chip-${status}">${label}</span>`;
+    };
+
+    const fmtPrice = (v) => v != null
+      ? `$${Math.round(v).toLocaleString('en')}`
+      : '\u2014';
+
+    const fmtChange = (v) => v != null
+      ? `<span class="${v > 0 ? 'stat-up' : v < 0 ? 'stat-down' : ''}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`
+      : '\u2014';
+
+    const fmtMomentum = (v) => v != null
+      ? `<span class="${v > 0.1 ? 'stat-up' : v < -0.1 ? 'stat-down' : ''}">` +
+        (v > 0.3 ? '\u21911' : v > 0.1 ? '\u2191' :
+         v < -0.3 ? '\u21932' : v < -0.1 ? '\u2193' : '\u2192') +
+        '</span>'
+      : '\u2014';
+
+    const fmtLag = (a, b) => (a && b)
+      ? `<span class="turkey-lag-badge">${a}\u2013${b} hf</span>`
+      : '\u2014';
+
+    const fmtTier = (t) => t
+      ? `<span class="tier-badge tier-${t}">${t}</span>`
+      : '\u2014';
+
+    /* ── Group by driver ──────────────────────────────────────────────────── */
+    const groups = {};
+    yarns.forEach(y => {
+      const key = y.primary_driver_slug || '__no_driver__';
+      groups[key] = groups[key] || [];
+      groups[key].push(y);
+    });
+
+    const rankDriver = (group) => {
+      const sample = group[0];
+      const c = sample.driver_change_7d;
+      if (c == null) return 6;
+      if (c > 5)  return 1;
+      if (c > 2)  return 2;
+      if (c < -5) return 5;
+      if (c < -2) return 4;
+      return 3;
+    };
+
+    const sortedGroupEntries = Object.entries(groups).sort((a, b) => {
+      if (a[0] === '__no_driver__') return 1;
+      if (b[0] === '__no_driver__') return -1;
+      return rankDriver(a[1]) - rankDriver(b[1]);
+    });
+
+    /* ── Render grouped rows ──────────────────────────────────────────────── */
+    let html = '';
+
+    sortedGroupEntries.forEach((entry, groupIdx) => {
+      const [driverSlug, items] = entry;
+      const hasDriver = driverSlug !== '__no_driver__';
+      const sample    = items[0];
+      const groupId   = `yarn-group-${groupIdx}`;
+
+      const pLabel = PLABEL[sample.pressure_signal] || sample.pressure_signal;
+      const pCls   = PCLS[sample.pressure_signal]   || '';
+
+      if (hasDriver) {
+        html += `<tr class="yarn-driver-row" data-group="${groupId}">
+          <td class="yarn-expand-cell">
+            <span class="yarn-expand-caret">\u25B6</span>
+          </td>
+          <td>
+            <span class="driver-badge">${esc(driverSlug)}</span>
+          </td>
+          <td class="muted">
+            <span class="yarn-spec-count">${items.length} spec${items.length === 1 ? '' : 's'}</span>
+          </td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num">${fmtPrice(sample.driver_price_usd)}</td>
+          <td class="num">${fmtChange(sample.driver_change_7d)}</td>
+          <td class="num">${fmtMomentum(sample.driver_momentum)}</td>
+          <td class="num ${pCls}">${pLabel}</td>
+          <td class="num">${fmtLag(sample.lag_min_weeks, sample.lag_max_weeks)}</td>
+          <td class="num">${fmtTier(sample.driver_data_quality)}</td>
+          <td class="num muted">\u2014</td>
+        </tr>`;
+      } else {
+        html += `<tr class="yarn-driver-row yarn-driver-row-nodriver" data-group="${groupId}">
+          <td class="yarn-expand-cell">
+            <span class="yarn-expand-caret">\u25B6</span>
+          </td>
+          <td colspan="11" class="muted">
+            <em>No driver assigned</em> \u00B7 ${items.length} spec${items.length === 1 ? '' : 's'}
+          </td>
+        </tr>`;
+      }
+
+      items.forEach(y => {
+        const subspec = y.subspec_sensitive
+          ? ' <span title="Alt-spec varyantlar mevcut \u2014 fiyat farki olabilir" style="color:#f0883e;font-size:10px">\u26a0</span>'
+          : '';
+
+        html += `<tr class="yarn-spec-row" data-group="${groupId}" style="display:none">
+          <td></td>
+          <td class="yarn-spec-code">${esc(y.yarn_code)}${subspec}</td>
+          <td>${esc(y.fiber_family)}</td>
+          <td class="num">${y.denier_class || '\u2014'}</td>
+          <td class="num">${y.luster || '\u2014'}</td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num muted">\u2014</td>
+          <td class="num">${renderCoverageChip(y.coverage_status || 'driver-priced')}</td>
+        </tr>`;
+      });
+    });
+
+    tbody.innerHTML = html;
+
+    /* ── Expand/collapse handlers ─────────────────────────────────────────── */
+    tbody.querySelectorAll('.yarn-driver-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const groupId = row.dataset.group;
+        const caret   = row.querySelector('.yarn-expand-caret');
+        const isOpen  = row.classList.toggle('yarn-driver-open');
+        if (caret) caret.textContent = isOpen ? '\u25BC' : '\u25B6';
+        tbody.querySelectorAll(`.yarn-spec-row[data-group="${groupId}"]`)
+          .forEach(r => { r.style.display = isOpen ? '' : 'none'; });
+      });
+    });
+
+    /* ── Subspec warning ──────────────────────────────────────────────────── */
+    const noteEl = document.getElementById('yarn-subspec-note');
+    if (noteEl && data.subspec_warning) {
+      noteEl.textContent = '\u26a0 ' + data.subspec_warning;
+    }
+
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="12" class="error">Yuklenemedi: ${e.message}</td></tr>`;
+  }
+}
+
+/* ── Export Intelligence ─────────────────────────────────────────────────────── */
+async function loadExports(hsCode) {
+  const hs = hsCode || document.getElementById('hs-select').value || '5407';
+  if (_exportData[hs]) {
+    renderExports(_exportData[hs], hs);
+    return;
+  }
+  try {
+    const data = await api(`/api/exports?hs_code=${hs}&months=18`);
+    _exportData[hs] = data;
+    renderExports(data, hs);
+  } catch (e) {
+    document.getElementById('export-kpis').innerHTML =
+      `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+function renderExports(data, hs) {
+  const kpi = data.kpi || {};
+  const mom = kpi.mom_pct;
+  const momHtml = mom != null
+    ? `<span class="${mom >= 0 ? 'stat-up' : 'stat-down'}">${mom >= 0 ? '+' : ''}${mom}% MoM</span>`
+    : '<span class="stat-neutral">—</span>';
+
+  document.getElementById('export-kpis').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">HS ${hs} Export (${kpi.latest_period || '—'})</div>
+      <div class="stat-value">$${kpi.latest_value_mn != null ? kpi.latest_value_mn.toFixed(1) : '—'}M</div>
+      <div class="stat-sub">${momHtml}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Month-on-Month</div>
+      <div class="stat-value">${mom != null ? (mom >= 0 ? '+' : '') + mom + '%' : '—'}</div>
+      <div class="stat-sub stat-neutral">${kpi.latest_period || ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Destination</div>
+      <div class="stat-value" style="font-size:18px">${esc(COUNTRY_NAMES[kpi.top_dest] || kpi.top_dest || '—')}</div>
+      <div class="stat-sub stat-neutral">${kpi.top_dest_mn != null ? '$' + kpi.top_dest_mn.toFixed(1) + 'M' : ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">HS 6006 Export</div>
+      <div class="stat-value">${(data.trend?.['6006']?.values?.slice(-1)[0] ?? null) != null
+        ? '$' + data.trend['6006'].values.slice(-1)[0].toFixed(1) + 'M' : '—'}</div>
+      <div class="stat-sub stat-neutral">latest month</div>
+    </div>`;
+
+  // Top destinations bar chart
+  const dest = data.top_destinations || [];
+  document.getElementById('dest-chart-title').textContent =
+    `Top ${dest.length} Destinations — HS ${hs}`;
+
+  if (dest.length) {
+    const countries = dest.map(r => COUNTRY_NAMES[r.country] || r.country).reverse();
+    const vals      = dest.map(r => r.value_mn).reverse();
+    Plotly.newPlot('chart-destinations', [{
+      x: vals, y: countries,
+      type: 'bar', orientation: 'h',
+      marker: { color: C.blue, opacity: 0.85 },
+      text: vals.map(v => `$${v.toFixed(1)}M`),
+      textposition: 'outside',
+      textfont: { color: C.muted, size: 10 },
+      hovertemplate: '%{y}: $%{x:.1f}M<extra></extra>',
+    }], {
+      ...PLOTLY_BASE,
+      height: 320,
+      margin: { l: 100, r: 60, t: 12, b: 28 },
+      xaxis: { ...PLOTLY_BASE.xaxis, tickprefix: '$', ticksuffix: 'M' },
+      yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { color: C.muted, size: 11 } },
+    }, PLOTLY_CONFIG);
+  }
+
+  // Monthly trend
+  const trend = data.trend || {};
+  const trendTraces = [
+    { hs: '5407', color: C.blue,   name: 'HS 5407 — Woven synthetic filament' },
+    { hs: '6006', color: C.orange, name: 'HS 6006 — Technical knit' },
+  ].map(({ hs: h, color, name }) => {
+    const d = trend[h];
+    if (!d) return null;
+    return {
+      x: d.periods, y: d.values,
+      name, type: 'scatter', mode: 'lines+markers',
+      line: { color, width: 2 },
+      marker: { size: 4, color },
+      hovertemplate: `${name}: $%{y:.1f}M<extra></extra>`,
+    };
+  }).filter(Boolean);
+
+  if (trendTraces.length) {
+    Plotly.newPlot('chart-trend', trendTraces, {
+      ...PLOTLY_BASE,
+      height: 320,
+      margin: { l: 48, r: 12, t: 12, b: 36 },
+      xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30 },
+      yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '$', ticksuffix: 'M', title: { text: 'USD million', font: { color: C.muted, size: 10 } } },
+      legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 } },
+    }, PLOTLY_CONFIG);
+  }
+}
+
+function initExportSelector() {
+  document.getElementById('hs-select').addEventListener('change', e => {
+    loadExports(e.target.value);
+  });
+}
+
+/* ── Internal Data ───────────────────────────────────────────────────────────── */
+async function loadInternal() {
+  if (_internalData) return;
+  try {
+    _internalData = await api('/api/lescon');
+    renderLescon(_internalData);
+    renderYarn(_internalData);
+    renderOrders(_internalData);
+  } catch (e) {
+    document.getElementById('lescon-metrics').innerHTML =
+      `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+function renderLescon(data) {
+  const s = data.summary || {};
+  document.getElementById('lescon-metrics').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value">$${(s.total_revenue_usd||0).toLocaleString('en',{maximumFractionDigits:0})}</div>
+      <div class="stat-sub stat-neutral">excl. returns</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Transactions</div>
+      <div class="stat-value">${(s.total_transactions||0).toLocaleString()}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Transaction</div>
+      <div class="stat-value">$${(s.avg_tx_value||0).toLocaleString('en',{maximumFractionDigits:0})}</div>
+    </div>`;
+
+  // Revenue by fabric
+  const fab = data.by_fabric || [];
+  if (fab.length) {
+    const labels = fab.map(r => r.fabric_type).reverse();
+    const revs   = fab.map(r => r.revenue_usd || 0).reverse();
+    Plotly.newPlot('chart-lescon-fabric', [{
+      x: revs, y: labels,
+      type: 'bar', orientation: 'h',
+      marker: { color: C.blue, opacity: 0.85 },
+      text: revs.map(v => `$${(v/1000).toFixed(0)}K`),
+      textposition: 'outside',
+      textfont: { color: C.muted, size: 10 },
+      hovertemplate: '%{y}: $%{x:,.0f}<extra></extra>',
+    }], {
+      ...PLOTLY_BASE,
+      height: 320,
+      margin: { l: 120, r: 60, t: 12, b: 28 },
+      xaxis: { ...PLOTLY_BASE.xaxis, tickprefix: '$' },
+      yaxis: { ...PLOTLY_BASE.yaxis },
+    }, PLOTLY_CONFIG);
+  }
+
+  // Monthly trend area
+  const mon = data.monthly || [];
+  if (mon.length) {
+    Plotly.newPlot('chart-lescon-monthly', [{
+      x: mon.map(r => r.month),
+      y: mon.map(r => r.revenue_usd || 0),
+      type: 'scatter', mode: 'lines',
+      fill: 'tozeroy',
+      line: { color: C.green, width: 2.5 },
+      fillcolor: hexAlpha(C.green, 0.1),
+      hovertemplate: '%{x}: $%{y:,.0f}<extra></extra>',
+    }], {
+      ...PLOTLY_BASE,
+      height: 320,
+      margin: { l: 52, r: 12, t: 12, b: 36 },
+      xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30 },
+      yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '$', tickformat: '~s' },
+    }, PLOTLY_CONFIG);
+  }
+
+  // Top products table
+  const prods = data.top_products || [];
+  const rows = prods.map(r => `
+    <tr>
+      <td>${esc(r.product)}</td>
+      <td class="num">${(r.tx_count||0).toLocaleString()}</td>
+      <td class="num">$${(r.revenue_usd||0).toLocaleString('en',{maximumFractionDigits:0})}</td>
+    </tr>`).join('');
+  document.getElementById('lescon-products-table').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Product</th><th class="num">Transactions</th><th class="num">Revenue (USD)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderYarn(data) {
+  const rows = data.yarn_trend || [];
+  if (!rows.length) return;
+
+  Plotly.newPlot('chart-yarn', [{
+    x: rows.map(r => String(r.year)),
+    y: rows.map(r => r.avg_cost || 0),
+    type: 'bar',
+    marker: { color: C.orange, opacity: 0.85 },
+    text: rows.map(r => `$${(r.avg_cost||0).toFixed(2)}`),
+    textposition: 'outside',
+    textfont: { color: C.muted, size: 11 },
+    customdata: rows.map(r => r.records),
+    hovertemplate: 'Year %{x}<br><b>$%{y:.4f}/MT</b><br>Records: %{customdata}<extra></extra>',
+  }], {
+    ...PLOTLY_BASE,
+    height: 320,
+    margin: { l: 52, r: 12, t: 12, b: 36 },
+    xaxis: { ...PLOTLY_BASE.xaxis, title: { text: 'Year', font: { color: C.muted, size: 11 } } },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '$', title: { text: 'USD/MT', font: { color: C.muted, size: 11 } } },
+  }, PLOTLY_CONFIG);
+}
+
+function renderOrders(data) {
+  const sups = data.suppliers || [];
+  if (!sups.length) return;
+
+  // Horizontal bar — top 12
+  const top12  = sups.slice(0, 12);
+  const labels = top12.map(r => r.supplier).reverse();
+  const counts = top12.map(r => r.order_count || 0).reverse();
+  Plotly.newPlot('chart-suppliers', [{
+    x: counts, y: labels,
+    type: 'bar', orientation: 'h',
+    marker: { color: C.purple, opacity: 0.85 },
+    text: counts.map(String),
+    textposition: 'outside',
+    textfont: { color: C.muted, size: 10 },
+    hovertemplate: '%{y}: %{x} orders<extra></extra>',
+  }], {
+    ...PLOTLY_BASE,
+    height: 420,
+    margin: { l: 120, r: 50, t: 12, b: 28 },
+    xaxis: { ...PLOTLY_BASE.xaxis },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { color: C.muted, size: 11 } },
+  }, PLOTLY_CONFIG);
+
+  // Supplier table
+  const rows = sups.map(r => `
+    <tr>
+      <td>${esc(r.supplier)}</td>
+      <td>${esc(r.currency)}</td>
+      <td class="num">${(r.order_count||0).toLocaleString()}</td>
+      <td class="num">${r.total_kg ? r.total_kg.toLocaleString('en',{maximumFractionDigits:0}) : '—'}</td>
+      <td class="num">${r.avg_price != null ? r.avg_price.toFixed(4) : '—'}</td>
+    </tr>`).join('');
+  document.getElementById('suppliers-table').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Supplier</th><th>Currency</th>
+        <th class="num">Orders</th><th class="num">Total KG</th><th class="num">Avg Price</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ── Utilities ───────────────────────────────────────────────────────────────── */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function hexAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/* ── Refresh ─────────────────────────────────────────────────────────────────── */
+function initRefresh() {
+  document.getElementById('refresh-btn').addEventListener('click', () => {
+    _internalData    = null;
+    _priceData       = null;
+    _feedRawData     = null;
+    _feedMinImpact   = 50;
+    _feedViewAll     = false;  // reset to default — don't persist "View all" across refresh
+    _feedThemeFilter = null;
+    Object.keys(_exportData).forEach(k => delete _exportData[k]);
+    _loaded.clear();
+    loadStats();
+    loadSignalsPanels();
+    // Re-render whichever section is active
+    const active = document.querySelector('.nav-item.active');
+    if (active) {
+      const sec = active.dataset.section;
+      if (sec === 'prices')   loadPriceDashboard();
+      if (sec === 'exports')  loadExports();
+      if (sec === 'internal') loadInternal();
+    }
+  });
+}
+
+/* ── Boot ────────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  initNav();
+  initSignalsSection();
+  initExportSelector();
+  initPriceSection();
+  initRefresh();
+  loadStats();
+  loadSignalsPanels();   // signals is the default active section
+});

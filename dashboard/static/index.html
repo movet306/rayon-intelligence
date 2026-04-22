@@ -171,27 +171,39 @@
 
   <!-- 3. Yarn Intelligence -->
   <section id="section-yarn" class="section">
-    <div class="section-title">Yarn Intelligence</div>
+    <div class="section-title">
+      Yarn Intelligence
+      <span class="phase-pill">BETA · PHASE 1</span>
+    </div>
 
-    <div id="yarn-scope-note" class="scope-note">
-      Phase 1: Synthetic yarn driver mapping only.
+    <div id="yarn-scope-note" class="scope-note scope-note-amber">
+      <strong>Phase 1:</strong> Synthetic yarn driver mapping only (polyester + polyamide).
       Cotton / viscose / blend = Phase 2.
-      Prices are indicative driver-based estimates, not validated quotes.
+      Prices are <em>indicative driver-based estimates</em>, not validated supplier quotes.
     </div>
 
     <div id="yarn-pressure-summary" class="yarn-pressure-grid"></div>
 
+    <div id="yarn-coverage-strip" class="coverage-strip"></div>
+
+    <div id="yarn-insights-strip" class="yarn-insights-strip"></div>
+
     <div id="yarn-table-container">
-      <div class="table-title">Yarn Watchlist — Cost Pressure by Driver</div>
+      <div class="table-title">Yarn Watchlist — Grouped by Price Driver</div>
+      <div class="yarn-quality-legend">
+        Quality tier:
+        <span class="tier-badge tier-A">A</span> 60+ days of price history, ≤3d since last update ·
+        <span class="tier-badge tier-B">B</span> 30+ days, ≤5d ·
+        <span class="tier-badge tier-C">C</span> 14+ days, ≤7d ·
+        <span class="tier-badge tier-D">D</span> 7+ days, ≤10d ·
+        <span class="tier-badge tier-E">E</span> insufficient or stale
+      </div>
       <div class="table-wrap">
-        <table id="yarn-pressure-table" class="data-table">
+        <table id="yarn-pressure-table" class="data-table yarn-grouped-table">
           <thead>
             <tr>
-              <th>Yarn Spec</th>
-              <th>Family</th>
-              <th class="num">Denier</th>
-              <th class="num">Luster</th>
-              <th>Primary Driver</th>
+              <th style="width: 24px"></th>
+              <th>Yarn / Driver</th>
               <th class="num">Driver Price</th>
               <th class="num">7G%</th>
               <th class="num">Momentum</th>
@@ -206,7 +218,6 @@
       <div class="subspec-warning" id="yarn-subspec-note"></div>
     </div>
   </section>
-
   <!-- 4. Export Intelligence -->
   <section id="section-exports" class="section">
     <div class="section-title">Turkey Textile Export Intelligence</div>

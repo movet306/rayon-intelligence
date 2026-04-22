@@ -54,7 +54,6 @@ const MATERIAL_LABELS = {
   adipic_acid:            'Adipik Asit',
 };
 
-// Polyester family chart definition
 const POLY_MATS = [
   { key: 'polyester_staple_fiber', color: C.blue,     label: 'PSF' },
   { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
@@ -62,7 +61,6 @@ const POLY_MATS = [
   { key: 'polyester_dty',          color: '#a371f7',  label: 'DTY' },
 ];
 
-// All materials for summary table (ordered by family)
 const ALL_PRICE_MATS = [
   { key: 'polyester_staple_fiber', fam: 'polyester' },
   { key: 'polyester_fdy',          fam: 'polyester' },
@@ -80,7 +78,6 @@ const ALL_PRICE_MATS = [
   { key: 'rayon_yarn',             fam: 'rayon'     },
 ];
 
-// Polyester chain nodes in display order (for chain flow visualization)
 const POLY_CHAIN = [
   { key: 'pta',                    label: 'PTA',  color: C.blue   },
   { key: 'polyester_staple_fiber', label: 'PSF',  color: C.purple },
@@ -89,7 +86,6 @@ const POLY_CHAIN = [
   { key: 'polyester_dty',          label: 'DTY',  color: '#a371f7'},
 ];
 
-// Which node is "upstream" for divergence display (right node key -> left node key)
 const CHAIN_UPSTREAM = {
   polyester_staple_fiber: 'pta',
   polyester_fdy:          'pta',
@@ -97,21 +93,18 @@ const CHAIN_UPSTREAM = {
   polyester_dty:          'polyester_poy',
 };
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
 let _internalData = null;
 let _exportData   = {};
 let _priceData    = null;
 let _polyMode     = 'price';
-let _currency     = 'usd';   // 'rmb' | 'usd'
+let _currency     = 'usd';
 
-/* ── API helpers ───────────────────────────────────────────────────────────── */
 async function api(path) {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
 
-/* ── Navigation ─────────────────────────────────────────────────────────────── */
 function initNav() {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.addEventListener('click', () => {
@@ -120,7 +113,6 @@ function initNav() {
       el.classList.add('active');
       const sec = document.getElementById('section-' + el.dataset.section);
       if (sec) sec.classList.add('active');
-      // Lazy-load section on first visit
       lazyLoad(el.dataset.section);
     });
   });
@@ -146,7 +138,6 @@ function lazyLoad(section) {
   if (section === 'internal') loadInternal();
 }
 
-/* ── Header KPIs ────────────────────────────────────────────────────────────── */
 async function loadStats() {
   try {
     const [d, sigStats] = await Promise.all([
@@ -177,9 +168,6 @@ async function loadStats() {
   }
 }
 
-/* ── Market Signals ──────────────────────────────────────────────────────────── */
-
-// Signal category → left-border color
 const CAT_COLORS = {
   COST_IMPACT:     '#f0883e',
   DEMAND_SHIFT:    '#58a6ff',
@@ -188,9 +176,9 @@ const CAT_COLORS = {
   REGULATORY:      '#3fb950',
 };
 
-let _feedRawData    = null;   // latest fetched feed dataset
+let _feedRawData    = null;
 let _feedMinImpact  = 50;
-let _feedViewAll    = false;  // true only when user explicitly clicks "View all"
+let _feedViewAll    = false;
 let _feedThemeFilter = null;
 
 function loadSignalsPanels() {
@@ -199,7 +187,6 @@ function loadSignalsPanels() {
   _loadFeedSignals();
 }
 
-// Panel A — critical signals (impact ≥ 80, last 7 days)
 async function _loadCriticalSignals() {
   const el = document.getElementById('critical-list');
   el.innerHTML = '<div class="loading">Loading…</div>';
@@ -217,7 +204,6 @@ async function _loadCriticalSignals() {
   }
 }
 
-// Panel B — themes from signal_stats
 async function _loadSignalStats() {
   try {
     const stats = await api('/api/signal_stats');
@@ -225,7 +211,6 @@ async function _loadSignalStats() {
   } catch (_) {}
 }
 
-// Panel C — full feed
 async function _loadFeedSignals() {
   const list = document.getElementById('signals-list');
   list.innerHTML = '<div class="loading">Loading signals…</div>';
@@ -254,7 +239,6 @@ function _renderFeed() {
     _attachUrlHandlers(list);
   }
 
-  // Archive row
   const archiveRow    = document.getElementById('feed-archive-row');
   const archiveToggle = document.getElementById('archive-toggle');
   if (_feedMinImpact > 0) {
@@ -287,7 +271,6 @@ function _renderThemeChips(themes) {
   });
 }
 
-// Critical card (large format for Panel A)
 function renderCriticalCard(r) {
   const borderColor = CAT_COLORS[r.signal_category] || '#f85149';
   const hasUrl  = r.source_url && r.source_url.startsWith('http');
@@ -317,7 +300,6 @@ function renderCriticalCard(r) {
     </div>`;
 }
 
-// Feed card (compact format for Panel C)
 function renderSignalCard(r) {
   const borderColor = CAT_COLORS[r.signal_category] || C.border;
   const hasUrl  = r.source_url && r.source_url.startsWith('http');
@@ -379,8 +361,6 @@ function initSignalsSection() {
   }
 }
 
-/* ── Price Intelligence ──────────────────────────────────────────────────────── */
-
 const PRICE_CHART_LAYOUT = {
   paper_bgcolor: '#161b22',
   plot_bgcolor:  '#161b22',
@@ -391,7 +371,6 @@ const PRICE_CHART_LAYOUT = {
 };
 
 async function loadPriceDashboard() {
-  // Fire early warning bar immediately (independent request)
   _loadEarlyWarningBar();
 
   if (_priceData) {
@@ -474,8 +453,6 @@ function _renderPriceDashboard(data) {
   _renderPriceSummaryTable(data);
 }
 
-// ── Chain Flow Visualization ──────────────────────────────────────────────────
-
 function _momentumArrow(score) {
   if (score == null) return { icon: '→', cls: 'momentum-flat' };
   if (score >  0.3) return { icon: '↑↑', cls: 'momentum-strong-up'   };
@@ -508,7 +485,6 @@ function _renderChainFlow(data) {
     const tierHtml = _tierBadge(tier);
     const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
 
-    // Divergence indicator for separator to the LEFT of this node
     let divHtml = '';
     if (idx > 0) {
       const leftKey    = POLY_CHAIN[idx - 1].key;
@@ -535,8 +511,6 @@ function _renderChainFlow(data) {
   el.innerHTML = html;
 }
 
-// ── Turkey Lag Row ────────────────────────────────────────────────────────────
-
 function _renderPolyLagRow(data) {
   const el = document.getElementById('poly-lag-row');
   if (!el) return;
@@ -557,8 +531,6 @@ function _renderPolyLagRow(data) {
 }
 
 function _priceVal(point) {
-  // Pick price_usd or price (RMB) depending on current currency selection.
-  // Spread mode always uses raw values (both legs same currency).
   if (_currency === 'usd') return point.price_usd ?? point.price;
   return point.price;
 }
@@ -587,11 +559,8 @@ function _updateRateNote(data) {
   }
 }
 
-// ── Polyester family chart ────────────────────────────────────────────────────
-
 function _renderPolyesterFamily(data, mode) {
   const traces = [];
-
   const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
 
   if (mode === 'price') {
@@ -618,7 +587,6 @@ function _renderPolyesterFamily(data, mode) {
         line: { color: m.color, width: 2.5 },
         hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
       });
-      // MA7: scale MA7 (RMB) by same rate if in USD mode
       const rate = data.meta?.rmb_usd_rate ?? 1;
       const yMa7 = d.series.map(p => {
         if (p.ma7 == null) return null;
@@ -652,7 +620,6 @@ function _renderPolyesterFamily(data, mode) {
     });
 
   } else if (mode === 'spread') {
-    // Always use RMB prices for spreads (consistent basis; USD just scales both legs equally)
     const pairs = [
       { matA: 'polyester_staple_fiber', matB: 'polyester_fdy',  label: 'FDY − PSF', color: C.orange },
       { matA: 'polyester_poy',          matB: 'polyester_dty',  label: 'DTY − POY', color: '#a371f7' },
@@ -701,8 +668,6 @@ function _renderPolyesterFamily(data, mode) {
   Plotly.newPlot('chart-polyester', traces, layout, PLOTLY_CONFIG);
 }
 
-// ── Polyester metric cards ────────────────────────────────────────────────────
-
 function _renderPolyMetricCards(data) {
   const container = document.getElementById('poly-metric-cards');
   container.innerHTML = POLY_MATS.map(m => {
@@ -714,7 +679,6 @@ function _renderPolyMetricCards(data) {
     const pv    = _latestPrice(l);
     const price = _priceFmt(pv);
 
-    // Minimal confidence: show price only, no other metrics
     if (isMinimal) {
       return `
         <div class="poly-metric-card" style="border-top: 3px solid ${m.color}; opacity: 0.5"
@@ -755,13 +719,9 @@ function _renderPolyMetricCards(data) {
   }).join('');
 }
 
-// ── Secondary charts ──────────────────────────────────────────────────────────
-
 function _renderSecondaryCharts(data) {
-  // Cotton: two separate series (sunsirs china spot + ICE futures)
   _renderCottonPanel(data);
 
-  // Nylon + Adipic Acid as leading indicator
   _renderMultiLine('chart-nylon', [
     { key: 'pa6_chip',      color: C.blue,   label: 'PA6 Chip' },
     { key: 'pa66_chip',     color: C.orange, label: 'PA66 Chip' },
@@ -771,7 +731,6 @@ function _renderSecondaryCharts(data) {
 }
 
 function _renderCottonPanel(data) {
-  // Series info cards
   const infoEl = document.getElementById('cotton-series-info');
   if (infoEl) {
     const sunsirs  = data['cotton_lint']?.latest;
@@ -788,13 +747,11 @@ function _renderCottonPanel(data) {
       </div>`;
   }
 
-  // Disclaimer
   const discEl = document.getElementById('cotton-disclaimer');
   if (discEl) {
     discEl.textContent = 'Bu iki seri farklı piyasalardır — doğrudan karşılaştırılmamalıdır.';
   }
 
-  // Chart: both cotton series
   _renderMultiLine('chart-cotton-raw', [
     { key: 'cotton_lint',         color: C.orange, label: 'Pamuk — SunSirs Çin Spot' },
     { key: 'cotton_lint_futures', color: C.blue,   label: 'Pamuk — ICE Vadeli (USD/t)' },
@@ -831,8 +788,6 @@ function _renderMultiLine(elId, mats, data) {
     showlegend: true,
   }, PLOTLY_CONFIG);
 }
-
-// ── Summary table ─────────────────────────────────────────────────────────────
 
 function _renderPriceSummaryTable(data) {
   const fmtPct = v => {
@@ -903,10 +858,7 @@ function _renderPriceSummaryTable(data) {
     </table>`;
 }
 
-// ── Price section init ────────────────────────────────────────────────────────
-
 function initPriceSection() {
-  // Currency toggle buttons
   document.querySelectorAll('#currency-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#currency-toggle .toggle-btn')
@@ -917,7 +869,6 @@ function initPriceSection() {
     });
   });
 
-  // Polyester chart-mode toggle buttons
   document.querySelectorAll('#poly-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#poly-toggle .toggle-btn')
@@ -928,7 +879,6 @@ function initPriceSection() {
     });
   });
 
-  // Collapsible summary table
   const header  = document.getElementById('price-table-toggle');
   const table   = document.getElementById('price-summary-table');
   const arrow   = document.getElementById('price-table-arrow');
@@ -940,19 +890,21 @@ function initPriceSection() {
   });
 }
 
-/* ── Yarn Intelligence ───────────────────────────────────────────────────────── */
+/* ── Yarn Intelligence — Phase A 1.5 ─────────────────────────────────────────── */
 async function loadYarnIntelligence() {
-  const tbody   = document.getElementById('yarn-pressure-tbody');
-  const summary = document.getElementById('yarn-pressure-summary');
+  const tbody    = document.getElementById('yarn-pressure-tbody');
+  const summary  = document.getElementById('yarn-pressure-summary');
+  const covStrip = document.getElementById('yarn-coverage-strip');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="11" class="loading">Yukleniyor...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="loading">Yukleniyor...</td></tr>';
 
   try {
     const data  = await api('/api/yarn_pressure');
     const yarns = data.flat || [];
+    const cov   = data.coverage_summary || {};
 
-    /* ── Summary family cards ─────────────────────────────────────────────── */
+    /* ── Family summary cards ─────────────────────────────────────────────── */
     const families = {};
     yarns.forEach(y => {
       families[y.fiber_family] = families[y.fiber_family] || [];
@@ -960,8 +912,8 @@ async function loadYarnIntelligence() {
     });
 
     summary.innerHTML = Object.entries(families).map(([fam, items]) => {
-      const rising   = items.filter(y => y.pressure_signal.includes('rising')).length;
-      const falling  = items.filter(y => y.pressure_signal.includes('falling')).length;
+      const rising   = items.filter(y => ['rising', 'firming'].includes(y.pressure_signal)).length;
+      const falling  = items.filter(y => ['falling', 'easing'].includes(y.pressure_signal)).length;
       const dominant = rising > falling ? 'rising' : falling > rising ? 'falling' : 'stable';
       const cls      = dominant === 'rising'  ? 'pressure-rising'  :
                        dominant === 'falling' ? 'pressure-falling' : 'pressure-stable';
@@ -974,77 +926,309 @@ async function loadYarnIntelligence() {
       </div>`;
     }).join('');
 
-    /* ── Pressure labels / classes ────────────────────────────────────────── */
+    /* ── Coverage strip (reframed as Phase 1 scope) ──────────────────────── */
+    if (covStrip) {
+      covStrip.innerHTML = `
+        <div class="cov-strip-label">Phase 1 scope coverage <span style="font-weight:400;opacity:0.7">(${cov.total ?? yarns.length} synthetic specs)</span>:</div>
+        <div class="cov-chip cov-chip-quote-validated" title="Has validated supplier quote within 90 days">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Quote-validated</span>
+          <span class="cov-chip-count">${cov.quote_validated ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-driver-priced" title="Priced via commodity driver (indicative)">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Driver-priced</span>
+          <span class="cov-chip-count">${cov.driver_priced ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-placeholder" title="Placeholder entry, not yet priced">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Placeholder</span>
+          <span class="cov-chip-count">${cov.placeholder ?? 0}</span>
+        </div>
+        <div class="cov-chip cov-chip-not-covered" title="Eligible but no driver / price data in this subset">
+          <span class="cov-chip-dot"></span>
+          <span class="cov-chip-text">Not covered</span>
+          <span class="cov-chip-count">${cov.not_covered ?? 0}</span>
+        </div>
+        <div class="cov-strip-total">Cotton / viscose / blend = Phase 2</div>
+      `;
+    }
+
+    /* ── Top insight strip (dynamic) ──────────────────────────────────────── */
+    _renderYarnInsights(yarns);
+
+    /* ── Pressure labels ──────────────────────────────────────────────────── */
     const PLABEL = {
-      rising_strong:    '\u21911 Guclu Artis',
-      rising:           '\u2191 Artis',
-      stable:           '\u2192 Sakin',
-      falling:          '\u2193 Dusus',
-      falling_strong:   '\u21932 Guclu Dusus',
-      insufficient_data: '\u2014 Yetersiz',
-    };
-    const PCLS = {
-      rising_strong: 'stat-up', rising: 'stat-up',
-      falling: 'stat-down', falling_strong: 'stat-down',
-      insufficient_data: 'muted',
+      rising:   'Rising',
+      firming:  'Firming',
+      stable:   'Stable',
+      easing:   'Easing',
+      falling:  'Falling',
+      watch:    'Watch',
     };
 
-    /* ── Table rows ───────────────────────────────────────────────────────── */
-    tbody.innerHTML = yarns.map(y => {
-      const pLabel = PLABEL[y.pressure_signal] || y.pressure_signal;
-      const pCls   = PCLS[y.pressure_signal]   || '';
+    const covLabel = {
+      'quote-validated': 'Quote',
+      'driver-priced':   'Driver',
+      'placeholder':     'Placeholder',
+      'not-covered':     'Not cov.',
+    };
 
-      const c7 = y.driver_change_7d != null
-        ? `<span class="${y.driver_change_7d > 0 ? 'stat-up' : y.driver_change_7d < 0 ? 'stat-down' : ''}">${y.driver_change_7d > 0 ? '+' : ''}${y.driver_change_7d.toFixed(1)}%</span>`
-        : '\u2014';
+    const renderCoverageChip = (status) => {
+      const label = covLabel[status] || status;
+      return `<span class="cov-chip-small cov-chip-${status}">${label}</span>`;
+    };
 
-      const mom = y.driver_momentum != null
-        ? `<span class="${y.driver_momentum > 0.1 ? 'stat-up' : y.driver_momentum < -0.1 ? 'stat-down' : ''}">` +
-          (y.driver_momentum > 0.3 ? '\u21911' : y.driver_momentum > 0.1 ? '\u2191' :
-           y.driver_momentum < -0.3 ? '\u21932' : y.driver_momentum < -0.1 ? '\u2193' : '\u2192') +
-          '</span>'
-        : '\u2014';
+    const fmtPrice = (v) => v != null
+      ? `$${Math.round(v).toLocaleString('en')}`
+      : '\u2014';
 
-      const lag = (y.lag_min_weeks && y.lag_max_weeks)
-        ? `<span class="turkey-lag-badge">${y.lag_min_weeks}\u2013${y.lag_max_weeks} hf</span>`
-        : '\u2014';
+    const fmtChange = (v) => v != null
+      ? `<span class="${v > 0 ? 'stat-up' : v < 0 ? 'stat-down' : ''}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`
+      : '\u2014';
 
-      const subspec = y.subspec_sensitive
-        ? ' <span title="Alt-spec varyantlar mevcut \u2014 fiyat farki olabilir" style="color:#f0883e;font-size:10px">\u26a0</span>'
-        : '';
+    const fmtMomentum = (v) => v != null
+      ? `<span class="${v > 0.1 ? 'stat-up' : v < -0.1 ? 'stat-down' : ''}">` +
+        (v > 0.3 ? '\u21911' : v > 0.1 ? '\u2191' :
+         v < -0.3 ? '\u21932' : v < -0.1 ? '\u2193' : '\u2192') +
+        '</span>'
+      : '\u2014';
 
-      const price = y.driver_price_usd
-        ? `$${Math.round(y.driver_price_usd).toLocaleString('en')}`
-        : '\u2014';
+    const fmtLag = (a, b) => (a && b)
+      ? `<span class="turkey-lag-badge">${a}\u2013${b} hf</span>`
+      : '\u2014';
 
-      const tier = y.driver_data_quality
-        ? `<span class="tier-badge tier-${y.driver_data_quality}">${y.driver_data_quality}</span>`
-        : '\u2014';
+    const fmtTier = (t) => t
+      ? `<span class="tier-badge tier-${t}">${t}</span>`
+      : '\u2014';
 
-      return `<tr>
-        <td>${esc(y.yarn_code)}${subspec}</td>
-        <td>${esc(y.fiber_family)}</td>
-        <td class="num">${y.denier_class || '\u2014'}</td>
-        <td class="num">${y.luster || '\u2014'}</td>
-        <td><span class="driver-badge">${esc(y.primary_driver_slug)}</span></td>
-        <td class="num">${price}</td>
-        <td class="num">${c7}</td>
-        <td class="num">${mom}</td>
-        <td class="num ${pCls}">${pLabel}</td>
-        <td class="num">${lag}</td>
-        <td class="num">${tier}</td>
-      </tr>`;
-    }).join('');
+    const fmtPressure = (signal) => {
+      const label = PLABEL[signal] || signal;
+      return `<span class="pressure-pill pressure-${signal}">${label}</span>`;
+    };
 
-    /* ── Subspec warning ──────────────────────────────────────────────────── */
+    /* ── Group by driver ──────────────────────────────────────────────────── */
+    const groups = {};
+    yarns.forEach(y => {
+      const key = y.primary_driver_slug || '__no_driver__';
+      groups[key] = groups[key] || [];
+      groups[key].push(y);
+    });
+
+    const rankDriver = (group) => {
+      const sample = group[0];
+      const c = sample.driver_change_7d;
+      if (c == null) return 6;
+      if (c > 5)  return 1;
+      if (c > 2)  return 2;
+      if (c < -5) return 5;
+      if (c < -2) return 4;
+      return 3;
+    };
+
+    const sortedGroupEntries = Object.entries(groups).sort((a, b) => {
+      if (a[0] === '__no_driver__') return 1;
+      if (b[0] === '__no_driver__') return -1;
+      return rankDriver(a[1]) - rankDriver(b[1]);
+    });
+
+    /* ── Render grouped rows (8 columns) ──────────────────────────────────── */
+    let html = '';
+
+    sortedGroupEntries.forEach((entry, groupIdx) => {
+      const [driverSlug, items] = entry;
+      const hasDriver = driverSlug !== '__no_driver__';
+      const sample    = items[0];
+      const groupId   = `yarn-group-${groupIdx}`;
+
+      // DRIVER (parent) row — signal columns
+      if (hasDriver) {
+        html += `<tr class="yarn-driver-row" data-group="${groupId}">
+          <td class="yarn-expand-cell">
+            <span class="yarn-expand-caret">\u25B6</span>
+          </td>
+          <td>
+            <span class="driver-badge">${esc(driverSlug)}</span>
+            <span class="yarn-spec-count">${items.length} spec${items.length === 1 ? '' : 's'}</span>
+          </td>
+          <td class="num">${fmtPrice(sample.driver_price_usd)}</td>
+          <td class="num">${fmtChange(sample.driver_change_7d)}</td>
+          <td class="num">${fmtMomentum(sample.driver_momentum)}</td>
+          <td class="num">${fmtPressure(sample.pressure_signal)}</td>
+          <td class="num">${fmtLag(sample.lag_min_weeks, sample.lag_max_weeks)}</td>
+          <td class="num">${fmtTier(sample.driver_data_quality)}</td>
+        </tr>`;
+      } else {
+        html += `<tr class="yarn-driver-row yarn-driver-row-nodriver" data-group="${groupId}">
+          <td class="yarn-expand-cell">
+            <span class="yarn-expand-caret">\u25B6</span>
+          </td>
+          <td colspan="7" class="muted">
+            <em>No driver assigned</em> \u00B7 ${items.length} spec${items.length === 1 ? '' : 's'}
+          </td>
+        </tr>`;
+      }
+
+      // SPEC (child) rows — metadata only
+      items.forEach(y => {
+        const subspec = y.subspec_sensitive
+          ? ' <span title="Alt-spec varyantlar mevcut \u2014 fiyat farki olabilir" style="color:#f0883e;font-size:10px">\u26a0</span>'
+          : '';
+
+        const chips = [];
+        if (y.denier != null)         chips.push(`<span class="spec-meta-chip chip-denier">${y.denier}D</span>`);
+        if (y.filament_count != null) chips.push(`<span class="spec-meta-chip chip-filament">${y.filament_count}F</span>`);
+        if (y.luster)                 chips.push(`<span class="spec-meta-chip chip-luster">${esc(y.luster)}</span>`);
+        if (y.recycle_flag)           chips.push(`<span class="spec-meta-chip chip-recycle">GRS</span>`);
+        if (y.alias_count)            chips.push(`<span class="spec-meta-chip chip-alias" title="${y.alias_count} label alias(es) mapped to this spec">${y.alias_count} alias${y.alias_count === 1 ? '' : 'es'}</span>`);
+        if (y.is_placeholder)         chips.push(`<span class="spec-meta-chip chip-placeholder">placeholder</span>`);
+
+        const coverageCell = renderCoverageChip(y.coverage_status || 'driver-priced');
+
+        html += `<tr class="yarn-spec-row" data-group="${groupId}" style="display:none">
+          <td></td>
+          <td class="spec-primary">${esc(y.yarn_code)}${subspec}</td>
+          <td colspan="5" class="spec-meta-cell">${chips.join(' ')}</td>
+          <td class="num">${coverageCell}</td>
+        </tr>`;
+      });
+    });
+
+    tbody.innerHTML = html;
+
+    /* ── Expand/collapse handlers ─────────────────────────────────────────── */
+    tbody.querySelectorAll('.yarn-driver-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const groupId = row.dataset.group;
+        const caret   = row.querySelector('.yarn-expand-caret');
+        const isOpen  = row.classList.toggle('yarn-driver-open');
+        if (caret) caret.textContent = isOpen ? '\u25BC' : '\u25B6';
+        tbody.querySelectorAll(`.yarn-spec-row[data-group="${groupId}"]`)
+          .forEach(r => { r.style.display = isOpen ? '' : 'none'; });
+      });
+    });
+
+    /* ── Subspec warning footer ───────────────────────────────────────────── */
     const noteEl = document.getElementById('yarn-subspec-note');
     if (noteEl && data.subspec_warning) {
       noteEl.textContent = '\u26a0 ' + data.subspec_warning;
     }
 
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="11" class="error">Yuklenemedi: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="error">Yuklenemedi: ${e.message}</td></tr>`;
   }
+}
+
+/* ── Dynamic insight strip ─────────────────────────────────────────────────── */
+function _renderYarnInsights(yarns) {
+  const el = document.getElementById('yarn-insights-strip');
+  if (!el) return;
+
+  const byDriver = {};
+  yarns.forEach(y => {
+    const k = y.primary_driver_slug || '__no_driver__';
+    byDriver[k] = byDriver[k] || [];
+    byDriver[k].push(y);
+  });
+
+  const driverStats = Object.entries(byDriver).map(([slug, items]) => {
+    const s = items[0];
+    return {
+      slug,
+      label: slug === '__no_driver__' ? 'Unassigned' : slug,
+      count: items.length,
+      change_7d: s.driver_change_7d,
+      pressure: s.pressure_signal,
+      family: s.fiber_family,
+      hasPlaceholder: items.some(y => y.coverage_status === 'placeholder'),
+      placeholderCount: items.filter(y => y.coverage_status === 'placeholder').length,
+    };
+  }).filter(d => d.slug !== '__no_driver__');
+
+  driverStats.sort((a, b) => {
+    if (a.change_7d == null) return 1;
+    if (b.change_7d == null) return -1;
+    return Math.abs(b.change_7d) - Math.abs(a.change_7d);
+  });
+
+  const insights = [];
+
+  const top = driverStats[0];
+  if (top && top.change_7d != null) {
+    const verb = _insightVerb(top.pressure);
+    insights.push({
+      bullet: top.pressure,
+      text: `<span class="yarn-insight-emph">${esc(top.label)}</span> ${verb}, ${top.count} spec${top.count === 1 ? '' : 's'} affected <span class="yarn-insight-muted">(${top.change_7d > 0 ? '+' : ''}${top.change_7d.toFixed(1)}% 7d)</span>`,
+    });
+  }
+
+  if (driverStats.length >= 2) {
+    const second = driverStats[1];
+    if (top && second.family === top.family && second.change_7d != null && top.change_7d != null
+        && Math.abs(second.change_7d - top.change_7d) > 0.8) {
+      const comparison = second.change_7d < top.change_7d ? 'sharper move than' : 'milder move than';
+      insights.push({
+        bullet: second.pressure,
+        text: `<span class="yarn-insight-emph">${esc(second.label)}</span> showing ${comparison} ${esc(top.label)} <span class="yarn-insight-muted">(${second.change_7d > 0 ? '+' : ''}${second.change_7d.toFixed(1)}% 7d, ${second.count} spec${second.count === 1 ? '' : 's'})</span>`,
+      });
+    } else if (second.change_7d != null) {
+      const verb = _insightVerb(second.pressure);
+      insights.push({
+        bullet: second.pressure,
+        text: `<span class="yarn-insight-emph">${esc(second.label)}</span> ${verb} <span class="yarn-insight-muted">(${second.change_7d > 0 ? '+' : ''}${second.change_7d.toFixed(1)}% 7d, ${second.count} spec${second.count === 1 ? '' : 's'})</span>`,
+      });
+    }
+  }
+
+  const placeholdersByFamily = {};
+  yarns.forEach(y => {
+    if (y.coverage_status === 'placeholder') {
+      placeholdersByFamily[y.fiber_family] = (placeholdersByFamily[y.fiber_family] || 0) + 1;
+    }
+  });
+  const phEntries = Object.entries(placeholdersByFamily);
+  if (phEntries.length) {
+    const phText = phEntries.map(([fam, n]) => `${n} in ${esc(fam)}`).join(', ');
+    insights.push({
+      bullet: 'watch',
+      text: `<span class="yarn-insight-emph">Unresolved placeholders</span>: ${phText} <span class="yarn-insight-muted">(needs driver assignment or pricing)</span>`,
+    });
+  }
+
+  const subspecCount = yarns.filter(y => y.subspec_sensitive).length;
+  if (subspecCount > 0 && insights.length < 4) {
+    insights.push({
+      bullet: 'watch',
+      text: `<span class="yarn-insight-emph">${subspecCount} spec${subspecCount === 1 ? '' : 's'}</span> flagged subspec-sensitive <span class="yarn-insight-muted">\u2014 driver price is an approximation</span>`,
+    });
+  }
+
+  if (!insights.length) {
+    el.innerHTML = `
+      <div class="yarn-insights-strip-title">Today's read</div>
+      <div class="yarn-insight-item yarn-insight-muted">No strong signals in current scope</div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="yarn-insights-strip-title">Today's read</div>
+    ${insights.map(i =>
+      `<div class="yarn-insight-item"><span class="yarn-insight-bullet bullet-${i.bullet}"></span>${i.text}</div>`
+    ).join('')}
+  `;
+}
+
+function _insightVerb(pressure) {
+  const map = {
+    rising:  'rising strongly',
+    firming: 'firming',
+    stable:  'stable',
+    easing:  'easing',
+    falling: 'falling',
+    watch:   'insufficient data',
+  };
+  return map[pressure] || pressure;
 }
 
 /* ── Export Intelligence ─────────────────────────────────────────────────────── */
@@ -1094,7 +1278,6 @@ function renderExports(data, hs) {
       <div class="stat-sub stat-neutral">latest month</div>
     </div>`;
 
-  // Top destinations bar chart
   const dest = data.top_destinations || [];
   document.getElementById('dest-chart-title').textContent =
     `Top ${dest.length} Destinations — HS ${hs}`;
@@ -1119,7 +1302,6 @@ function renderExports(data, hs) {
     }, PLOTLY_CONFIG);
   }
 
-  // Monthly trend
   const trend = data.trend || {};
   const trendTraces = [
     { hs: '5407', color: C.blue,   name: 'HS 5407 — Woven synthetic filament' },
@@ -1185,7 +1367,6 @@ function renderLescon(data) {
       <div class="stat-value">$${(s.avg_tx_value||0).toLocaleString('en',{maximumFractionDigits:0})}</div>
     </div>`;
 
-  // Revenue by fabric
   const fab = data.by_fabric || [];
   if (fab.length) {
     const labels = fab.map(r => r.fabric_type).reverse();
@@ -1207,7 +1388,6 @@ function renderLescon(data) {
     }, PLOTLY_CONFIG);
   }
 
-  // Monthly trend area
   const mon = data.monthly || [];
   if (mon.length) {
     Plotly.newPlot('chart-lescon-monthly', [{
@@ -1227,7 +1407,6 @@ function renderLescon(data) {
     }, PLOTLY_CONFIG);
   }
 
-  // Top products table
   const prods = data.top_products || [];
   const rows = prods.map(r => `
     <tr>
@@ -1269,7 +1448,6 @@ function renderOrders(data) {
   const sups = data.suppliers || [];
   if (!sups.length) return;
 
-  // Horizontal bar — top 12
   const top12  = sups.slice(0, 12);
   const labels = top12.map(r => r.supplier).reverse();
   const counts = top12.map(r => r.order_count || 0).reverse();
@@ -1289,7 +1467,6 @@ function renderOrders(data) {
     yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { color: C.muted, size: 11 } },
   }, PLOTLY_CONFIG);
 
-  // Supplier table
   const rows = sups.map(r => `
     <tr>
       <td>${esc(r.supplier)}</td>
@@ -1337,13 +1514,12 @@ function initRefresh() {
     _priceData       = null;
     _feedRawData     = null;
     _feedMinImpact   = 50;
-    _feedViewAll     = false;  // reset to default — don't persist "View all" across refresh
+    _feedViewAll     = false;
     _feedThemeFilter = null;
     Object.keys(_exportData).forEach(k => delete _exportData[k]);
     _loaded.clear();
     loadStats();
     loadSignalsPanels();
-    // Re-render whichever section is active
     const active = document.querySelector('.nav-item.active');
     if (active) {
       const sec = active.dataset.section;
@@ -1362,5 +1538,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initPriceSection();
   initRefresh();
   loadStats();
-  loadSignalsPanels();   // signals is the default active section
+  loadSignalsPanels();
 });
