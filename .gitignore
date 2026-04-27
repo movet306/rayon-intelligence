@@ -28,3 +28,9 @@ logs/
 *.dump
 dumps/
 outputs/
+
+data/
+*.bak
+*.bak2
+*.bak_m2
+*.bak_m201
