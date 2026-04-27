@@ -52,6 +52,8 @@ jobs:
 
       - name: Run ICE Cotton scraper
         run: python scrapers/ice_cotton.py
+      - name: Build price metrics daily
+        run: python scrapers/build_price_metrics.py
 
       - name: Run LLM analyzer
         run: python scrapers/llm_analyzer.py --limit 50
