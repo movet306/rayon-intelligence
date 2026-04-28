@@ -1813,3 +1813,20 @@ html, body {
   border: 1px solid #74c0fc;
   font-weight: 600;
 }
+
+
+/* === Procurement Phase 1 trend symbols (M2.2.1) === */
+.trend-up   { color: #2f9e44; font-weight: 700; }
+.trend-down { color: #e03131; font-weight: 700; }
+.trend-flat { color: #868e96; font-weight: 500; }
+
+.ops-suppliers .cell-supplier {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ops-suppliers .supplier-badges {
+  display: inline-flex;
+  gap: 4px;
+}

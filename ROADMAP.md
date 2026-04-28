@@ -57,22 +57,24 @@ Do NOT fully deepen one section before touching the others. Bring all 4 sections
 
 **Goal:** Move Procurement from "stacked bar + flat table" to a diagnostic surface.
 
-**Adds:**
-- Procurement mix % over time chart (alongside the existing absolute TL chart) — exposes mix shift while totals grow
-- Supplier concentration trend chart (top 1 / top 3 / top 10 share over time)
-- Currency composition strip (TRY / USD / EUR invoicing mix)
-- Top supplier table enrichment:
-  - share_of_total_12m %
-  - last_invoice_date
-  - trend direction (up/down/flat indicator or sparkline)
-  - verification / no-tax / drift badges (already in Counterparty Explorer logic)
-- Row-click → opens Counterparty Explorer detail drawer (cross-section navigation, reuses existing endpoint)
-- KPI strip additions: Top 3 supplier share %, FX-invoiced share %, yarn share, greige share, active supplier count, largest monthly increase/decrease
+Broken into micro-iterations:
 
-**Deferred to Procurement Phase 2:**
-- Top suppliers by selected bucket (requires bucket dropdown — deferred to filter architecture)
-- Variance drivers panel
-- Fiber / material family mix (cotton/polyester/nylon/elastane/blend) — *conditional, depends on data inventory*
+| ID | Item | Status |
+|---|---|---|
+| M2.2.1 | Top Suppliers table enrichment (share %, last invoice, trend ▲/▼/–, badges) | ✅ done 2026-04-28 |
+| M2.2.2 | KPI strip additions (top 3 supplier share, FX-invoiced share, yarn share, greige share, active supplier count, largest monthly Δ) | pending |
+| M2.2.3 | Chart 2 — Procurement mix % over time | pending |
+| M2.2.4 | Chart 3 — Supplier concentration trend (top 1 / top 3 / top 10 share over time) | pending |
+| M2.2.5 | Chart 4 — Currency composition (TRY / USD / EUR invoicing mix) | pending |
+| M2.2.6 | Detail endpoint bottleneck fix (28s → <1s) — **prerequisite for drawer** | pending |
+| M2.2.7 | Row-click → Counterparty Explorer detail drawer | pending |
+
+**Discipline note:** M2.2.7 (drawer) does not start before M2.2.6 (bottleneck fix). Building a drawer over a 28s endpoint violates discipline rule #7 (performance bottlenecks block dependent feature work).
+
+**Deferred to Procurement Phase 2 (M2.6) — NOT skipped, sequenced:**
+- Top suppliers by selected bucket (requires real filter — couples to M2.7 filter architecture)
+- Monthly variance drivers panel (biggest supplier movers, biggest bucket movers)
+- Fiber / material family mix (cotton / polyester / nylon / elastane / blend) — *conditional, depends on data inventory*
 
 #### M2.3 — Revenue Reality Phase 1 *(second)*
 
@@ -218,6 +220,9 @@ These rules govern future scope decisions. When in doubt, refer here.
 - **2026-04-28** — Migration 014 (MV + indexes): list <1s ✓. CE-NS-3 plain-VIEW decision revised to MV based on usage evidence.
 - **2026-04-28** — Detail endpoint TRIM fix corrected a data correctness bug but did not resolve 28s latency. Bottleneck pending teşhis.
 - **2026-04-28** — ROADMAP.md established. Diagnostic uplift order: Procurement → Revenue Reality → Cost Structure → Overview. Filter architecture deferred to M2.7. Country/knit-woven marked conditional.
+- **2026-04-28** — Migration 015: `v_top_suppliers_overall` enriched with share_pct, trend_direction, vergi_numarasi, is_verified, name_variants_count.
+- **2026-04-28** — M2.2.1 Top Suppliers table enrichment shipped. EKİN DOKUMA share visible at 17.47% with ▲ trend; top 3 concentration ~33%. Diagnostic seviyeye ilk geçiş.
+- **2026-04-28** — Procurement Phase 1 broken into M2.2.1–M2.2.7 micro-iterations. M2.2.7 (drawer) gated on M2.2.6 (detail endpoint bottleneck fix) per discipline rule #7.
 
 ---
 
@@ -233,12 +238,16 @@ These rules govern future scope decisions. When in doubt, refer here.
 - Add `REFRESH MATERIALIZED VIEW dim_counterparty_mv` to GitHub Actions
 - Commit ROADMAP.md to repo
 
-**Block 3 (rest of day) — M2.2 Procurement Phase 1 start:**
-- Backend: extend top-suppliers endpoint with new columns (share_of_total_12m, last_invoice_date, trend direction, badges)
-- Frontend: enrich Top 10 Suppliers table
-- Stretch: row-click → Counterparty drawer wiring
+**Block 3 (rest of day) — M2.2 Procurement Phase 1 (in progress):**
+- ✅ M2.2.1 Top Suppliers table enrichment (Migration 015 + endpoint + UI)
+- ▢ M2.2.2 KPI strip
+- ▢ M2.2.3 Chart 2 — Mix % over time
+- ▢ M2.2.4 Chart 3 — Concentration trend
+- ▢ M2.2.5 Chart 4 — Currency composition
+- ▢ M2.2.6 Detail endpoint bottleneck fix (prerequisite for drawer)
+- ▢ M2.2.7 Row-click drawer
 
-**Stop criterion for today:** Procurement table enriched and Counterparty drawer wired from row click. Mix % chart and concentration trend chart roll into tomorrow if energy/time runs out — no rush, breadth-first means tempo matters more than completeness within a single day.
+**Stop criterion for today:** as much of M2.2.2 → M2.2.5 (KPIs + 3 charts) as energy allows, then M2.2.6 bottleneck fix, then M2.2.7 drawer if time permits. Breadth over depth — tomorrow Revenue Phase 1 if Procurement Phase 1 complete.
 
 ---
 

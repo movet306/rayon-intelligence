@@ -1069,7 +1069,15 @@ def internal_top_suppliers(
             amount_eur::float   AS amount_eur,
             top_bucket,
             to_char(first_invoice_date, 'YYYY-MM-DD') AS first_invoice_date,
-            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date
+            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date,
+            -- M2.2.1 enrichment (Migration 015)
+            share_pct::float    AS share_pct,
+            trend_direction,
+            amount_tl_h1::float AS amount_tl_h1,
+            amount_tl_h2::float AS amount_tl_h2,
+            vergi_numarasi,
+            is_verified,
+            name_variants_count
         FROM v_top_suppliers_overall
         ORDER BY amount_tl DESC NULLS LAST
         LIMIT %s

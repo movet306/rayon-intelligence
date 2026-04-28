@@ -1966,36 +1966,86 @@ function renderOpsRevenueChart(payload) {
 /* ── Supplier / Customer tables ────────────────────────────────────────────── */
 
 function renderOpsSuppliersTable(payload) {
-  const rows = payload?.suppliers || [];
+  const suppliers = payload?.suppliers || [];
   const el = document.getElementById('ops-suppliers-table');
   if (!el) return;
-  if (!rows.length) {
-    el.innerHTML = '<div class="ops-empty">No supplier data available.</div>';
+  if (!suppliers || suppliers.length === 0) {
+    el.innerHTML = '<div class="empty-state">No supplier data.</div>';
     return;
   }
-  const html = `
-    <table class="ops-table">
+
+  // M2.2.1 enrichment helpers
+  const _stripTaxZero = v => {
+    if (v == null) return '';
+    let s = String(v).trim();
+    if (s.endsWith('.0')) s = s.slice(0, -2);
+    return s;
+  };
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return '₺' + (v/1e9).toFixed(1) + 'B';
+    if (abs >= 1e6) return '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₺' + (v/1e3).toFixed(0) + 'K';
+    return '₺' + v.toFixed(0);
+  };
+  const _fmtFx = (v, sym) => {
+    if (v == null || isNaN(v) || v === 0) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e6) return sym + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return sym + (v/1e3).toFixed(0) + 'K';
+    return sym + v.toFixed(0);
+  };
+  const _badges = s => {
+    const out = [];
+    if (s.is_verified === false) {
+      out.push('<span class="ce-badge ce-badge-warn" title="No verified tax id — name-grouped">no-tax</span>');
+    }
+    if (s.name_variants_count > 1) {
+      out.push(`<span class="ce-badge ce-badge-info" title="${s.name_variants_count} display name variants">${s.name_variants_count} vars</span>`);
+    }
+    return out.join(' ');
+  };
+  const _trendCell = t => {
+    if (t === '▲') return '<span class="trend-up" title="Spend rising (last 6m vs prior 6m, ≥10%)">▲</span>';
+    if (t === '▼') return '<span class="trend-down" title="Spend falling (last 6m vs prior 6m, ≥10%)">▼</span>';
+    return '<span class="trend-flat" title="Spend stable (within ±10%)">–</span>';
+  };
+
+  el.innerHTML = `
+    <table class="ops-table ops-suppliers">
       <thead>
         <tr>
-          <th>#</th>
+          <th class="num">#</th>
           <th>Supplier</th>
           <th class="num">TL spend</th>
-          <th class="num">USD-invoiced</th>
-          <th class="num">EUR-invoiced</th>
+          <th class="num">Share</th>
+          <th class="num">USD invoiced</th>
+          <th class="num">EUR invoiced</th>
           <th>Top bucket</th>
           <th class="num">Buckets</th>
+          <th class="num">Last invoice</th>
+          <th class="num">Trend</th>
         </tr>
       </thead>
       <tbody>
-        ${rows.map((r, i) => `
+        ${suppliers.map((s, i) => `
           <tr>
-            <td class="num">${i + 1}</td>
-            <td>${r.supplier_name || '—'}</td>
-            <td class="num">${fmtTL(r.amount_tl)}</td>
-            <td class="num">${fmtUSD(r.amount_usd) || '—'}</td>
-            <td class="num">${fmtEUR(r.amount_eur) || '—'}</td>
-            <td>${r.top_bucket || '—'}</td>
-            <td class="num">${r.bucket_count || 0}</td>
+            <td class="num">${i+1}</td>
+            <td>
+              <div class="cell-supplier">
+                <span class="supplier-name">${(s.supplier_name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+                ${_badges(s) ? `<span class="supplier-badges">${_badges(s)}</span>` : ''}
+              </div>
+            </td>
+            <td class="num">${_fmtTL(s.amount_tl)}</td>
+            <td class="num">${s.share_pct != null ? s.share_pct.toFixed(2) + '%' : '—'}</td>
+            <td class="num">${_fmtFx(s.amount_usd, '$')}</td>
+            <td class="num">${_fmtFx(s.amount_eur, '€')}</td>
+            <td>${(s.top_bucket || '—').replace(/_/g, ' ')}</td>
+            <td class="num">${s.bucket_count}</td>
+            <td class="num">${s.last_invoice_date || '—'}</td>
+            <td class="num">${_trendCell(s.trend_direction)}</td>
           </tr>
         `).join('')}
       </tbody>
