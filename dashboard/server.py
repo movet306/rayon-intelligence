@@ -1309,12 +1309,15 @@ def counterparty_detail(
 
     # Reconstruct the WHERE clause used by the view to filter rows for this counterparty
     if h["is_verified"]:
-        cp_filter = "vergi_numarasi IS NOT NULL AND TRIM(vergi_numarasi) NOT IN ('', '0', '0.0') AND TRIM(vergi_numarasi) = %s"
+        # vergi_numarasi stored as-is (e.g. 'REDACTED_TAX_ID.0') — direct equality
+        # matches the index idx_fact_purch_vn_date / idx_fact_sales_vn_date.
+        cp_filter = "vergi_numarasi = %s"
         cp_param = h["vergi_numarasi"]
     else:
-        cp_filter = """(vergi_numarasi IS NULL OR TRIM(vergi_numarasi) IN ('', '0', '0.0'))
-                       AND TRIM(cari_hesap_aciklamasi) = %s"""
-        # display_name is the latest spelling; for unverified we use it directly
+        # Unverified: tax id missing/zero — match by raw display name
+        # Index idx_fact_purch_cariname_date / idx_fact_sales_cariname_date.
+        cp_filter = """(vergi_numarasi IS NULL OR vergi_numarasi IN ('', '0', '0.0'))
+                       AND cari_hesap_aciklamasi = %s"""
         cp_param = h["display_name"]
 
     # Data horizon (anchor for "trailing N months")
