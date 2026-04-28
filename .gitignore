@@ -34,3 +34,19 @@ data/
 *.bak2
 *.bak_m2
 *.bak_m201
+
+# M2.1 backups
+*.bak
+*.bak_*
+*.bak2
+
+# Local diagnostic scripts (run-once, root level)
+check_*.py
+discover_schema.py
+fix_*.py
+add_sidebar_nav.py
+apply_migration_012.py
+verify_*.py
+
+# Generated reports
+audit_report.md

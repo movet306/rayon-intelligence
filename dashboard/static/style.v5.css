@@ -1279,3 +1279,537 @@ html, body {
 .pressure-easing   { background: rgba(240,136,62,0.18);  color: #f0883e; }
 .pressure-falling  { background: rgba(63,185,80,0.18);   color: #3fb950; }
 .pressure-watch    { background: rgba(188,140,255,0.15); color: #a371f7; }
+
+
+/* ── Operations Intelligence (M2) ─────────────────────────────────────────── */
+
+.ops-period-header {
+  font-size: 13px;
+  color: #8b949e;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.ops-period-label  { color: #8b949e; }
+.ops-period-value  { color: #e6edf3; font-weight: 600; font-size: 14px; }
+.ops-period-meta   { color: #8b949e; font-size: 11px; margin-left: auto; }
+
+.ops-panel-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #8b949e;
+  margin: 18px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #30363d;
+}
+.ops-panel-title:first-child { margin-top: 0; }
+
+.stat-fx {
+  font-size: 11px;
+  color: #8b949e;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Contra anomaly alert card ─────────────────────────────────────────────── */
+
+.ops-alert {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px solid #30363d;
+  background: #161b22;
+}
+.ops-alert-high     { border-color: #f85149; background: rgba(248, 81, 73, 0.05); }
+.ops-alert-elevated { border-color: #f0883e; background: rgba(240, 136, 62, 0.04); }
+.ops-alert-normal   { border-color: #30363d; background: #161b22; }
+
+.ops-alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.ops-alert-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e6edf3;
+}
+.ops-alert-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 4px 9px;
+  border-radius: 4px;
+}
+.ops-alert-badge-high     { background: #f85149; color: #fff; }
+.ops-alert-badge-elevated { background: #f0883e; color: #fff; }
+.ops-alert-badge-normal   { background: #30363d; color: #8b949e; }
+
+.ops-alert-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 900px) {
+  .ops-alert-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.ops-alert-cell {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px solid #30363d;
+}
+.ops-alert-cell-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #8b949e;
+  margin-bottom: 4px;
+}
+.ops-alert-cell-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e6edf3;
+  line-height: 1.25;
+}
+.ops-alert-cell-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+.ops-alert-cell-sub {
+  font-size: 10px;
+  color: #8b949e;
+  margin-top: 4px;
+}
+
+/* ── Tables (suppliers / customers) ────────────────────────────────────────── */
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ops-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: #8b949e;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+}
+.ops-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #30363d;
+  color: #e6edf3;
+}
+.ops-table tbody tr:last-child td { border-bottom: none; }
+.ops-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.ops-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.ops-empty {
+  padding: 22px;
+  text-align: center;
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.ops-note {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(240, 136, 62, 0.04);
+  border: 1px solid rgba(240, 136, 62, 0.3);
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ops-note em { color: #f0883e; font-style: normal; }
+
+/* ── M2.0.1 header overflow fix ───────────────────────────────────────────
+ * The top-right info cards (HIGH IMPACT / COST PRESSURE / RISK SIGNALS /
+ * POLYESTER FDY) were clipping at the right edge. Constrain to viewport.
+ */
+.topbar, header, .header-bar, .top-cards, .top-stats {
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+.top-cards, .top-stats {
+  padding-right: 16px;
+}
+
+/* ── M2.0.1 status strip ──────────────────────────────────────────────── */
+.ops-status-strip {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 !important;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.ops-status-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px;
+  border-right: 1px solid #30363d;
+  min-width: 140px;
+}
+.ops-status-cell:last-child { border-right: none; }
+.ops-status-cell-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #8b949e;
+  margin-bottom: 2px;
+}
+.ops-status-cell-value {
+  font-size: 12px;
+  color: #e6edf3;
+  font-weight: 500;
+}
+.ops-status-meta {
+  margin-left: auto;
+  align-items: flex-end;
+  justify-content: center;
+  color: #8b949e;
+  font-size: 11px;
+  font-style: italic;
+}
+@media (max-width: 900px) {
+  .ops-status-meta { display: none; }
+}
+
+/* Why line in contra alert */
+.ops-alert-why {
+  font-size: 12px;
+  color: #c9d1d9;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  line-height: 1.45;
+}
+.ops-alert-why strong {
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+/* ── M2.0.1 stat-context-hint ─────────────────────────────────────────── */
+.stat-context-hint {
+  font-size: 10px;
+  color: #8b949e;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #30363d;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ── M2.0.1 header overflow v2 ────────────────────────────────────────────
+ * Real selectors this time. The header uses #header > .kpi-strip > .kpi-card
+ * with min-width: 140px and padding: 8px 16px on each card. With four cards
+ * plus the title and 28px container padding, the strip overflows on viewports
+ * narrower than ~1300px. Fix: tighten kpi-card spacing globally and let the
+ * strip wrap if the viewport is too narrow.
+ */
+#header {
+  padding: 0 16px;       /* was 28px */
+  gap: 16px;             /* was 24px */
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.header-title {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-strip {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+.kpi-card {
+  min-width: 0;          /* was 140px — let cards shrink if needed */
+  padding: 6px 12px;     /* was 8px 16px */
+  white-space: nowrap;
+}
+.kpi-card .kpi-value { font-size: 16px; }   /* was 18px */
+.kpi-card .kpi-label { font-size: 9px; }    /* was 10px */
+.kpi-card .kpi-sub   { font-size: 9px; }    /* was 10px */
+
+@media (max-width: 1400px) {
+  #header { padding: 0 12px; gap: 12px; }
+  .kpi-card { padding: 6px 10px; }
+}
+@media (max-width: 1200px) {
+  .kpi-card .kpi-sub { display: none; }
+}
+
+
+
+/* === COUNTERPARTY EXPLORER (M2.1) === */
+#section-counterparty .ce-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0 16px;
+  flex-wrap: wrap;
+}
+.ce-mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ce-mode-btn {
+  padding: 6px 14px;
+  background: #f6f8fa;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #57606a;
+}
+.ce-mode-btn.ce-mode-active {
+  background: #0969da;
+  color: white;
+}
+.ce-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 480px;
+}
+#ce-search {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font-size: 13px;
+}
+#ce-search-status {
+  font-size: 12px;
+  color: #57606a;
+  min-width: 80px;
+}
+
+.ce-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 600px;
+}
+.ce-list-pane {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ce-list-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid #d0d7de;
+  background: #f6f8fa;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  color: #57606a;
+}
+.ce-list-hint { font-style: italic; }
+.ce-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  max-height: 700px;
+}
+.ce-list-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eaeef2;
+  cursor: pointer;
+  font-size: 12px;
+}
+.ce-list-item:hover { background: #f6f8fa; }
+.ce-list-item-active { background: #ddf4ff !important; }
+.ce-li-name {
+  font-weight: 600;
+  color: #1f2328;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.ce-li-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #57606a;
+}
+.ce-li-amount { font-weight: 600; color: #0969da; }
+.ce-li-rows { color: #57606a; }
+.ce-li-tax { font-size: 10px; color: #6e7781; margin-top: 2px; font-family: monospace; }
+.ce-list-empty { padding: 20px; text-align: center; color: #57606a; }
+
+.ce-detail-pane {
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 18px;
+  overflow-y: auto;
+}
+.ce-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: #57606a;
+}
+
+.ce-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 1px solid #eaeef2;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.ce-detail-name-block h3 {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  color: #1f2328;
+}
+.ce-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.ce-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.ce-badge-warn { background: #fff8c5; color: #7d4e00; border: 1px solid #f1e05a; }
+.ce-badge-info { background: #ddf4ff; color: #0969da; border: 1px solid #80ccff; }
+.ce-badge-neutral { background: #f6f8fa; color: #57606a; border: 1px solid #d0d7de; }
+
+.ce-detail-meta {
+  font-size: 11px;
+  color: #57606a;
+  text-align: right;
+  line-height: 1.6;
+}
+.ce-meta-row span { color: #6e7781; }
+
+.ce-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.ce-stat {
+  background: #f6f8fa;
+  border: 1px solid #eaeef2;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.ce-stat-label {
+  font-size: 10px;
+  color: #6e7781;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.ce-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2328;
+  margin-top: 2px;
+}
+
+.ce-block {
+  margin-bottom: 16px;
+}
+.ce-block h4 {
+  font-size: 13px;
+  margin: 0 0 8px 0;
+  color: #1f2328;
+  font-weight: 600;
+}
+.ce-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 1200px) {
+  .ce-row-2col { grid-template-columns: 1fr; }
+  .ce-summary-grid { grid-template-columns: repeat(3, 1fr); }
+  .ce-layout { grid-template-columns: 280px 1fr; }
+}
+@media (max-width: 900px) {
+  .ce-layout { grid-template-columns: 1fr; }
+  .ce-summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.ce-table {
+  width: 100%;
+  font-size: 11px;
+  border-collapse: collapse;
+  background: #fff;
+}
+.ce-table th, .ce-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #eaeef2;
+  text-align: left;
+}
+.ce-table th { color: #57606a; font-weight: 600; background: #f6f8fa; }
+.ce-table td.num, .ce-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ce-empty-cell { color: #6e7781; font-style: italic; }
+
+.ce-quality-strip {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  background: #f6f8fa;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.ce-q-label { color: #6e7781; }
+
+.ce-chart {
+  background: #fafbfc;
+  border: 1px solid #eaeef2;
+  border-radius: 4px;
+  min-height: 140px;
+}
+.ce-svg { width: 100%; height: 140px; }
+.ce-bar { fill: #0969da; opacity: 0.8; }
+.ce-bar:hover { opacity: 1; }
+.ce-grid { stroke: #eaeef2; stroke-width: 1; }
+.ce-axis-label { font-size: 9px; fill: #6e7781; font-family: -apple-system, sans-serif; }
+
+/* === END COUNTERPARTY EXPLORER (M2.1) === */
+
+
+/* === CE mode badge (M2.1 v1.1) === */
+.ce-badge-mode {
+  background: #e7f5ff;
+  color: #0c5b8a;
+  border: 1px solid #74c0fc;
+  font-weight: 600;
+}

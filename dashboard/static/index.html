@@ -32,7 +32,7 @@
       <span class="nav-icon">🌍</span> Export Intelligence
     </div>
     <div class="nav-item" data-section="internal">
-      <span class="nav-icon">🏭</span> Internal Data
+      <span class="nav-icon">🏭</span> Operations Intelligence
     </div>
   </nav>
 
@@ -253,55 +253,159 @@
 
   <!-- 4. Internal Data -->
   <section id="section-internal" class="section">
-    <div class="section-title">Internal Business Data</div>
-
+    <div class="section-title">Operations Intelligence</div>
     <div class="sub-nav">
-      <div class="sub-nav-btn active" data-sub="lescon">📦 Lescon Sales</div>
-      <div class="sub-nav-btn" data-sub="yarn">🧶 Yarn Costs</div>
-      <div class="sub-nav-btn" data-sub="orders">🛒 Orders</div>
+      <div class="sub-nav-btn active" data-sub="ops-overview">📊 Overview</div>
+      <div class="sub-nav-btn" data-sub="ops-procurement">🛒 Procurement</div>
+      <div class="sub-nav-btn" data-sub="ops-cost">🏭 Cost Structure</div>
+      <div class="sub-nav-btn" data-sub="ops-revenue">💰 Revenue Reality</div>
+      <div class="sub-nav-btn" data-sub="ops-counterparty">👥 Counterparty</div>
     </div>
 
-    <!-- Lescon Sales -->
-    <div id="sub-lescon" class="sub-section active">
-      <div class="metric-row" id="lescon-metrics"></div>
-      <div class="two-col">
-        <div class="chart-panel">
-          <div class="chart-panel-title">Revenue by Fabric Type (USD)</div>
-          <div class="chart-wrap" id="chart-lescon-fabric"></div>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">Monthly Revenue Trend</div>
-          <div class="chart-wrap" id="chart-lescon-monthly"></div>
-        </div>
+    <!-- Overview: KPI grid + contra alert card -->
+    <div id="sub-ops-overview" class="sub-section active">
+      <div class="ops-period-header" id="ops-period-header"></div>
+
+      <div class="ops-panel-title">Procurement</div>
+      <div class="metric-row" id="ops-kpi-procurement"></div>
+
+      <div class="ops-panel-title">Cost Structure</div>
+      <div class="metric-row" id="ops-kpi-cost"></div>
+
+      <div class="ops-panel-title">Revenue Reality</div>
+      <div class="metric-row" id="ops-kpi-revenue"></div>
+
+      <div id="ops-contra-alert"></div>
+    </div>
+
+    <!-- Procurement detail -->
+    <div id="sub-ops-procurement" class="sub-section">
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Monthly Procurement by Bucket (TL)</div>
+        <div class="chart-wrap" id="chart-ops-procurement"></div>
       </div>
       <div class="table-wrap">
-        <div class="table-title">Top 10 Products by Transaction Count</div>
-        <div id="lescon-products-table"></div>
+        <div class="table-title">Top 10 Suppliers (last 12 months, cost-relevant)</div>
+        <div id="ops-suppliers-table"></div>
       </div>
     </div>
 
-    <!-- Yarn Costs -->
-    <div id="sub-yarn" class="sub-section">
+    <!-- Cost structure detail -->
+    <div id="sub-ops-cost" class="sub-section">
+      <div class="chart-panel">
+        <div class="chart-panel-title">Monthly Cost Structure (TL)</div>
+        <div class="chart-wrap" id="chart-ops-cost"></div>
+      </div>
+      <div class="ops-note" id="ops-cost-note">
+        Note: <em>logistics_distribution</em> is provisional in the MVP and may include both inbound (procurement-related) and outbound (commercial) flows. To be split in M2.1.
+      </div>
+    </div>
+
+    <!-- Revenue reality detail -->
+    <div id="sub-ops-revenue" class="sub-section">
       <div class="chart-panel" style="margin-bottom:16px">
-        <div class="chart-panel-title">Average Yarn Unit Cost (USD/MT) by Year</div>
-        <div class="chart-wrap" id="chart-yarn"></div>
+        <div class="chart-panel-title">Monthly Revenue: Gross vs Net (TL, yarn resale excluded)</div>
+        <div class="chart-wrap" id="chart-ops-revenue"></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-title">Top 10 Customers (last 12 months, core revenue, yarn resale excluded)</div>
+        <div id="ops-customers-table"></div>
       </div>
     </div>
 
-    <!-- Orders -->
-    <div id="sub-orders" class="sub-section">
-      <div class="two-col">
-        <div class="chart-panel">
-          <div class="chart-panel-title">Top Suppliers by Order Count</div>
-          <div class="chart-wrap" id="chart-suppliers"></div>
-        </div>
-        <div class="table-wrap" style="border-radius:10px; overflow:hidden;">
-          <div class="table-title">All Suppliers</div>
-          <div id="suppliers-table"></div>
-        </div>
-      </div>
+<!-- === COUNTERPARTY EXPLORER (M2.1) === -->
+<div id="sub-ops-counterparty" class="sub-section">
+  <header class="section-header">
+    <h2>Counterparty Explorer</h2>
+    <p class="section-sub">Suppliers &amp; Customers · canonical view by tax id, with name-grouping fallback</p>
+  </header>
+
+  <div class="ce-toolbar">
+    <div class="ce-mode-toggle">
+      <button class="ce-mode-btn ce-mode-active" data-ce-mode="purchase">ALIŞ (Suppliers)</button>
+      <button class="ce-mode-btn" data-ce-mode="sales">SATIŞ (Customers)</button>
     </div>
+    <div class="ce-search-wrap">
+      <input id="ce-search" type="text" placeholder="Search name or tax id…" autocomplete="off" />
+      <span id="ce-search-status"></span>
+    </div>
+  </div>
+
+  <div class="ce-layout">
+    <aside class="ce-list-pane">
+      <div class="ce-list-header">
+        <span id="ce-list-count">—</span>
+        <span class="ce-list-hint">sorted by 24-month TL</span>
+      </div>
+      <ul id="ce-list" class="ce-list"></ul>
+    </aside>
+
+    <main class="ce-detail-pane">
+      <div id="ce-detail-empty" class="ce-empty">
+        <p>Select a counterparty from the list to see details.</p>
+      </div>
+      <div id="ce-detail" style="display:none;">
+        <header class="ce-detail-header">
+          <div class="ce-detail-name-block">
+            <h3 id="ce-detail-name">—</h3>
+            <div id="ce-detail-badges" class="ce-badges"></div>
+          </div>
+          <div class="ce-detail-meta" id="ce-detail-meta"></div>
+        </header>
+
+        <section class="ce-summary-grid">
+          <div class="ce-stat"><div class="ce-stat-label">24m TL</div><div class="ce-stat-value" id="ce-stat-tl">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">24m USD</div><div class="ce-stat-value" id="ce-stat-usd">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">24m EUR</div><div class="ce-stat-value" id="ce-stat-eur">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Rows</div><div class="ce-stat-value" id="ce-stat-rows">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Share of side</div><div class="ce-stat-value" id="ce-stat-share">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Last invoice</div><div class="ce-stat-value" id="ce-stat-last">—</div></div>
+        </section>
+
+        <section class="ce-block">
+          <h4>Monthly trend (TL)</h4>
+          <div id="ce-monthly-chart" class="ce-chart"></div>
+        </section>
+
+        <div class="ce-row-2col">
+          <section class="ce-block">
+            <h4>Bucket split</h4>
+            <table class="ce-table" id="ce-bucket-table"><thead><tr><th>Bucket</th><th class="num">TL</th><th class="num">%</th><th class="num">Rows</th></tr></thead><tbody></tbody></table>
+          </section>
+          <section class="ce-block">
+            <h4>Currency split</h4>
+            <table class="ce-table" id="ce-ccy-table"><thead><tr><th>Currency</th><th class="num">TL</th><th class="num">Rows</th></tr></thead><tbody></tbody></table>
+          </section>
+        </div>
+
+        <div class="ce-row-2col">
+          <section class="ce-block">
+            <h4>Top accounts</h4>
+            <table class="ce-table" id="ce-accounts-table"><thead><tr><th>Code</th><th>Description</th><th class="num">TL</th><th class="num">Rows</th></tr></thead><tbody></tbody></table>
+          </section>
+          <section class="ce-block">
+            <h4>Subtype split</h4>
+            <table class="ce-table" id="ce-subtype-table"><thead><tr><th>Subtype</th><th class="num">TL</th><th class="num">Rows</th></tr></thead><tbody></tbody></table>
+          </section>
+        </div>
+
+        <section class="ce-block">
+          <h4>Classification quality</h4>
+          <div class="ce-quality-strip" id="ce-quality"></div>
+        </section>
+
+        <section class="ce-block">
+          <h4>Recent rows (last 20)</h4>
+          <table class="ce-table" id="ce-recent-table"><thead><tr><th>Date</th><th>Account</th><th>Bucket</th><th class="num">TL</th><th>Ccy</th></tr></thead><tbody></tbody></table>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+<!-- === END COUNTERPARTY EXPLORER (M2.1) === -->
   </section>
+
+
 
 </main>
 </body>

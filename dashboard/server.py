@@ -861,4 +861,676 @@ def get_yarn_pressure():
 
 # ── Serve static files (must be last) ─────────────────────────────────────────
 
+# ════════════════════════════════════════════════════════════════════════════
+# OPERATIONS INTELLIGENCE ENDPOINTS (M2)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Six endpoints powering the "Operations Intelligence" dashboard tab.
+# All endpoints read from gold views created in migration 010 v2:
+#   - v_kpi_latest_month
+#   - v_monthly_procurement_by_bucket
+#   - v_monthly_cost_structure
+#   - v_monthly_revenue_core
+#   - v_top_suppliers_overall
+#   - v_top_customers_overall
+#
+# Conventions:
+#   - TL is primary; USD/EUR are secondary (per-currency, never mixed)
+#   - Months filter applied at SQL layer (NOT frontend slicing)
+#   - Default range = 24 months; query param `?months=N` overrides
+#   - No caching (MVP — correctness first)
+#   - Yarn resale exclusion is enforced inside views, not here
+# ════════════════════════════════════════════════════════════════════════════
+
+
+# ── /api/internal/kpi-latest-month ─────────────────────────────────────────
+# Returns 12 KPI cards (4 per panel) for the latest complete month + YoY.
+# Frontend-friendly normalized shape: one flat list, panel + display_order
+# sufficient for grouping. No nested structure to unpack.
+
+@app.get("/api/internal/kpi-latest-month")
+def internal_kpi_latest_month():
+    rows = _rows("""
+        SELECT
+            panel,
+            display_order,
+            metric_key,
+            metric_label,
+            current_tl::float          AS amount_tl,
+            current_usd::float         AS amount_usd,
+            current_eur::float         AS amount_eur,
+            prior_tl::float            AS prior_tl,
+            prior_usd::float           AS prior_usd,
+            prior_eur::float           AS prior_eur,
+            yoy_pct_tl::float          AS yoy_pct_tl,
+            yoy_pct_usd::float         AS yoy_pct_usd,
+            yoy_pct_eur::float         AS yoy_pct_eur,
+            to_char(purchase_latest_month, 'YYYY-MM') AS purchase_latest_month,
+            to_char(sales_latest_month,    'YYYY-MM') AS sales_latest_month
+        FROM v_kpi_latest_month
+        ORDER BY panel, display_order
+    """)
+
+    # Reference month — latest complete month from each side
+    purchase_latest = rows[0]["purchase_latest_month"] if rows else None
+    sales_latest    = rows[0]["sales_latest_month"]    if rows else None
+
+    return {
+        "kpis": rows,
+        "reference": {
+            "purchase_latest_month": purchase_latest,
+            "sales_latest_month":    sales_latest,
+            "wording":               "Latest complete month (current month excluded)",
+        },
+    }
+
+
+# ── /api/internal/procurement-trend ────────────────────────────────────────
+# Panel 1 main chart. Monthly procurement spend per raw-material bucket.
+
+@app.get("/api/internal/procurement-trend")
+def internal_procurement_trend(
+    months: int = Query(24, ge=1, le=72),
+):
+    rows = _rows("""
+        SELECT
+            to_char(month, 'YYYY-MM')        AS month,
+            business_bucket,
+            row_count,
+            amount_tl::float                 AS amount_tl,
+            amount_usd::float                AS amount_usd,
+            amount_eur::float                AS amount_eur,
+            amount_try_d::float              AS amount_try_d,
+            amount_other_fx::float           AS amount_other_fx,
+            rows_usd_invoiced,
+            rows_eur_invoiced
+        FROM v_monthly_procurement_by_bucket
+        WHERE month >= (
+            SELECT (DATE_TRUNC('month', MAX(fatura_tarihi)) - (%s || ' months')::interval)::date
+            FROM fact_purchase_lines_clean
+        )
+        ORDER BY month, business_bucket
+    """, [months])
+
+    return {
+        "data":      rows,
+        "row_count": len(rows),
+        "months_requested": months,
+        "buckets": [
+            "raw_material_yarn",
+            "raw_material_chemical",
+            "raw_material_dye",
+            "raw_material_greige_fabric",
+        ],
+    }
+
+
+# ── /api/internal/cost-structure-trend ─────────────────────────────────────
+# Panel 2 main chart. Monthly production-cost structure.
+# Note: logistics_distribution is provisional (M2.1 will split inbound/outbound).
+
+@app.get("/api/internal/cost-structure-trend")
+def internal_cost_structure_trend(
+    months: int = Query(24, ge=1, le=72),
+):
+    rows = _rows("""
+        SELECT
+            to_char(month, 'YYYY-MM')        AS month,
+            business_bucket,
+            row_count,
+            amount_tl::float                 AS amount_tl,
+            amount_usd::float                AS amount_usd,
+            amount_eur::float                AS amount_eur,
+            amount_try_d::float              AS amount_try_d
+        FROM v_monthly_cost_structure
+        WHERE month >= (
+            SELECT (DATE_TRUNC('month', MAX(fatura_tarihi)) - (%s || ' months')::interval)::date
+            FROM fact_purchase_lines_clean
+        )
+        ORDER BY month, business_bucket
+    """, [months])
+
+    return {
+        "data":      rows,
+        "row_count": len(rows),
+        "months_requested": months,
+        "buckets": [
+            "utilities",
+            "maintenance_factory",
+            "packaging",
+            "factory_overhead",
+            "outsourced_processing",
+            "logistics_distribution",
+        ],
+        "notes": {
+            "logistics_distribution":
+                "Provisional. M2.1 will split into inbound (procurement) vs outbound (commercial).",
+        },
+    }
+
+
+# ── /api/internal/revenue-trend ────────────────────────────────────────────
+# Panel 3 main chart. Monthly gross & net core revenue.
+# Yarn resale is EXCLUDED at the view level via subtype filter.
+
+@app.get("/api/internal/revenue-trend")
+def internal_revenue_trend(
+    months: int = Query(24, ge=1, le=72),
+):
+    rows = _rows("""
+        SELECT
+            to_char(month, 'YYYY-MM')        AS month,
+            core_sales_tl::float             AS core_sales_tl,
+            core_sales_try_d::float          AS core_sales_try_d,
+            core_sales_usd::float            AS core_sales_usd,
+            core_sales_eur::float            AS core_sales_eur,
+            fason_revenue_tl::float          AS fason_revenue_tl,
+            fason_revenue_usd::float         AS fason_revenue_usd,
+            fason_revenue_eur::float         AS fason_revenue_eur,
+            total_contra_tl::float           AS total_contra_tl,
+            gross_revenue_tl::float          AS gross_revenue_tl,
+            net_revenue_tl::float            AS net_revenue_tl,
+            yarn_resale_tl::float            AS yarn_resale_tl
+        FROM v_monthly_revenue_core
+        WHERE month >= (
+            SELECT (DATE_TRUNC('month', MAX(fatura_tarihi)) - (%s || ' months')::interval)::date
+            FROM fact_sales_lines_clean
+        )
+        ORDER BY month
+    """, [months])
+
+    return {
+        "data":      rows,
+        "row_count": len(rows),
+        "months_requested": months,
+        "notes": {
+            "yarn_resale":   "Excluded from core revenue (Rayon is fabric producer, not yarn trader). "
+                             "Tracked separately as `yarn_resale_tl` for transparency.",
+            "net_revenue":   "Net = Gross - SATIŞ-side returns/discounts - ALIŞ-side contra. TL only "
+                             "(mixed-source contra not safe to aggregate in FX).",
+        },
+    }
+
+
+# ── /api/internal/top-suppliers ────────────────────────────────────────────
+# Panel 1 list. Top N suppliers by spend in cost-relevant buckets (last 12 months).
+
+@app.get("/api/internal/top-suppliers")
+def internal_top_suppliers(
+    limit: int = Query(10, ge=1, le=100),
+):
+    rows = _rows("""
+        SELECT
+            supplier_name,
+            row_count,
+            bucket_count,
+            amount_tl::float    AS amount_tl,
+            amount_usd::float   AS amount_usd,
+            amount_eur::float   AS amount_eur,
+            top_bucket,
+            to_char(first_invoice_date, 'YYYY-MM-DD') AS first_invoice_date,
+            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date
+        FROM v_top_suppliers_overall
+        ORDER BY amount_tl DESC NULLS LAST
+        LIMIT %s
+    """, [limit])
+
+    return {
+        "suppliers":     rows,
+        "count":         len(rows),
+        "window":        "last 12 months",
+        "scope":         "cost_model_relevant buckets only",
+    }
+
+
+# ── /api/internal/top-customers ────────────────────────────────────────────
+# Panel 3 list. Top N customers by core-revenue spend (last 12 months).
+# Yarn resale customers excluded at view level.
+
+@app.get("/api/internal/top-customers")
+def internal_top_customers(
+    limit: int = Query(10, ge=1, le=100),
+):
+    rows = _rows("""
+        SELECT
+            customer_name,
+            row_count,
+            bucket_count,
+            amount_tl::float    AS amount_tl,
+            amount_usd::float   AS amount_usd,
+            amount_eur::float   AS amount_eur,
+            rows_usd,
+            rows_try,
+            rows_eur,
+            to_char(first_invoice_date, 'YYYY-MM-DD') AS first_invoice_date,
+            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date
+        FROM v_top_customers_overall
+        ORDER BY amount_tl DESC NULLS LAST
+        LIMIT %s
+    """, [limit])
+
+    return {
+        "customers":     rows,
+        "count":         len(rows),
+        "window":        "last 12 months",
+        "scope":         "core_product_sales + outsourced_service_revenue (yarn_resale excluded)",
+    }
+
+
+# ── /api/internal/contra-anomaly ───────────────────────────────────────────
+# Single-row alert card. Surfaces contra revenue as a separate anomaly signal
+# (median-based context, top counterparty concentration, severity flag) instead
+# of an unreliable YoY % from a low-base prior month.
+
+@app.get("/api/internal/contra-anomaly")
+def internal_contra_anomaly():
+    row = _one("""
+        SELECT
+            month_label,
+            to_char(month_date, 'YYYY-MM-DD')        AS month_date,
+            total_contra_tl::float                   AS total_contra_tl,
+            alis_contra_tl::float                    AS alis_contra_tl,
+            satis_contra_tl::float                   AS satis_contra_tl,
+            returns_tl::float                        AS returns_tl,
+            discounts_tl::float                      AS discounts_tl,
+            gross_revenue_tl::float                  AS gross_revenue_tl,
+            contra_pct_of_gross::float               AS contra_pct_of_gross,
+            median_24m_pct::float                    AS median_24m_pct,
+            mean_24m_pct::float                      AS mean_24m_pct,
+            min_24m_pct::float                       AS min_24m_pct,
+            max_24m_pct::float                       AS max_24m_pct,
+            history_sample_months                    AS history_sample_months,
+            ratio_to_median::float                   AS ratio_to_median,
+            top_counterparty_name,
+            top_counterparty_source,
+            top_counterparty_tl::float               AS top_counterparty_tl,
+            top_counterparty_pct::float              AS top_counterparty_pct,
+            severity
+        FROM v_contra_anomaly_detail
+    """)
+
+    return {
+        "anomaly":  row,
+        "notes": {
+            "method":     "Median-based anomaly detection over 24-month history. "
+                          "Severity: high if ratio_to_median >= 2.5, elevated if >= 1.5, else normal.",
+            "yoy_warning": "YoY % is intentionally NOT exposed for contra revenue. "
+                           "Prior-year same month can be an outlier itself, making YoY misleading.",
+            "yarn_resale": "Gross revenue used for contra% excludes yarn resale (subtype filter).",
+        },
+    }
+
+
+# === COUNTERPARTY EXPLORER (M2.1) ===
+# Two endpoints backed by the dim_counterparty view (Migration 012).
+# - List endpoint: smart search + lean field set, drives the search-typeahead UI.
+# - Detail endpoint: full panel data for a selected counterparty.
+
+@app.get("/api/internal/counterparties")
+def list_counterparties(
+    side: str = "purchase",
+    q: str = "",
+    type: str | None = None,
+    limit: int = 50,
+):
+    """
+    Smart-search list of counterparties.
+
+    Search behavior:
+      - If `q` looks like digits/tax id: prefix match on vergi_numarasi
+      - Otherwise: case-insensitive substring on display_name
+      - Order: exact-tax-match > tax-prefix > name-substring > total_tl_24m DESC
+    """
+    if side not in ("purchase", "sales"):
+        return {"error": "side must be purchase or sales"}, 400
+
+    limit = max(1, min(200, int(limit)))
+    q = (q or "").strip()
+    q_clean = q.replace(".0", "")  # tolerate '1234567890.0' style
+
+    # Build the query
+    sql_parts = ["""
+        SELECT
+            canonical_key,
+            display_name,
+            vergi_numarasi,
+            is_verified,
+            counterparty_type,
+            total_tl_24m,
+            row_count_24m,
+            last_seen,
+            name_variants_count
+        FROM dim_counterparty
+        WHERE side = %s
+    """]
+    params = [side]
+
+    if type:
+        sql_parts.append("AND counterparty_type = %s")
+        params.append(type)
+
+    is_numeric_query = q_clean.isdigit() and len(q_clean) >= 3
+
+    if q:
+        if is_numeric_query:
+            # Tax id prefix match OR name substring (broader for short numeric queries)
+            sql_parts.append(
+                "AND (vergi_numarasi LIKE %s OR display_name ILIKE %s)"
+            )
+            params.append(q_clean + "%")
+            params.append("%" + q + "%")
+        else:
+            # Pure name search
+            sql_parts.append("AND display_name ILIKE %s")
+            params.append("%" + q + "%")
+
+    # Relevance-aware ordering
+    if q and is_numeric_query:
+        sql_parts.append("""
+            ORDER BY
+              CASE
+                WHEN vergi_numarasi = %s THEN 0
+                WHEN vergi_numarasi LIKE %s THEN 1
+                WHEN display_name ILIKE %s THEN 2
+                ELSE 3
+              END,
+              total_tl_24m DESC NULLS LAST
+        """)
+        params.extend([q_clean, q_clean + "%", "%" + q + "%"])
+    elif q:
+        # For text search, exact match first, then position of substring
+        sql_parts.append("""
+            ORDER BY
+              CASE WHEN display_name ILIKE %s THEN 0 ELSE 1 END,
+              total_tl_24m DESC NULLS LAST
+        """)
+        params.append(q + "%")  # starts-with bonus
+    else:
+        sql_parts.append("ORDER BY total_tl_24m DESC NULLS LAST")
+
+    sql_parts.append("LIMIT %s")
+    params.append(limit)
+
+    sql = "\n".join(sql_parts)
+
+    rows = _rows(sql, params)
+
+    return {
+        "side": side,
+        "q": q,
+        "count": len(rows),
+        "results": [
+            {
+                "canonical_key": r["canonical_key"],
+                "display_name": r["display_name"],
+                "vergi_numarasi": r["vergi_numarasi"],
+                "is_verified": r["is_verified"],
+                "counterparty_type": r["counterparty_type"],
+                "total_tl_24m": float(r["total_tl_24m"]) if r["total_tl_24m"] else 0,
+                "row_count_24m": r["row_count_24m"] or 0,
+                "last_seen": r["last_seen"].isoformat() if r["last_seen"] else None,
+                "name_variants_count": r["name_variants_count"] or 1,
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.get("/api/internal/counterparty/detail")
+def counterparty_detail(
+    side: str = "purchase",
+    canonical_key: str = "",
+    months: int = 24,
+):
+    """
+    Detail panel for a single counterparty.
+    Returns: summary, monthly_trend, bucket_split, subtype_split,
+             currency_split, top_accounts, classification_quality, recent_rows.
+    """
+    if side not in ("purchase", "sales"):
+        return {"error": "side must be purchase or sales"}, 400
+    if not canonical_key:
+        return {"error": "canonical_key is required"}, 400
+
+    months = max(1, min(120, int(months)))
+    fact_table = f"fact_{'purchase' if side == 'purchase' else 'sales'}_lines_clean"
+
+    # Header row from dim_counterparty
+    header = _rows(
+        """
+        SELECT * FROM dim_counterparty
+        WHERE side = %s AND canonical_key = %s
+        """,
+        [side, canonical_key],
+    )
+    if not header:
+        return {"error": "counterparty not found"}, 404
+    h = header[0]
+
+    # Reconstruct the WHERE clause used by the view to filter rows for this counterparty
+    if h["is_verified"]:
+        cp_filter = "vergi_numarasi IS NOT NULL AND TRIM(vergi_numarasi) NOT IN ('', '0', '0.0') AND TRIM(vergi_numarasi) = %s"
+        cp_param = h["vergi_numarasi"]
+    else:
+        cp_filter = """(vergi_numarasi IS NULL OR TRIM(vergi_numarasi) IN ('', '0', '0.0'))
+                       AND TRIM(cari_hesap_aciklamasi) = %s"""
+        # display_name is the latest spelling; for unverified we use it directly
+        cp_param = h["display_name"]
+
+    # Data horizon (anchor for "trailing N months")
+    horizon_row = _rows(f"SELECT MAX(fatura_tarihi) AS m FROM {fact_table}", [])
+    horizon = horizon_row[0]["m"] if horizon_row else None
+
+    # ── Summary ─────────────────────────────────────────────────────────────
+    summary = _rows(
+        f"""
+        SELECT
+            SUM(net_tutar_y) FILTER (
+                WHERE fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+            )::float AS total_tl,
+            SUM(net_tutar_d) FILTER (
+                WHERE para_birimi_d = 'USD'
+                  AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+            )::float AS total_usd,
+            SUM(net_tutar_d) FILTER (
+                WHERE para_birimi_d = 'EUR'
+                  AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+            )::float AS total_eur,
+            COUNT(*) FILTER (
+                WHERE fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+            )::int AS row_count,
+            MIN(fatura_tarihi) AS first_invoice,
+            MAX(fatura_tarihi) AS last_invoice
+        FROM {fact_table}
+        WHERE {cp_filter}
+        """,
+        [horizon, horizon, horizon, horizon, cp_param],
+    )[0]
+
+    # Total side amount in window for share calc
+    side_total_row = _rows(
+        f"""
+        SELECT SUM(net_tutar_y)::float AS t
+        FROM {fact_table}
+        WHERE fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+        """,
+        [horizon],
+    )
+    side_total = side_total_row[0]["t"] or 0
+    share_pct = (
+        100.0 * (summary["total_tl"] or 0) / side_total
+        if side_total else 0
+    )
+
+    # ── Monthly trend ───────────────────────────────────────────────────────
+    monthly = _rows(
+        f"""
+        SELECT DATE_TRUNC('month', fatura_tarihi)::date AS month,
+               SUM(net_tutar_y)::float AS amount_tl,
+               COUNT(*)::int AS rows
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+        GROUP BY 1 ORDER BY 1
+        """,
+        [cp_param, horizon],
+    )
+
+    # ── Bucket split ────────────────────────────────────────────────────────
+    buckets = _rows(
+        f"""
+        SELECT business_bucket AS bucket,
+               SUM(net_tutar_y)::float AS amount_tl,
+               COUNT(*)::int AS rows
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+        GROUP BY 1 ORDER BY amount_tl DESC NULLS LAST
+        """,
+        [cp_param, horizon],
+    )
+    cp_total = sum((b["amount_tl"] or 0) for b in buckets) or 1
+    bucket_split = [
+        {
+            "bucket": b["bucket"],
+            "amount_tl": b["amount_tl"] or 0,
+            "share_pct": round(100.0 * (b["amount_tl"] or 0) / cp_total, 1),
+            "rows": b["rows"],
+        }
+        for b in buckets
+    ]
+
+    # ── Subtype split ───────────────────────────────────────────────────────
+    subtypes = _rows(
+        f"""
+        SELECT subtype, SUM(net_tutar_y)::float AS amount_tl, COUNT(*)::int AS rows
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+          AND subtype IS NOT NULL AND subtype <> ''
+        GROUP BY 1 ORDER BY amount_tl DESC NULLS LAST
+        LIMIT 15
+        """,
+        [cp_param, horizon],
+    )
+
+    # ── Currency split ──────────────────────────────────────────────────────
+    currencies = _rows(
+        f"""
+        SELECT COALESCE(para_birimi_d, '<unknown>') AS ccy,
+               SUM(net_tutar_y)::float AS amount_tl,
+               COUNT(*)::int AS rows
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+        GROUP BY 1 ORDER BY amount_tl DESC NULLS LAST
+        """,
+        [cp_param, horizon],
+    )
+
+    # ── Top accounts ────────────────────────────────────────────────────────
+    accounts = _rows(
+        f"""
+        SELECT hesap_kodu, hesap_aciklamasi,
+               SUM(net_tutar_y)::float AS amount_tl,
+               COUNT(*)::int AS rows
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+          AND hesap_kodu IS NOT NULL
+        GROUP BY 1, 2 ORDER BY amount_tl DESC NULLS LAST
+        LIMIT 10
+        """,
+        [cp_param, horizon],
+    )
+
+    # ── Classification quality ──────────────────────────────────────────────
+    quality = _rows(
+        f"""
+        SELECT
+            100.0 * SUM(CASE WHEN confidence_level = 'high' THEN 1 ELSE 0 END)
+                  / NULLIF(COUNT(*), 0) AS confidence_high_pct,
+            100.0 * SUM(CASE WHEN review_flag THEN 1 ELSE 0 END)
+                  / NULLIF(COUNT(*), 0) AS review_flagged_pct
+        FROM {fact_table}
+        WHERE {cp_filter}
+          AND fatura_tarihi >= (%s::date - INTERVAL '{months} months')
+        """,
+        [cp_param, horizon],
+    )[0]
+
+    # ── Recent rows ─────────────────────────────────────────────────────────
+    recent = _rows(
+        f"""
+        SELECT fatura_tarihi, hesap_kodu, business_bucket AS bucket,
+               net_tutar_y::float AS amount_tl,
+               para_birimi_d AS ccy
+        FROM {fact_table}
+        WHERE {cp_filter}
+        ORDER BY fatura_tarihi DESC NULLS LAST
+        LIMIT 20
+        """,
+        [cp_param],
+    )
+
+    return {
+        "side": side,
+        "canonical_key": canonical_key,
+        "vergi_numarasi": h["vergi_numarasi"],
+        "display_name": h["display_name"],
+        "is_verified": h["is_verified"],
+        "counterparty_type": h["counterparty_type"],
+        "name_variants_count": h["name_variants_count"] or 1,
+        "months": months,
+        "data_horizon": horizon.isoformat() if horizon else None,
+        "summary": {
+            "total_tl": summary["total_tl"] or 0,
+            "total_usd": summary["total_usd"] or 0,
+            "total_eur": summary["total_eur"] or 0,
+            "row_count": summary["row_count"] or 0,
+            "first_invoice": summary["first_invoice"].isoformat() if summary["first_invoice"] else None,
+            "last_invoice": summary["last_invoice"].isoformat() if summary["last_invoice"] else None,
+            "share_of_total_pct": round(share_pct, 2),
+        },
+        "monthly_trend": [
+            {"month": r["month"].isoformat(), "amount_tl": r["amount_tl"] or 0, "rows": r["rows"]}
+            for r in monthly
+        ],
+        "bucket_split": bucket_split,
+        "subtype_split": [
+            {"subtype": r["subtype"], "amount_tl": r["amount_tl"] or 0, "rows": r["rows"]}
+            for r in subtypes
+        ],
+        "currency_split": [
+            {"ccy": r["ccy"], "amount_tl": r["amount_tl"] or 0, "rows": r["rows"]}
+            for r in currencies
+        ],
+        "top_accounts": [
+            {
+                "hesap_kodu": r["hesap_kodu"],
+                "hesap_aciklamasi": r["hesap_aciklamasi"],
+                "amount_tl": r["amount_tl"] or 0,
+                "rows": r["rows"],
+            }
+            for r in accounts
+        ],
+        "classification_quality": {
+            "confidence_high_pct": round(float(quality["confidence_high_pct"] or 0), 1),
+            "review_flagged_pct": round(float(quality["review_flagged_pct"] or 0), 1),
+        },
+        "recent_rows": [
+            {
+                "fatura_tarihi": r["fatura_tarihi"].isoformat() if r["fatura_tarihi"] else None,
+                "hesap_kodu": r["hesap_kodu"],
+                "bucket": r["bucket"],
+                "amount_tl": r["amount_tl"] or 0,
+                "ccy": r["ccy"],
+            }
+            for r in recent
+        ],
+    }
+
+# === END COUNTERPARTY EXPLORER (M2.1) ===
+
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+

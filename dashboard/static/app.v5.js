@@ -124,6 +124,14 @@ function initNav() {
       btn.classList.add('active');
       const sub = document.getElementById('sub-' + btn.dataset.sub);
       if (sub) sub.classList.add('active');
+      // Counterparty Explorer hook (M2.1)
+      if (btn.dataset.sub === 'ops-counterparty' && typeof ceInit === 'function') {
+        if (!window.CE || !window.CE._initialized) {
+          ceInit();
+          if (window.CE) window.CE._initialized = true;
+        }
+        if (typeof ceFetchList === 'function') ceFetchList();
+      }
     });
   });
 }
@@ -1337,7 +1345,7 @@ function initExportSelector() {
 }
 
 /* ── Internal Data ───────────────────────────────────────────────────────────── */
-async function loadInternal() {
+async function _loadInternal_legacy() {
   if (_internalData) return;
   try {
     _internalData = await api('/api/lescon');
@@ -1540,3 +1548,829 @@ document.addEventListener('DOMContentLoaded', () => {
   loadStats();
   loadSignalsPanels();
 });
+
+
+/* ── Operations Intelligence (M2) ───────────────────────────────────────────
+ *
+ * Replaces the old "Internal Data" loaders (Lescon / Yarn Costs / Orders)
+ * with the M2 Operations Intelligence panel system:
+ *   - Overview     (KPI grid + contra anomaly alert)
+ *   - Procurement  (trend chart + top suppliers)
+ *   - Cost         (trend chart)
+ *   - Revenue      (gross/net trend + top customers)
+ *
+ * Existing renderLescon / renderYarn / renderOrders functions are retained
+ * elsewhere in this file but are no longer invoked.
+ *
+ * Backend endpoints used:
+ *   GET /api/internal/kpi-latest-month
+ *   GET /api/internal/procurement-trend?months=24
+ *   GET /api/internal/cost-structure-trend?months=24
+ *   GET /api/internal/revenue-trend?months=24
+ *   GET /api/internal/top-suppliers?limit=10
+ *   GET /api/internal/top-customers?limit=10
+ *   GET /api/internal/contra-anomaly
+ */
+
+let _opsData = null;
+
+async function loadInternal() {
+  if (_opsData) return;
+  try {
+    const [kpi, proc, cost, rev, suppliers, customers, contra] = await Promise.all([
+      api('/api/internal/kpi-latest-month'),
+      api('/api/internal/procurement-trend?months=24'),
+      api('/api/internal/cost-structure-trend?months=24'),
+      api('/api/internal/revenue-trend?months=24'),
+      api('/api/internal/top-suppliers?limit=10'),
+      api('/api/internal/top-customers?limit=10'),
+      api('/api/internal/contra-anomaly'),
+    ]);
+    _opsData = { kpi, proc, cost, rev, suppliers, customers, contra };
+
+    renderOpsPeriodHeader(kpi);
+    renderOpsKpis(kpi);
+    renderOpsContraAlert(contra);
+    renderOpsProcurementChart(proc);
+    renderOpsCostChart(cost);
+    renderOpsRevenueChart(rev);
+    renderOpsSuppliersTable(suppliers);
+    renderOpsCustomersTable(customers);
+  } catch (err) {
+    console.error('[ops] load failed', err);
+  }
+}
+
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+function fmtTL(v) {
+  if (v == null || isNaN(v)) return '—';
+  const n = Number(v);
+  if (Math.abs(n) >= 1e9)  return `₺${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6)  return `₺${(n / 1e6).toFixed(1)}M`;
+  if (Math.abs(n) >= 1e3)  return `₺${(n / 1e3).toFixed(0)}K`;
+  return `₺${Math.round(n).toLocaleString('en')}`;
+}
+
+function fmtUSD(v) {
+  if (v == null || isNaN(v) || Number(v) === 0) return null;
+  const n = Number(v);
+  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${Math.round(n).toLocaleString('en')}`;
+}
+
+function fmtEUR(v) {
+  if (v == null || isNaN(v) || Number(v) === 0) return null;
+  const n = Number(v);
+  if (Math.abs(n) >= 1e6) return `€${(n / 1e6).toFixed(2)}M`;
+  if (Math.abs(n) >= 1e3) return `€${(n / 1e3).toFixed(0)}K`;
+  return `€${Math.round(n).toLocaleString('en')}`;
+}
+
+function fmtYoy(pct) {
+  if (pct == null || isNaN(pct)) return null;
+  const n = Number(pct);
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}${n.toFixed(1)}%`;
+}
+
+function yoyClass(pct, invertGood = false) {
+  // For procurement/cost: rising is bad → red. For revenue: rising is good → green.
+  if (pct == null || isNaN(pct)) return 'stat-neutral';
+  const n = Number(pct);
+  if (Math.abs(n) < 1) return 'stat-neutral';
+  const isUp = n > 0;
+  const isGood = invertGood ? !isUp : isUp;
+  return isGood ? 'stat-good' : 'stat-bad';
+}
+
+/* ── Period header ────────────────────────────────────────────────────────── */
+
+function renderOpsPeriodHeader(kpi) {
+  const ref = kpi.reference || {};
+  const el = document.getElementById('ops-period-header');
+  if (!el) return;
+  el.classList.add('ops-status-strip');
+  el.innerHTML = `
+    <span class="ops-status-cell">
+      <span class="ops-status-cell-label">Latest complete month</span>
+      <span class="ops-status-cell-value">${ref.purchase_latest_month || '—'}</span>
+    </span>
+    <span class="ops-status-cell">
+      <span class="ops-status-cell-label">Window</span>
+      <span class="ops-status-cell-value">last 24 months</span>
+    </span>
+    <span class="ops-status-cell">
+      <span class="ops-status-cell-label">Currency</span>
+      <span class="ops-status-cell-value">TL primary · USD/EUR secondary</span>
+    </span>
+    <span class="ops-status-cell">
+      <span class="ops-status-cell-label">Classification</span>
+      <span class="ops-status-cell-value">v3 · current</span>
+    </span>
+    <span class="ops-status-cell ops-status-meta">YoY = vs same month prior year</span>
+  `;
+}
+
+/* ── KPI cards ─────────────────────────────────────────────────────────────── */
+
+function buildKpiCard(metric, invertGoodForUp = false) {
+  const tlMain = fmtTL(metric.amount_tl);
+  const yoy    = fmtYoy(metric.yoy_pct_tl);
+  const yoyCls = yoyClass(metric.yoy_pct_tl, invertGoodForUp);
+
+  const usd = fmtUSD(metric.amount_usd);
+  const eur = fmtEUR(metric.amount_eur);
+  const usdYoy = fmtYoy(metric.yoy_pct_usd);
+
+  const fxLine = [];
+  if (usd) {
+    fxLine.push(usdYoy ? `${usd} (${usdYoy})` : usd);
+  }
+  if (eur) fxLine.push(eur);
+  const fxText = fxLine.length ? fxLine.join(' · ') : '';
+
+  // Add a small context hint when the YoY swing is large (≥ ±60%) and the
+  // absolute amount is small relative to a typical month — this keeps weakly-
+  // signal items like a single Maintenance month from looking like alarms.
+  let contextHint = '';
+  if (metric.yoy_pct_tl != null && Math.abs(metric.yoy_pct_tl) >= 60) {
+    contextHint = `<div class="stat-context-hint">Volatile line item — single-month YoY may overstate the underlying trend.</div>`;
+  }
+
+  return `
+    <div class="stat-card">
+      <div class="stat-label">${metric.metric_label}</div>
+      <div class="stat-value">${tlMain}</div>
+      <div class="stat-sub ${yoyCls}">${yoy ? `YoY ${yoy}` : '—'}</div>
+      ${fxText ? `<div class="stat-fx">${fxText}</div>` : ''}
+      ${contextHint}
+    </div>
+  `;
+}
+
+function renderOpsKpis(kpi) {
+  const items = kpi.kpis || [];
+
+  const proc = items.filter(k => k.panel === 'procurement');
+  const cost = items.filter(k => k.panel === 'cost_structure');
+  const rev  = items.filter(k => k.panel === 'revenue_reality')
+                   .filter(k => k.metric_key !== 'contra_revenue'); // contra → alert card
+
+  const fillRow = (id, list, invertGoodForUp) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = list.map(m => buildKpiCard(m, invertGoodForUp)).join('');
+  };
+
+  // For procurement & cost: increase = bad (red). For revenue: increase = good.
+  fillRow('ops-kpi-procurement', proc, true);
+  fillRow('ops-kpi-cost',        cost, true);
+  fillRow('ops-kpi-revenue',     rev,  false);
+}
+
+/* ── Contra anomaly alert card ─────────────────────────────────────────────── */
+
+function buildContraNarrative(a) {
+  if (!a || a.total_contra_tl == null) return 'No contra data available for this period.';
+  const sev = a.severity || 'normal';
+  const top = a.top_counterparty_name;
+  const topPct = a.top_counterparty_pct;
+  const ratio = a.ratio_to_median;
+  const sourceLabel = (a.top_counterparty_source || '').toLowerCase() === 'satiş'
+    ? 'customer return' : 'supplier-side adjustment';
+  const ratioText = (ratio != null && !isNaN(ratio))
+    ? `${Number(ratio).toFixed(1)}× the 24-month median`
+    : 'elevated';
+  if (sev === 'high' || sev === 'elevated') {
+    if (top && topPct != null && topPct >= 30) {
+      return `Driven primarily by a single ${sourceLabel}: <strong>${top}</strong> accounts for ${Number(topPct).toFixed(0)}% of total contra. Overall contra is ${ratioText}.`;
+    }
+    return `Contra is ${ratioText}. Top contributor: <strong>${top || '—'}</strong> (${topPct != null ? Number(topPct).toFixed(0) : '—'}% of total).`;
+  }
+  return `Contra is within normal range (${ratioText}).`;
+}
+
+function renderOpsContraAlert(payload) {
+  const a = payload?.anomaly || {};
+  const el = document.getElementById('ops-contra-alert');
+  if (!el) return;
+
+  const sev = a.severity || 'normal';
+  const sevLabel = {
+    high:     'HIGH ANOMALY',
+    elevated: 'ELEVATED',
+    normal:   'WITHIN NORMAL RANGE',
+  }[sev] || 'NORMAL';
+
+  const ratio = a.ratio_to_median != null ? `${Number(a.ratio_to_median).toFixed(1)}×` : '—';
+  const pct   = a.contra_pct_of_gross != null ? `${Number(a.contra_pct_of_gross).toFixed(1)}%` : '—';
+  const med   = a.median_24m_pct != null ? `${Number(a.median_24m_pct).toFixed(1)}%` : '—';
+
+  const topName  = a.top_counterparty_name || '—';
+  const topShare = a.top_counterparty_pct != null ? `${Number(a.top_counterparty_pct).toFixed(0)}%` : '—';
+  const topAmt   = fmtTL(a.top_counterparty_tl);
+
+  const total    = fmtTL(a.total_contra_tl);
+  const returns  = fmtTL(a.returns_tl);
+  const discnts  = fmtTL(a.discounts_tl);
+
+  el.innerHTML = `
+    <div class="ops-alert ops-alert-${sev}">
+      <div class="ops-alert-header">
+        <span class="ops-alert-title">Contra Revenue — ${a.month_label || ''}</span>
+        <span class="ops-alert-badge ops-alert-badge-${sev}">${sevLabel}</span>
+      </div>
+      <div class="ops-alert-why">${buildContraNarrative(a)}</div>
+      <div class="ops-alert-grid">
+        <div class="ops-alert-cell">
+          <div class="ops-alert-cell-label">Total contra</div>
+          <div class="ops-alert-cell-value">${total}</div>
+        </div>
+        <div class="ops-alert-cell">
+          <div class="ops-alert-cell-label">Contra % of gross</div>
+          <div class="ops-alert-cell-value">${pct}</div>
+          <div class="ops-alert-cell-sub">vs ${med} 24-mo median (${ratio} median)</div>
+        </div>
+        <div class="ops-alert-cell">
+          <div class="ops-alert-cell-label">Returns / Discounts</div>
+          <div class="ops-alert-cell-value">${returns} / ${discnts}</div>
+        </div>
+        <div class="ops-alert-cell">
+          <div class="ops-alert-cell-label">Top contributor</div>
+          <div class="ops-alert-cell-value ops-alert-cell-name">${topName}</div>
+          <div class="ops-alert-cell-sub">${topAmt} · ${topShare} of total</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Procurement chart ─────────────────────────────────────────────────────── */
+
+function renderOpsProcurementChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const buckets = payload.buckets || [
+    'raw_material_yarn', 'raw_material_chemical',
+    'raw_material_dye', 'raw_material_greige_fabric',
+  ];
+  const colorMap = {
+    raw_material_yarn:           C.blue,
+    raw_material_chemical:       C.purple,
+    raw_material_dye:            C.orange,
+    raw_material_greige_fabric:  C.green,
+  };
+  const labelMap = {
+    raw_material_yarn:           'Yarn',
+    raw_material_chemical:       'Chemical',
+    raw_material_dye:            'Dye',
+    raw_material_greige_fabric:  'Greige fabric',
+  };
+
+  const traces = buckets.map(bucket => {
+    const byMonth = Object.fromEntries(
+      data.filter(d => d.business_bucket === bucket)
+          .map(d => [d.month, d.amount_tl || 0])
+    );
+    return {
+      x: months,
+      y: months.map(m => byMonth[m] || 0),
+      name: labelMap[bucket] || bucket,
+      type: 'bar',
+      marker: { color: colorMap[bucket] || C.muted, opacity: 0.85 },
+      hovertemplate: `${labelMap[bucket] || bucket}: ₺%{y:,.0f}<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-ops-procurement', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    barmode: 'stack',
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '₺', tickformat: '.2s' },
+  }, PLOTLY_CONFIG);
+}
+
+/* ── Cost structure chart ──────────────────────────────────────────────────── */
+
+function renderOpsCostChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const buckets = payload.buckets || [
+    'utilities', 'maintenance_factory', 'packaging',
+    'factory_overhead', 'outsourced_processing', 'logistics_distribution',
+  ];
+  const colorMap = {
+    utilities:              C.orange,
+    maintenance_factory:    C.purple,
+    packaging:              C.green,
+    factory_overhead:       C.blue,
+    outsourced_processing:  C.red,
+    logistics_distribution: C.muted,
+  };
+  const labelMap = {
+    utilities:              'Utilities',
+    maintenance_factory:    'Maintenance',
+    packaging:              'Packaging',
+    factory_overhead:       'Factory overhead',
+    outsourced_processing:  'FASON',
+    logistics_distribution: 'Logistics (provisional)',
+  };
+
+  const traces = buckets.map(bucket => {
+    const byMonth = Object.fromEntries(
+      data.filter(d => d.business_bucket === bucket)
+          .map(d => [d.month, d.amount_tl || 0])
+    );
+    return {
+      x: months,
+      y: months.map(m => byMonth[m] || 0),
+      name: labelMap[bucket] || bucket,
+      type: 'scatter',
+      mode: 'lines',
+      stackgroup: 'one',
+      line: { width: 0 },
+      fillcolor: hexAlpha(colorMap[bucket] || C.muted, 0.65),
+      hovertemplate: `${labelMap[bucket] || bucket}: ₺%{y:,.0f}<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-ops-cost', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '₺', tickformat: '.2s' },
+  }, PLOTLY_CONFIG);
+}
+
+/* ── Revenue chart (gross vs net) ──────────────────────────────────────────── */
+
+function renderOpsRevenueChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = data.map(d => d.month);
+
+  const traces = [
+    {
+      x: months,
+      y: data.map(d => d.gross_revenue_tl || 0),
+      name: 'Gross revenue',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: C.blue, width: 2.5 },
+      hovertemplate: 'Gross: ₺%{y:,.0f}<extra></extra>',
+    },
+    {
+      x: months,
+      y: data.map(d => d.net_revenue_tl || 0),
+      name: 'Net revenue (after returns/discounts)',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: C.green, width: 2.5 },
+      fill: 'tozeroy',
+      fillcolor: hexAlpha(C.green, 0.12),
+      hovertemplate: 'Net: ₺%{y:,.0f}<extra></extra>',
+    },
+    {
+      x: months,
+      y: data.map(d => d.fason_revenue_tl || 0),
+      name: 'Secondary service revenue',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: C.muted, width: 1.5, dash: 'dot' },
+      hovertemplate: 'Secondary: ₺%{y:,.0f}<extra></extra>',
+    },
+  ];
+
+  Plotly.newPlot('chart-ops-revenue', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '₺', tickformat: '.2s' },
+  }, PLOTLY_CONFIG);
+}
+
+/* ── Supplier / Customer tables ────────────────────────────────────────────── */
+
+function renderOpsSuppliersTable(payload) {
+  const rows = payload?.suppliers || [];
+  const el = document.getElementById('ops-suppliers-table');
+  if (!el) return;
+  if (!rows.length) {
+    el.innerHTML = '<div class="ops-empty">No supplier data available.</div>';
+    return;
+  }
+  const html = `
+    <table class="ops-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Supplier</th>
+          <th class="num">TL spend</th>
+          <th class="num">USD-invoiced</th>
+          <th class="num">EUR-invoiced</th>
+          <th>Top bucket</th>
+          <th class="num">Buckets</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `
+          <tr>
+            <td class="num">${i + 1}</td>
+            <td>${r.supplier_name || '—'}</td>
+            <td class="num">${fmtTL(r.amount_tl)}</td>
+            <td class="num">${fmtUSD(r.amount_usd) || '—'}</td>
+            <td class="num">${fmtEUR(r.amount_eur) || '—'}</td>
+            <td>${r.top_bucket || '—'}</td>
+            <td class="num">${r.bucket_count || 0}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  el.innerHTML = html;
+}
+
+function renderOpsCustomersTable(payload) {
+  const rows = payload?.customers || [];
+  const el = document.getElementById('ops-customers-table');
+  if (!el) return;
+  if (!rows.length) {
+    el.innerHTML = '<div class="ops-empty">No customer data available.</div>';
+    return;
+  }
+  const html = `
+    <table class="ops-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Customer</th>
+          <th class="num">TL revenue</th>
+          <th class="num">USD-invoiced</th>
+          <th class="num">EUR-invoiced</th>
+          <th class="num">USD rows</th>
+          <th class="num">TRY rows</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `
+          <tr>
+            <td class="num">${i + 1}</td>
+            <td>${r.customer_name || '—'}</td>
+            <td class="num">${fmtTL(r.amount_tl)}</td>
+            <td class="num">${fmtUSD(r.amount_usd) || '—'}</td>
+            <td class="num">${fmtEUR(r.amount_eur) || '—'}</td>
+            <td class="num">${(r.rows_usd || 0).toLocaleString()}</td>
+            <td class="num">${(r.rows_try || 0).toLocaleString()}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  el.innerHTML = html;
+}
+
+/* ── End of Operations Intelligence block ─────────────────────────────────── */
+
+
+// === COUNTERPARTY EXPLORER (M2.1) ===
+const CE = {
+  mode: 'purchase',
+  query: '',
+  selected: null,
+  searchTimer: null,
+  list: [],
+};
+
+function ceInit() {
+  // Mode toggle
+  document.querySelectorAll('[data-ce-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-ce-mode]').forEach(b => b.classList.remove('ce-mode-active'));
+      btn.classList.add('ce-mode-active');
+      CE.mode = btn.dataset.ceMode;
+      CE.selected = null;
+      document.getElementById('ce-detail').style.display = 'none';
+      document.getElementById('ce-detail-empty').style.display = 'block';
+      ceFetchList();
+    });
+  });
+
+  const inp = document.getElementById('ce-search');
+  if (inp) {
+    inp.addEventListener('input', () => {
+      CE.query = inp.value.trim();
+      clearTimeout(CE.searchTimer);
+      CE.searchTimer = setTimeout(ceFetchList, 250);
+    });
+  }
+}
+
+async function ceFetchList() {
+  const status = document.getElementById('ce-search-status');
+  if (status) status.textContent = '…';
+  try {
+    const url = `/api/internal/counterparties?side=${CE.mode}&q=${encodeURIComponent(CE.query)}&limit=50`;
+    const data = await api(url);
+    CE.list = data.results || [];
+    ceRenderList();
+    if (status) status.textContent = `${data.count} result${data.count === 1 ? '' : 's'}`;
+  } catch (e) {
+    console.error('ceFetchList error', e);
+    if (status) status.textContent = 'error';
+  }
+}
+
+function ceRenderList() {
+  const ul = document.getElementById('ce-list');
+  const countEl = document.getElementById('ce-list-count');
+  if (!ul) return;
+  ul.innerHTML = '';
+  if (countEl) countEl.textContent = `${CE.list.length} entit${CE.list.length === 1 ? 'y' : 'ies'}`;
+
+  CE.list.forEach(item => {
+    const li = document.createElement('li');
+    li.className = 'ce-list-item';
+    if (CE.selected && CE.selected.canonical_key === item.canonical_key) {
+      li.classList.add('ce-list-item-active');
+    }
+
+    const badges = [];
+    if (!item.is_verified) badges.push('<span class="ce-badge ce-badge-warn" title="Tax id missing — name-grouped (collision risk)">no-tax</span>');
+    if (item.name_variants_count > 1) badges.push(`<span class="ce-badge ce-badge-info" title="${item.name_variants_count} name spellings detected">${item.name_variants_count}var</span>`);
+
+    li.innerHTML = `
+      <div class="ce-li-name">${escapeHtml(item.display_name || '<unknown>')}</div>
+      <div class="ce-li-meta">
+        <span class="ce-li-amount">${ceFmtTL(item.total_tl_24m)}</span>
+        <span class="ce-li-rows">${item.row_count_24m} rows</span>
+        ${badges.length ? '<span class="ce-li-badges">' + badges.join('') + '</span>' : ''}
+      </div>
+      ${item.vergi_numarasi ? `<div class="ce-li-tax">vn: ${stripTaxZero(item.vergi_numarasi)}</div>` : ''}
+    `;
+    li.addEventListener('click', () => {
+      CE.selected = item;
+      ceRenderList();  // refresh active highlighting
+      ceFetchDetail(item);
+    });
+    ul.appendChild(li);
+  });
+
+  if (CE.list.length === 0) {
+    ul.innerHTML = '<li class="ce-list-empty">No counterparties found.</li>';
+  }
+}
+
+async function ceFetchDetail(item) {
+  document.getElementById('ce-detail-empty').style.display = 'none';
+  const detail = document.getElementById('ce-detail');
+  detail.style.display = 'block';
+  document.getElementById('ce-detail-name').textContent = 'Loading…';
+
+  try {
+    const url = `/api/internal/counterparty/detail?side=${CE.mode}&canonical_key=${encodeURIComponent(item.canonical_key)}&months=24`;
+    const d = await api(url);
+    ceRenderDetail(d);
+  } catch (e) {
+    console.error('ceFetchDetail error', e);
+    document.getElementById('ce-detail-name').textContent = 'Error loading detail';
+  }
+}
+
+function ceRenderDetail(d) {
+  // Fix 1: clear any lingering "Loading…" title with the actual name
+  document.getElementById('ce-detail-name').textContent = d.display_name || '<unknown>';
+
+  // Fix 4: explicit mode badge (Supplier/Customer)
+  const modeLabel = (d.side === 'purchase')
+    ? 'Mode: Supplier (ALIŞ)'
+    : 'Mode: Customer (SATIŞ)';
+
+  // Badges (mode + verification + name drift + counterparty type)
+  const badgesEl = document.getElementById('ce-detail-badges');
+  const bd = [];
+  bd.push(`<span class="ce-badge ce-badge-mode">${modeLabel}</span>`);
+  if (!d.is_verified) bd.push('<span class="ce-badge ce-badge-warn">tax id missing · name-grouped</span>');
+  if (d.name_variants_count > 1) bd.push(`<span class="ce-badge ce-badge-info">${d.name_variants_count} name variants</span>`);
+  if (d.counterparty_type) bd.push(`<span class="ce-badge ce-badge-neutral">${d.counterparty_type}</span>`);
+  badgesEl.innerHTML = bd.join(' ');
+
+  // Fix 2: meta line — strip .0 from tax id
+  const metaEl = document.getElementById('ce-detail-meta');
+  metaEl.innerHTML = `
+    <div class="ce-meta-row"><span>Tax id:</span> <strong>${stripTaxZero(d.vergi_numarasi) || '—'}</strong></div>
+    <div class="ce-meta-row"><span>Window:</span> <strong>${d.months}m</strong> ending ${d.data_horizon || '—'}</div>
+    <div class="ce-meta-row"><span>First invoice:</span> <strong>${d.summary.first_invoice || '—'}</strong></div>
+  `;
+
+  // Summary KPIs
+  document.getElementById('ce-stat-tl').textContent = ceFmtTL(d.summary.total_tl);
+  document.getElementById('ce-stat-usd').textContent = d.summary.total_usd ? '$' + ceFmtNum(d.summary.total_usd) : '—';
+  document.getElementById('ce-stat-eur').textContent = d.summary.total_eur ? '€' + ceFmtNum(d.summary.total_eur) : '—';
+  document.getElementById('ce-stat-rows').textContent = d.summary.row_count.toLocaleString();
+  document.getElementById('ce-stat-share').textContent = d.summary.share_of_total_pct.toFixed(2) + '%';
+  document.getElementById('ce-stat-last').textContent = d.summary.last_invoice || '—';
+
+  // Fix 3: relabel KPI tiles to be unambiguous
+  const tlLabel = document.querySelector('#ce-stat-tl')?.parentElement?.querySelector('.ce-stat-label');
+  const usdLabel = document.querySelector('#ce-stat-usd')?.parentElement?.querySelector('.ce-stat-label');
+  const eurLabel = document.querySelector('#ce-stat-eur')?.parentElement?.querySelector('.ce-stat-label');
+  if (tlLabel)  tlLabel.textContent  = `${d.months}m TL (all rows)`;
+  if (usdLabel) usdLabel.textContent = `${d.months}m USD invoiced (orig. ccy)`;
+  if (eurLabel) eurLabel.textContent = `${d.months}m EUR invoiced (orig. ccy)`;
+
+  // Fix 4: bucket split heading reflects mode
+  const bucketHeading = document.querySelector('#ce-bucket-table')?.closest('.ce-block')?.querySelector('h4');
+  if (bucketHeading) {
+    bucketHeading.textContent = (d.side === 'purchase')
+      ? 'Purchase-side bucket split'
+      : 'Sales-side bucket split';
+  }
+
+  // Monthly trend
+  ceRenderMonthlyChart(d.monthly_trend);
+
+  // Bucket table
+  const bbody = document.querySelector('#ce-bucket-table tbody');
+  bbody.innerHTML = '';
+  d.bucket_split.forEach(b => {
+    bbody.innerHTML += `<tr><td>${escapeHtml(b.bucket || '<null>')}</td><td class="num">${ceFmtTL(b.amount_tl)}</td><td class="num">${b.share_pct}%</td><td class="num">${b.rows}</td></tr>`;
+  });
+
+  // Currency split — note the "TL equivalent" semantics in the column header
+  const ccyHeading = document.querySelector('#ce-ccy-table thead tr');
+  if (ccyHeading) {
+    ccyHeading.innerHTML = '<th>Original ccy</th><th class="num">TL equivalent</th><th class="num">Rows</th>';
+  }
+  const cbody = document.querySelector('#ce-ccy-table tbody');
+  cbody.innerHTML = '';
+  d.currency_split.forEach(c => {
+    cbody.innerHTML += `<tr><td>${escapeHtml(c.ccy)}</td><td class="num">${ceFmtTL(c.amount_tl)}</td><td class="num">${c.rows}</td></tr>`;
+  });
+
+  // Top accounts
+  const abody = document.querySelector('#ce-accounts-table tbody');
+  abody.innerHTML = '';
+  d.top_accounts.forEach(a => {
+    abody.innerHTML += `<tr><td><code>${escapeHtml(a.hesap_kodu || '')}</code></td><td>${escapeHtml((a.hesap_aciklamasi || '').slice(0, 40))}</td><td class="num">${ceFmtTL(a.amount_tl)}</td><td class="num">${a.rows}</td></tr>`;
+  });
+
+  // Subtype
+  const sbody = document.querySelector('#ce-subtype-table tbody');
+  sbody.innerHTML = '';
+  if (d.subtype_split.length === 0) {
+    sbody.innerHTML = '<tr><td colspan="3" class="ce-empty-cell">No subtype data</td></tr>';
+  } else {
+    d.subtype_split.forEach(s => {
+      sbody.innerHTML += `<tr><td>${escapeHtml(s.subtype || '')}</td><td class="num">${ceFmtTL(s.amount_tl)}</td><td class="num">${s.rows}</td></tr>`;
+    });
+  }
+
+  // Quality strip
+  const q = d.classification_quality;
+  document.getElementById('ce-quality').innerHTML = `
+    <div class="ce-quality-cell"><span class="ce-q-label">High confidence:</span> <strong>${q.confidence_high_pct}%</strong></div>
+    <div class="ce-quality-cell"><span class="ce-q-label">Review-flagged:</span> <strong>${q.review_flagged_pct}%</strong></div>
+  `;
+
+  // Recent rows
+  const rbody = document.querySelector('#ce-recent-table tbody');
+  rbody.innerHTML = '';
+  d.recent_rows.forEach(r => {
+    rbody.innerHTML += `<tr><td>${r.fatura_tarihi || '—'}</td><td><code>${escapeHtml(r.hesap_kodu || '')}</code></td><td>${escapeHtml(r.bucket || '')}</td><td class="num">${ceFmtTL(r.amount_tl)}</td><td>${escapeHtml(r.ccy || '')}</td></tr>`;
+  });
+}
+
+function ceRenderMonthlyChart(trend) {
+  const container = document.getElementById('ce-monthly-chart');
+  if (!container) return;
+  if (!trend || trend.length === 0) {
+    container.innerHTML = '<div class="ce-empty-cell">No monthly data</div>';
+    return;
+  }
+  const w = container.clientWidth || 600;
+  const h = 140;
+  const pad = { l: 50, r: 10, t: 10, b: 30 };
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+
+  const maxV = Math.max(...trend.map(p => p.amount_tl), 1);
+  const barW = innerW / trend.length * 0.8;
+  const step = innerW / trend.length;
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" class="ce-svg">`;
+  // Y-axis labels (3 ticks)
+  for (let i = 0; i <= 3; i++) {
+    const y = pad.t + innerH - (innerH * i / 3);
+    const v = (maxV * i / 3);
+    svg += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" class="ce-grid"/>`;
+    svg += `<text x="${pad.l - 6}" y="${y + 3}" text-anchor="end" class="ce-axis-label">${ceFmtTLShort(v)}</text>`;
+  }
+  // Bars
+  trend.forEach((p, i) => {
+    const x = pad.l + i * step + (step - barW) / 2;
+    const barH = innerH * (p.amount_tl / maxV);
+    const y = pad.t + innerH - barH;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" class="ce-bar">
+              <title>${p.month}: ${ceFmtTL(p.amount_tl)} (${p.rows} rows)</title>
+            </rect>`;
+  });
+  // X-axis labels (every Nth month)
+  const labelEvery = Math.max(1, Math.floor(trend.length / 8));
+  trend.forEach((p, i) => {
+    if (i % labelEvery !== 0 && i !== trend.length - 1) return;
+    const x = pad.l + i * step + step / 2;
+    const y = h - 10;
+    const label = p.month.slice(2, 7);  // "26-04"
+    svg += `<text x="${x}" y="${y}" text-anchor="middle" class="ce-axis-label">${label}</text>`;
+  });
+  svg += '</svg>';
+  container.innerHTML = svg;
+}
+
+function ceFmtTL(v) {
+  if (!v && v !== 0) return '—';
+  return '₺' + ceFmtNum(v);
+}
+function ceFmtNum(v) {
+  if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+  return v.toFixed(0);
+}
+function ceFmtTLShort(v) {
+  return ceFmtNum(v);
+}
+
+// stripTaxZero (M2.1 v1.1)
+function stripTaxZero(v) {
+  if (v == null) return '';
+  let s = String(v).trim();
+  if (s.endsWith('.0')) s = s.slice(0, -2);
+  return s;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Wire up section activation
+const _ceOriginalShowSection = window.showSection || null;
+window.showSection = function(name) {
+  if (_ceOriginalShowSection) _ceOriginalShowSection(name);
+  if (name === 'counterparty') {
+    if (!CE._initialized) {
+      ceInit();
+      CE._initialized = true;
+      ceFetchList();
+    }
+  }
+};
+
+// Try to also initialize via the existing nav-click pathway
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-section="counterparty"]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (!CE._initialized) {
+        ceInit();
+        CE._initialized = true;
+        ceFetchList();
+      }
+    });
+  });
+});
+
+// === END COUNTERPARTY EXPLORER (M2.1) ===
+
+
+// === COUNTERPARTY SUB-TAB WIRING (M2.1 relocate) ===
+// Initialize Counterparty Explorer when its sub-tab becomes active.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-sub="ops-counterparty"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Defer slightly to let the section become visible first
+      setTimeout(() => {
+        if (typeof ceInit === 'function' && !window.CE?._initialized) {
+          ceInit();
+          if (window.CE) window.CE._initialized = true;
+          if (typeof ceFetchList === 'function') ceFetchList();
+        }
+      }, 50);
+    });
+  });
+});
+// === END COUNTERPARTY SUB-TAB WIRING ===
