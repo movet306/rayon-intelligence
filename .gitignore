@@ -50,3 +50,10 @@ verify_*.py
 
 # Generated reports
 audit_report.md
+
+# Intermediate patch helper files (one-time use)
+scripts/internal_endpoints_block.py
+scripts/operations_intelligence.css
+scripts/operations_intelligence_block.js
+scripts/preview_*.py
+scripts/section_internal_replacement.html
