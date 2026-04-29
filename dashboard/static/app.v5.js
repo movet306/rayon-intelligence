@@ -145,6 +145,34 @@ function initNav() {
           window._custConcentrationLoaded = true;
         }
       }
+      // loadCostSuppliersTable hook (M2.4.1)
+      if (btn.dataset.sub === 'ops-cost' && typeof loadCostSuppliersTable === 'function') {
+        if (!window._costSuppliersLoaded) {
+          loadCostSuppliersTable();
+          window._costSuppliersLoaded = true;
+        }
+      }
+      // loadCostKpis hook (M2.4.2)
+      if (btn.dataset.sub === 'ops-cost' && typeof loadCostKpis === 'function') {
+        if (!window._costKpisLoaded) {
+          loadCostKpis();
+          window._costKpisLoaded = true;
+        }
+      }
+      // loadCostMovers hook (M2.4.4)
+      if (btn.dataset.sub === 'ops-cost' && typeof loadCostMovers === 'function') {
+        if (!window._costMoversLoaded) {
+          loadCostMovers();
+          window._costMoversLoaded = true;
+        }
+      }
+      // renderOpsCostMixChart hook (M2.4.3) — uses _opsData.cost already fetched
+      if (btn.dataset.sub === 'ops-cost' && typeof renderOpsCostMixChart === 'function') {
+        if (!window._costMixLoaded && _opsData && _opsData.cost) {
+          renderOpsCostMixChart(_opsData.cost);
+          window._costMixLoaded = true;
+        }
+      }
       // loadProcurementConcentrationChart hook (M2.2.4)
       if (btn.dataset.sub === 'ops-procurement' && typeof loadProcurementConcentrationChart === 'function') {
         if (!window._procConcentrationLoaded) {
@@ -1626,9 +1654,11 @@ async function loadInternal() {
     renderOpsPeriodHeader(kpi);
     renderOpsKpis(kpi);
     renderOpsContraAlert(contra);
+    if (typeof loadOverviewSignals === 'function') loadOverviewSignals(); // loadOverviewSignals call inside loadInternal
     renderOpsProcurementChart(proc);
     renderOpsProcurementMixChart(proc);
     renderOpsCostChart(cost);
+    if (typeof renderOpsCostMixChart === "function") renderOpsCostMixChart(cost);
     renderOpsRevenueChart(rev);
     renderOpsSuppliersTable(suppliers);
     renderOpsCustomersTable(customers);
@@ -1711,6 +1741,119 @@ function renderOpsPeriodHeader(kpi) {
 
 /* ── KPI cards ─────────────────────────────────────────────────────────────── */
 
+
+/* ── Mini sparklines for Overview KPI wall (M2.5.2) ───────────────────── */
+/* Each KPI card resolves its 12-month series from the _opsData payload    */
+/* that loadInternal already fetched. No new endpoint.                     */
+
+function _kpiSparklineSeries(metricKey, panel) {
+  // Returns array of numbers (length up to 12) or [] if no data available.
+  const opsData = (typeof _opsData !== 'undefined') ? _opsData : null;
+  if (!opsData) return [];
+
+  // ── Procurement KPIs ───────────────────────────────────────────────────
+  if (panel === 'procurement') {
+    const rows = opsData?.proc?.data || [];
+    if (!rows.length) return [];
+
+    // Group rows by month, summing per requested metric_key
+    const byMonth = {};
+    rows.forEach(r => {
+      const m = r.month;
+      if (!byMonth[m]) byMonth[m] = 0;
+      const b = r.business_bucket;
+      let include = false;
+      if (metricKey === 'total_procurement') {
+        include = b && b.indexOf('raw_material_') === 0;
+      } else if (metricKey === 'yarn') {
+        include = (b === 'raw_material_yarn');
+      } else if (metricKey === 'chemical_dye') {
+        include = (b === 'raw_material_chemical' || b === 'raw_material_dye');
+      } else if (metricKey === 'greige') {
+        include = (b === 'raw_material_greige_fabric');
+      }
+      if (include) byMonth[m] += (r.amount_tl || 0);
+    });
+    const months = Object.keys(byMonth).sort();
+    const last12 = months.slice(-12);
+    return last12.map(m => byMonth[m]);
+  }
+
+  // ── Cost Structure KPIs ────────────────────────────────────────────────
+  if (panel === 'cost_structure') {
+    const rows = opsData?.cost?.data || [];
+    if (!rows.length) return [];
+    const targetBucket =
+      metricKey === 'utilities'        ? 'utilities' :
+      metricKey === 'maintenance'      ? 'maintenance_factory' :
+      metricKey === 'fason'            ? 'outsourced_processing' :
+      metricKey === 'factory_overhead' ? 'factory_overhead' : null;
+    if (!targetBucket) return [];
+
+    const byMonth = {};
+    rows.forEach(r => {
+      if (r.business_bucket === targetBucket) {
+        byMonth[r.month] = (byMonth[r.month] || 0) + (r.amount_tl || 0);
+      }
+    });
+    const months = Object.keys(byMonth).sort();
+    return months.slice(-12).map(m => byMonth[m]);
+  }
+
+  // ── Revenue KPIs ───────────────────────────────────────────────────────
+  if (panel === 'revenue_reality') {
+    const rows = opsData?.rev?.data || [];
+    if (!rows.length) return [];
+    const col =
+      metricKey === 'core_sales'    ? 'core_sales_tl' :
+      metricKey === 'fason_revenue' ? 'fason_revenue_tl' :
+      metricKey === 'net_revenue'   ? 'net_revenue_tl' : null;
+    if (!col) return [];
+
+    const sorted = rows.slice().sort((a, b) => (a.month < b.month ? -1 : 1));
+    return sorted.slice(-12).map(r => r[col] || 0);
+  }
+
+  return [];
+}
+
+function _renderSparklineSvg(series, opts = {}) {
+  if (!series || series.length < 2) return '';
+  const w = opts.width  || 110;
+  const h = opts.height || 22;
+  const pad = 1;
+
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = (max - min) || 1;
+  const stepX = (w - 2 * pad) / (series.length - 1);
+
+  const points = series.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  // Trend color: compare last vs first half average
+  const half = Math.floor(series.length / 2);
+  const firstAvg = series.slice(0, half).reduce((s, v) => s + v, 0) / Math.max(half, 1);
+  const lastAvg  = series.slice(-half).reduce((s, v) => s + v, 0) / Math.max(half, 1);
+  const trend = lastAvg > firstAvg * 1.05 ? 'up'
+              : lastAvg < firstAvg * 0.95 ? 'down'
+              : 'flat';
+
+  // Dot at the last point (current value emphasis)
+  const lastX = pad + (series.length - 1) * stepX;
+  const lastY = h - pad - ((series[series.length - 1] - min) / range) * (h - 2 * pad);
+
+  return `
+    <svg class="kpi-sparkline kpi-sparkline-${trend}" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+      <polyline fill="none" stroke="currentColor" stroke-width="1.2" points="${points}" />
+      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="1.8" fill="currentColor" />
+    </svg>
+  `;
+}
+
 function buildKpiCard(metric, invertGoodForUp = false) {
   const tlMain = fmtTL(metric.amount_tl);
   const yoy    = fmtYoy(metric.yoy_pct_tl);
@@ -1735,12 +1878,22 @@ function buildKpiCard(metric, invertGoodForUp = false) {
     contextHint = `<div class="stat-context-hint">Volatile line item — single-month YoY may overstate the underlying trend.</div>`;
   }
 
+  // Sparkline (M2.5.2) — uses _opsData already fetched by loadInternal
+  const _sparkSeries = (typeof _kpiSparklineSeries === 'function')
+    ? _kpiSparklineSeries(metric.metric_key, metric.panel) : [];
+  const _sparkSvg = (typeof _renderSparklineSvg === 'function' && _sparkSeries.length >= 2)
+    ? _renderSparklineSvg(_sparkSeries) : '';
+  const _sparkBlock = _sparkSvg
+    ? `<div class="kpi-sparkline-wrap" title="last 12 months">${_sparkSvg}</div>`
+    : '';
+
   return `
     <div class="stat-card">
       <div class="stat-label">${metric.metric_label}</div>
       <div class="stat-value">${tlMain}</div>
       <div class="stat-sub ${yoyCls}">${yoy ? `YoY ${yoy}` : '—'}</div>
       ${fxText ? `<div class="stat-fx">${fxText}</div>` : ''}
+      ${_sparkBlock}
       ${contextHint}
     </div>
   `;
@@ -2987,4 +3140,468 @@ function renderOpsCustomerConcentrationChart(payload) {
       },
     ],
   }, PLOTLY_CONFIG);
+}
+
+
+/* ── Top Cost Suppliers table (M2.4.1) ────────────────────────────────── */
+async function loadCostSuppliersTable() {
+  try {
+    const data = await api('/api/internal/top-cost-suppliers?limit=10');
+    if (!data) return;
+    renderOpsCostSuppliersTable(data);
+  } catch (e) {
+    console.error('top-cost-suppliers fetch failed', e);
+  }
+}
+
+function renderOpsCostSuppliersTable(payload) {
+  const suppliers = Array.isArray(payload) ? payload : (payload?.suppliers || []);
+  const el = document.getElementById('ops-cost-suppliers-table');
+  if (!el) return;
+  if (!suppliers || suppliers.length === 0) {
+    el.innerHTML = '<div class="empty-state">No cost supplier data.</div>';
+    return;
+  }
+
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return '₺' + (v/1e9).toFixed(1) + 'B';
+    if (abs >= 1e6) return '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₺' + (v/1e3).toFixed(0) + 'K';
+    return '₺' + v.toFixed(0);
+  };
+  const _fmtFx = (v, sym) => {
+    if (v == null || isNaN(v) || v === 0) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e6) return sym + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return sym + (v/1e3).toFixed(0) + 'K';
+    return sym + v.toFixed(0);
+  };
+  const _badges = s => {
+    const out = [];
+    if (s.is_verified === false) {
+      out.push('<span class="ce-badge ce-badge-warn" title="No verified tax id — name-grouped">no-tax</span>');
+    }
+    if (s.name_variants_count > 1) {
+      out.push(`<span class="ce-badge ce-badge-info" title="${s.name_variants_count} display name variants">${s.name_variants_count} vars</span>`);
+    }
+    return out.join(' ');
+  };
+  const _trendCell = t => {
+    if (t === '▲') return '<span class="trend-up" title="Spend rising (last 6m vs prior 6m, ≥10%)">▲</span>';
+    if (t === '▼') return '<span class="trend-down" title="Spend falling (last 6m vs prior 6m, ≥10%)">▼</span>';
+    return '<span class="trend-flat" title="Stable (within ±10%)">–</span>';
+  };
+  // Compact bucket spread cell:
+  //   "utilities · 100%"   (when 2nd missing)
+  //   "outsourced · 67% | factory_overhead · 22%"   (when 2nd present)
+  const _bucketCell = s => {
+    if (!s.top_bucket) return '—';
+    const tb = s.top_bucket;
+    const tbpct = (s.top_bucket_share_pct != null) ? s.top_bucket_share_pct.toFixed(0) + '%' : '—';
+    let out = `${tb} · ${tbpct}`;
+    if (s.secondary_bucket) {
+      const sb = s.secondary_bucket;
+      const sbpct = (s.secondary_bucket_share_pct != null) ? s.secondary_bucket_share_pct.toFixed(0) + '%' : '—';
+      out += ` <span class="bucket-secondary">| ${sb} · ${sbpct}</span>`;
+    }
+    return out;
+  };
+
+  el.innerHTML = `
+    <table class="ops-table ops-suppliers ops-cost-suppliers">
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th>Supplier</th>
+          <th class="num">TL spend</th>
+          <th class="num">Share</th>
+          <th>Bucket spread</th>
+          <th class="num">Buckets</th>
+          <th class="num">Last invoice</th>
+          <th class="num">Trend</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${suppliers.map((s, i) => `
+          <tr>
+            <td class="num">${i+1}</td>
+            <td>
+              <div class="cell-supplier">
+                <span class="supplier-name">${(s.supplier_name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+                ${_badges(s) ? `<span class="supplier-badges">${_badges(s)}</span>` : ''}
+              </div>
+            </td>
+            <td class="num">${_fmtTL(s.amount_tl)}</td>
+            <td class="num">${s.share_pct != null ? s.share_pct.toFixed(2) + '%' : '—'}</td>
+            <td class="bucket-cell">${_bucketCell(s)}</td>
+            <td class="num">${s.bucket_count}</td>
+            <td class="num">${s.last_invoice_date || '—'}</td>
+            <td class="num">${_trendCell(s.trend_direction)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+
+// === COST KPI STRIP (M2.4.2) ===
+async function loadCostKpis() {
+  const el = document.getElementById('ops-cost-kpis');
+  if (!el) return;
+  try {
+    const data = await api('/api/internal/cost-kpis');
+    if (!data || data.error) {
+      el.innerHTML = '<div class="empty-state">No cost KPI data.</div>';
+      return;
+    }
+    renderCostKpis(data);
+  } catch (e) {
+    console.error('cost-kpis fetch failed', e);
+    el.innerHTML = '<div class="empty-state">Failed to load KPIs.</div>';
+  }
+}
+
+function renderCostKpis(d) {
+  const el = document.getElementById('ops-cost-kpis');
+
+  const _fmtPct = v => (v == null || isNaN(v)) ? '—' : v.toFixed(2) + '%';
+  const _fmtPctSm = v => (v == null || isNaN(v)) ? '—' : v.toFixed(1) + '%';
+  const _fmtInt = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString();
+  const _fmtPP = v => {
+    if (v == null || isNaN(v)) return '—';
+    const sign = v >= 0 ? '+' : '';
+    return sign + v.toFixed(1) + 'pp';
+  };
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return '₺' + (v/1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₺' + (v/1e3).toFixed(0) + 'K';
+    return '₺' + v.toFixed(0);
+  };
+
+  // KPI 6: cost/revenue ratio shift — color INVERTED.
+  //   Δ positive (ratio up = margin compression) → RED  (bad)
+  //   Δ negative (ratio down = margin expansion) → GREEN (good)
+  //   Δ small (stable)                          → muted
+  const ratioDelta = d.cost_revenue_ratio_delta_pp;
+  let ratioClass = 'mover-flat';
+  let ratioArrow = '–';
+  if (ratioDelta != null) {
+    if (ratioDelta >= 0.5) {
+      ratioClass = 'mover-down'; // RED — margin compression
+      ratioArrow = '▲';
+    } else if (ratioDelta <= -0.5) {
+      ratioClass = 'mover-up';   // GREEN — margin expansion
+      ratioArrow = '▼';
+    }
+  }
+
+  // 3m window labels (e.g. "2026-01—2026-03 vs 2025-10—2025-12")
+  const recentLabel = (d.recent_window_start && d.recent_window_end)
+    ? `${d.recent_window_start}—${d.recent_window_end}`
+    : '—';
+  const priorLabel = (d.prior_window_start && d.prior_window_end)
+    ? `${d.prior_window_start}—${d.prior_window_end}`
+    : '—';
+
+  el.innerHTML = `
+    <div class="proc-kpi-row proc-kpi-anchor">
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Operating cost share of revenue</div>
+        <div class="proc-kpi-value">${_fmtPct(d.cost_share_of_revenue_pct)}</div>
+        <div class="proc-kpi-sub">excludes raw materials (in Procurement)</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Outsourced processing share</div>
+        <div class="proc-kpi-value">${_fmtPct(d.outsourced_processing_share_pct)}</div>
+        <div class="proc-kpi-sub">of total operating cost</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Active cost suppliers (12m)</div>
+        <div class="proc-kpi-value">${_fmtInt(d.active_cost_supplier_count)}</div>
+        <div class="proc-kpi-sub">distinct, cost scope only</div>
+      </div>
+    </div>
+    <div class="proc-kpi-row proc-kpi-context-3">
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Maintenance share</div>
+        <div class="proc-kpi-value-sm">${_fmtPct(d.maintenance_share_pct)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Avg monthly cost</div>
+        <div class="proc-kpi-value-sm">${_fmtTL(d.avg_monthly_cost_tl)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Cost/revenue Δ (${recentLabel} vs ${priorLabel})</div>
+        <div class="proc-kpi-value-sm ${ratioClass}">
+          ${ratioArrow} ${_fmtPP(ratioDelta)}
+          <span class="proc-kpi-mover-detail">${_fmtPctSm(d.cost_revenue_ratio_prior_pct)} → ${_fmtPctSm(d.cost_revenue_ratio_recent_pct)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+// === END COST KPI STRIP ===
+
+
+/* ── Cost mix-% chart (M2.4.3) ───────────────────────────────────────── */
+/* Frontend-only. Re-uses cost-structure-trend payload that the absolute  */
+/* chart already fetches (renderOpsCostChart receives it).                */
+/* The activation hook below calls renderOpsCostMixChart(_opsData.cost)   */
+/* whenever the user opens the Cost sub-tab.                              */
+function renderOpsCostMixChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  // Group by month, then compute per-bucket share within each month
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const buckets = [...new Set(data.map(d => d.business_bucket))];
+
+  // Build month -> bucket -> tl map
+  const lookup = {};
+  data.forEach(r => {
+    if (!lookup[r.month]) lookup[r.month] = {};
+    lookup[r.month][r.business_bucket] = r.amount_tl || 0;
+  });
+
+  // Per-bucket trace (% of monthly total)
+  const bucketColor = {
+    utilities:              '#4dabf7',
+    maintenance_factory:    '#ffd43b',
+    packaging:              '#74c0fc',
+    factory_overhead:       '#a78bfa',
+    outsourced_processing:  '#69db7c',
+    logistics_distribution: '#ff8787',
+  };
+
+  const traces = buckets.map(b => {
+    const y = months.map(m => {
+      const monthRow = lookup[m] || {};
+      const total = Object.values(monthRow).reduce((s, v) => s + (v || 0), 0);
+      const val = monthRow[b] || 0;
+      return total > 0 ? 100.0 * val / total : 0;
+    });
+    return {
+      x: months, y: y,
+      name: b,
+      type: 'scatter', mode: 'lines',
+      stackgroup: 'one',
+      line: { width: 0.5, color: bucketColor[b] || C.muted },
+      fillcolor: bucketColor[b] || C.muted,
+      hovertemplate: `${b}: %{y:.1f}%<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-ops-cost-mix', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: {
+      ...PLOTLY_BASE.yaxis,
+      ticksuffix: '%',
+      range: [0, 100],
+      tickvals: [0, 25, 50, 75, 100],
+    },
+  }, PLOTLY_CONFIG);
+}
+
+
+// === COST MOVERS STRIP (M2.4.4) ===
+async function loadCostMovers() {
+  const el = document.getElementById('ops-cost-movers');
+  if (!el) return;
+  try {
+    const data = await api('/api/internal/cost-movers');
+    if (!data) return;
+    renderCostMovers(data);
+  } catch (e) {
+    console.error('cost-movers fetch failed', e);
+  }
+}
+
+function renderCostMovers(payload) {
+  const el = document.getElementById('ops-cost-movers');
+  const movers = payload?.movers || [];
+
+  // Index by slot for O(1) lookup
+  const bySlot = {};
+  movers.forEach(m => { bySlot[m.slot] = m; });
+
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '';
+    if (abs >= 1e9) return sign + '₺' + (abs/1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return sign + '₺' + (abs/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return sign + '₺' + (abs/1e3).toFixed(0) + 'K';
+    return sign + '₺' + abs.toFixed(0);
+  };
+  const _fmtPct = v => {
+    if (v == null || isNaN(v)) return '—';
+    const sign = v >= 0 ? '+' : '';
+    return sign + v.toFixed(1) + '%';
+  };
+
+  const _renderCard = (slotKey, label, kind) => {
+    const m = bySlot[slotKey];
+    const empty = !m || !m.bucket;
+    const emptyMsg = (kind === 'volatility')
+      ? 'no high-volatility bucket (CV < 0.20)'
+      : 'no significant change this month';
+
+    if (empty) {
+      return `
+        <div class="cost-mover-card cost-mover-${kind} cost-mover-empty">
+          <div class="cost-mover-label">${label}</div>
+          <div class="cost-mover-value">—</div>
+          <div class="cost-mover-sub">${emptyMsg}</div>
+        </div>`;
+    }
+
+    if (kind === 'volatility') {
+      return `
+        <div class="cost-mover-card cost-mover-${kind}">
+          <div class="cost-mover-label">${label}</div>
+          <div class="cost-mover-value">~ ${m.bucket}</div>
+          <div class="cost-mover-sub">CV ${m.cv != null ? m.cv.toFixed(2) : '—'}</div>
+        </div>`;
+    }
+
+    // increase / decrease
+    const arrow = (kind === 'increase') ? '▲' : '▼';
+    const pctStr = _fmtPct(m.pct_change);
+    const absStr = _fmtTL(m.abs_change_tl);
+    return `
+      <div class="cost-mover-card cost-mover-${kind}">
+        <div class="cost-mover-label">${label}</div>
+        <div class="cost-mover-value">${arrow} ${m.bucket}</div>
+        <div class="cost-mover-sub">${pctStr} <span class="cost-mover-abs">(${absStr})</span></div>
+      </div>`;
+  };
+
+  el.innerHTML = `
+    ${_renderCard('biggest_increase',   'Biggest increase',   'increase')}
+    ${_renderCard('biggest_decrease',   'Biggest decrease',   'decrease')}
+    ${_renderCard('highest_volatility', 'Highest volatility (12m)', 'volatility')}
+  `;
+}
+// === END COST MOVERS STRIP ===
+
+
+// === OVERVIEW SIGNALS STRIP (M2.5.1) ===
+async function loadOverviewSignals() {
+  const el = document.getElementById('ops-signals-strip');
+  if (!el) return;
+  try {
+    const data = await api('/api/internal/overview-signals');
+    if (!data) return;
+    renderOverviewSignals(data);
+  } catch (e) {
+    console.error('overview-signals fetch failed', e);
+  }
+}
+
+function renderOverviewSignals(payload) {
+  const el = document.getElementById('ops-signals-strip');
+  const signals = payload?.signals || [];
+  if (!signals.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  // Severity → CSS class + icon
+  const _sevIcon = sev => {
+    if (sev === 'critical') return '🔴';
+    if (sev === 'warning')  return '🟡';
+    if (sev === 'ok')       return '🟢';
+    return '⚪';
+  };
+
+  // Paint section health badges from the same payload (M2.5.3)
+  if (typeof renderSectionHealthBadges === 'function') {
+    renderSectionHealthBadges(payload); // renderSectionHealthBadges call inside renderOverviewSignals
+  }
+
+  el.innerHTML = signals.map(s => `
+    <div class="signal-card signal-${s.severity || 'ok'}">
+      <div class="signal-head">
+        <span class="signal-icon">${_sevIcon(s.severity)}</span>
+        <span class="signal-title">${(s.title || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+      </div>
+      <div class="signal-metric">${(s.metric_text || '—').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+      <div class="signal-why">${(s.why_text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+    </div>
+  `).join('');
+}
+// === END OVERVIEW SIGNALS STRIP ===
+
+
+/* ── Section health badges (M2.5.3) ──────────────────────────────────── */
+/* Rolls up the overview-signals payload into one severity per section,   */
+/* paints a dot on each section header, and wires the header to switch    */
+/* to the corresponding sub-tab on click.                                 */
+function renderSectionHealthBadges(signalsPayload) {
+  const signals = signalsPayload?.signals || [];
+  if (!signals.length) return;
+
+  const bySlot = {};
+  signals.forEach(s => { bySlot[s.signal_key] = s; });
+
+  // Severity weight (higher = worse)
+  const sevRank = { critical: 3, warning: 2, ok: 1, info: 1 };
+  const _worst = (...keys) => {
+    let worst = 'ok';
+    keys.forEach(k => {
+      const sev = bySlot[k]?.severity || 'ok';
+      if ((sevRank[sev] || 0) > (sevRank[worst] || 0)) worst = sev;
+    });
+    return worst;
+  };
+
+  const sectionHealth = {
+    procurement: _worst('procurement_concentration'),
+    cost:        _worst('margin_trend'),
+    revenue:     _worst('customer_concentration', 'contra_revenue'),
+  };
+
+  const _paintHeader = (id, severity) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Reset previous severity classes
+    el.classList.remove('section-health-critical', 'section-health-warning', 'section-health-ok');
+    el.classList.add(`section-health-${severity}`);
+
+    // Inject (or refresh) the dot + chevron decorations.
+    // We rebuild the inner content each call so re-renders don't stack badges.
+    const labelText = el.dataset.labelText || el.textContent.trim();
+    el.dataset.labelText = labelText;
+    el.innerHTML = `
+      <span class="section-health-dot" aria-hidden="true"></span>
+      <span class="section-health-label">${labelText}</span>
+      <span class="section-health-chevron" aria-hidden="true">→</span>
+    `;
+
+    // Click handler — navigate to the matching sub-tab.
+    if (!el.dataset.clickWired) {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => {
+        const target = el.dataset.target;
+        if (!target) return;
+        const btn = document.querySelector(`.sub-nav-btn[data-sub="${target}"]`);
+        if (btn) btn.click();
+      });
+      el.dataset.clickWired = '1';
+    }
+  };
+
+  _paintHeader('ops-section-header-procurement', sectionHealth.procurement);
+  _paintHeader('ops-section-header-cost',        sectionHealth.cost);
+  _paintHeader('ops-section-header-revenue',     sectionHealth.revenue);
 }

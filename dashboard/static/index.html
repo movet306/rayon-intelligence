@@ -6,7 +6,7 @@
   <title>Rayon Intelligence Platform</title>
   <link rel="stylesheet" href="style.v5.css?v=6">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js?v=20260429113907" defer></script>
+  <script src="app.v5.js?v=20260429152124" defer></script>
 </head>
 <body>
 
@@ -264,15 +264,16 @@
 
     <!-- Overview: KPI grid + contra alert card -->
     <div id="sub-ops-overview" class="sub-section active">
+      <div id="ops-signals-strip" class="signals-strip" style="margin-bottom:16px"></div>
       <div class="ops-period-header" id="ops-period-header"></div>
 
-      <div class="ops-panel-title">Procurement</div>
+      <div class="ops-panel-title ops-section-header" id="ops-section-header-procurement" data-target="ops-procurement">Procurement</div>
       <div class="metric-row" id="ops-kpi-procurement"></div>
 
-      <div class="ops-panel-title">Cost Structure</div>
+      <div class="ops-panel-title ops-section-header" id="ops-section-header-cost" data-target="ops-cost">Cost Structure</div>
       <div class="metric-row" id="ops-kpi-cost"></div>
 
-      <div class="ops-panel-title">Revenue Reality</div>
+      <div class="ops-panel-title ops-section-header" id="ops-section-header-revenue" data-target="ops-revenue">Revenue Reality</div>
       <div class="metric-row" id="ops-kpi-revenue"></div>
 
       <div id="ops-contra-alert"></div>
@@ -305,12 +306,22 @@
 
     <!-- Cost structure detail -->
     <div id="sub-ops-cost" class="sub-section">
+      <div id="ops-cost-kpis" class="proc-kpi-strip" style="margin-bottom:16px"></div>
+      <div id="ops-cost-movers" class="cost-movers-strip" style="margin-bottom:16px"></div>
       <div class="chart-panel">
         <div class="chart-panel-title">Monthly Cost Structure (TL)</div>
         <div class="chart-wrap" id="chart-ops-cost"></div>
       </div>
+      <div class="chart-panel" style="margin-top:16px">
+        <div class="chart-panel-title">Cost Mix Over Time (% share)</div>
+        <div class="chart-wrap" id="chart-ops-cost-mix"></div>
+      </div>
       <div class="ops-note" id="ops-cost-note">
         Note: <em>logistics_distribution</em> is provisional in the MVP and may include both inbound (procurement-related) and outbound (commercial) flows. To be split in M2.1.
+      </div>
+      <div class="table-wrap" style="margin-top:16px">
+        <div class="table-title">Top 10 Cost Suppliers (last 12 months, cost buckets only)</div>
+        <div id="ops-cost-suppliers-table"></div>
       </div>
     </div>
 

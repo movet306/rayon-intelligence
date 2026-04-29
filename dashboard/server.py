@@ -997,6 +997,27 @@ def get_yarn_pressure():
 # Frontend-friendly normalized shape: one flat list, panel + display_order
 # sufficient for grouping. No nested structure to unpack.
 
+@app.get("/api/internal/overview-signals")
+def internal_overview_signals():
+    """
+    M2.5.1 — Overview Phase 1 top-signals strip.
+    Returns 4 fixed slots: customer_concentration, procurement_concentration,
+    contra_revenue, margin_trend. Severity is rule-based (see migration 026).
+    """
+    rows = _rows("""
+        SELECT
+            display_order,
+            signal_key,
+            severity,
+            title,
+            metric_text,
+            why_text
+        FROM v_overview_signals
+        ORDER BY display_order
+    """)
+    return {"signals": rows}
+
+
 @app.get("/api/internal/kpi-latest-month")
 def internal_kpi_latest_month():
     rows = _rows("""
@@ -1323,6 +1344,113 @@ def internal_customer_concentration_trend():
         "threshold": 33.0,
         "window":    "24 months rolling",
         "scope":     "core_product_sales + outsourced_service_revenue (yarn_resale excluded)",
+    }
+
+
+# ── /api/internal/cost-kpis ────────────────────────────────────────────────
+# M2.4.2 — Cost Structure Phase 1 KPI strip.
+# Returns 6 metrics over the 12m rolling window + 3m vs 3m margin trend.
+# KPI 6 = cost/revenue ratio Δ (pp). Positive = margin compression.
+@app.get("/api/internal/cost-kpis")
+def internal_cost_kpis():
+    rows = _rows("""
+        SELECT
+            cost_share_of_revenue_pct::float       AS cost_share_of_revenue_pct,
+            outsourced_processing_share_pct::float AS outsourced_processing_share_pct,
+            active_cost_supplier_count,
+            maintenance_share_pct::float           AS maintenance_share_pct,
+            avg_monthly_cost_tl::float             AS avg_monthly_cost_tl,
+            cost_revenue_ratio_delta_pp::float     AS cost_revenue_ratio_delta_pp,
+            cost_revenue_ratio_recent_pct::float   AS cost_revenue_ratio_recent_pct,
+            cost_revenue_ratio_prior_pct::float    AS cost_revenue_ratio_prior_pct,
+            recent_window_start,
+            recent_window_end,
+            prior_window_start,
+            prior_window_end,
+            cost_total_12m_tl::float               AS cost_total_12m_tl,
+            revenue_total_12m_tl::float            AS revenue_total_12m_tl
+        FROM v_cost_kpis
+    """)
+    if not rows:
+        return {"error": "no cost data"}
+    return rows[0]
+
+
+# ── /api/internal/top-cost-suppliers ───────────────────────────────────────
+# M2.4.1 — Cost Structure Phase 1: top suppliers in cost-bucket scope
+# (utilities/maintenance/packaging/factory_overhead/outsourced_processing/
+# logistics_distribution). 12m rolling. Includes bucket spread (top + secondary).
+# ── /api/internal/cost-movers ──────────────────────────────────────────────
+# M2.4.4 — Cost Structure Phase 1 Movers strip.
+# Returns up to 3 slots (biggest_increase, biggest_decrease, highest_volatility).
+# Each slot may be absent if threshold not met (frontend renders empty state).
+@app.get("/api/internal/cost-movers")
+def internal_cost_movers():
+    rows = _rows("""
+        SELECT
+            display_order,
+            slot,
+            bucket,
+            pct_change::float        AS pct_change,
+            abs_change_tl::float     AS abs_change_tl,
+            latest_tl::float         AS latest_tl,
+            prior_tl::float          AS prior_tl,
+            cv::float                AS cv,
+            stdev_tl::float          AS stdev_tl,
+            mean_tl::float           AS mean_tl
+        FROM v_cost_movers
+        ORDER BY display_order
+    """)
+    return {
+        "movers": rows,
+        "thresholds": {
+            "increase_pct":   5.0,
+            "decrease_pct":  -5.0,
+            "volatility_cv":  0.20,
+        },
+        "window": {
+            "movers":     "latest complete month vs prior complete month",
+            "volatility": "last 12 months",
+        },
+    }
+
+
+@app.get("/api/internal/top-cost-suppliers")
+def internal_top_cost_suppliers(
+    limit: int = Query(10, ge=1, le=100),
+):
+    rows = _rows("""
+        SELECT
+            supplier_name,
+            row_count,
+            bucket_count,
+            amount_tl::float                        AS amount_tl,
+            amount_usd::float                       AS amount_usd,
+            amount_eur::float                       AS amount_eur,
+            top_bucket,
+            top_bucket_share_pct::float             AS top_bucket_share_pct,
+            secondary_bucket,
+            secondary_bucket_share_pct::float       AS secondary_bucket_share_pct,
+            to_char(first_invoice_date, 'YYYY-MM-DD') AS first_invoice_date,
+            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date,
+            share_pct::float                        AS share_pct,
+            trend_direction,
+            amount_tl_h1::float                     AS amount_tl_h1,
+            amount_tl_h2::float                     AS amount_tl_h2,
+            vergi_numarasi,
+            is_verified,
+            name_variants_count
+        FROM v_top_cost_suppliers_overall
+        ORDER BY amount_tl DESC NULLS LAST
+        LIMIT %s
+    """, [limit])
+
+    return {
+        "suppliers":     rows,
+        "count":         len(rows),
+        "window":        "last 12 months",
+        "scope":         "cost buckets only (utilities, maintenance, packaging, "
+                         "factory_overhead, outsourced_processing, logistics_distribution)",
     }
 
 

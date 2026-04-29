@@ -1882,3 +1882,191 @@ html, body {
   grid-template-columns: 1fr 1fr 1fr 1.6fr;
   gap: 12px;
 }
+
+/* === Cost suppliers — bucket spread (M2.4.1) === */
+/* Compact format inside a single table cell:                                  */
+/*   "utilities · 100%"           — primary only                               */
+/*   "outsourced · 67% | factory_overhead · 22%"  — primary + secondary        */
+.ops-cost-suppliers .bucket-cell {
+  font-size: 12.5px;
+  white-space: nowrap;
+  font-family: var(--font-mono, 'Inter', sans-serif);
+}
+.ops-cost-suppliers .bucket-secondary {
+  color: var(--text-muted, #888);
+  font-size: 11.5px;
+  margin-left: 4px;
+}
+
+/* === Cost KPI strip (M2.4.2) — 3-card context === */
+/* Cost has 3 context cards (no avg-monthly + 4-card layout like Revenue).    */
+/* Last card (Cost/revenue Δ) gets more room because it has two-line content. */
+.proc-kpi-context-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.6fr;
+  gap: 12px;
+}
+
+/* === Cost movers strip (M2.4.4) === */
+/* 3 cards side-by-side with kind-based left border accent.                */
+/* increase   = red    (cost rising, margin pressure)                      */
+/* decrease   = green  (cost falling, margin relief)                       */
+/* volatility = amber  (warning, neutral semantics)                        */
+.cost-movers-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.cost-mover-card {
+  background: var(--bg-card, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cost-mover-increase   { border-left-color: #e03131; }
+.cost-mover-decrease   { border-left-color: #2f9e44; }
+.cost-mover-volatility { border-left-color: #f59f00; }
+.cost-mover-empty      { opacity: 0.6; }
+
+.cost-mover-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #888);
+}
+.cost-mover-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  font-family: var(--font-mono, 'Inter', sans-serif);
+}
+.cost-mover-increase   .cost-mover-value { color: #ff6b6b; }
+.cost-mover-decrease   .cost-mover-value { color: #51cf66; }
+.cost-mover-volatility .cost-mover-value { color: #ffd43b; }
+
+.cost-mover-sub {
+  font-size: 12px;
+  color: var(--text-muted, #aaa);
+}
+.cost-mover-abs {
+  color: var(--text-muted, #888);
+  font-size: 11.5px;
+}
+
+/* === Overview signals strip (M2.5.1) === */
+/* 4 cards side-by-side at the top of Overview. Severity drives left border. */
+/* critical = red    (must-act signal)                                       */
+/* warning  = amber  (watch zone)                                            */
+/* ok       = green  (within normal range)                                   */
+.signals-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.signal-card {
+  background: var(--bg-card, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 90px;
+}
+.signal-critical { border-left-color: #e03131; }
+.signal-warning  { border-left-color: #f59f00; }
+.signal-ok       { border-left-color: #2f9e44; }
+
+.signal-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #888);
+}
+.signal-icon { font-size: 11px; }
+.signal-title {
+  font-weight: 500;
+}
+.signal-metric {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  font-family: var(--font-mono, 'Inter', sans-serif);
+}
+.signal-critical .signal-metric { color: #ff6b6b; }
+.signal-warning  .signal-metric { color: #ffd43b; }
+.signal-ok       .signal-metric { color: #51cf66; }
+
+.signal-why {
+  font-size: 12px;
+  color: var(--text-muted, #aaa);
+  line-height: 1.35;
+}
+
+@media (max-width: 1100px) {
+  .signals-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* === Overview KPI sparklines (M2.5.2) === */
+/* 12-month inline trend, embedded in stat-card. Color reflects trend.   */
+.kpi-sparkline-wrap {
+  margin-top: 6px;
+  line-height: 0;          /* removes inline-svg baseline gap */
+  display: flex;
+  align-items: center;
+}
+.kpi-sparkline {
+  opacity: 0.85;
+}
+.kpi-sparkline-up   { color: #51cf66; }   /* rising trend  — green  */
+.kpi-sparkline-down { color: #ff6b6b; }   /* falling trend — red    */
+.kpi-sparkline-flat { color: #868e96; }   /* stable        — muted  */
+
+/* === Section health badges (M2.5.3) === */
+/* Each .ops-section-header gets: colored dot + label + chevron, with     */
+/* hover affordance and click-to-navigate behaviour wired in JS.          */
+.ops-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: color 0.12s ease;
+  user-select: none;
+}
+.ops-section-header:hover {
+  color: var(--text-primary, #fff);
+}
+.section-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #868e96;             /* default muted */
+  flex-shrink: 0;
+  display: inline-block;
+}
+.section-health-critical .section-health-dot { background: #e03131; box-shadow: 0 0 6px rgba(224,49,49,0.45); }
+.section-health-warning  .section-health-dot { background: #f59f00; box-shadow: 0 0 6px rgba(245,159,0,0.40); }
+.section-health-ok       .section-health-dot { background: #2f9e44; box-shadow: 0 0 6px rgba(47,158,68,0.35); }
+
+.section-health-label {
+  font-weight: 500;
+}
+
+.section-health-chevron {
+  margin-left: 6px;
+  opacity: 0.4;
+  font-size: 12px;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.ops-section-header:hover .section-health-chevron {
+  opacity: 0.85;
+  transform: translateX(2px);
+}
