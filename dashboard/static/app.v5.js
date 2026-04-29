@@ -124,6 +124,41 @@ function initNav() {
       btn.classList.add('active');
       const sub = document.getElementById('sub-' + btn.dataset.sub);
       if (sub) sub.classList.add('active');
+      // loadProcurementKpis hook (M2.2.2)
+      if (btn.dataset.sub === 'ops-procurement' && typeof loadProcurementKpis === 'function') {
+        if (!window._procKpisLoaded) {
+          loadProcurementKpis();
+          window._procKpisLoaded = true;
+        }
+      }
+      // loadRevenueKpis hook (M2.3.2)
+      if (btn.dataset.sub === 'ops-revenue' && typeof loadRevenueKpis === 'function') {
+        if (!window._revenueKpisLoaded) {
+          loadRevenueKpis();
+          window._revenueKpisLoaded = true;
+        }
+      }
+      // loadCustomerConcentrationChart hook (M2.3.3)
+      if (btn.dataset.sub === 'ops-revenue' && typeof loadCustomerConcentrationChart === 'function') {
+        if (!window._custConcentrationLoaded) {
+          loadCustomerConcentrationChart();
+          window._custConcentrationLoaded = true;
+        }
+      }
+      // loadProcurementConcentrationChart hook (M2.2.4)
+      if (btn.dataset.sub === 'ops-procurement' && typeof loadProcurementConcentrationChart === 'function') {
+        if (!window._procConcentrationLoaded) {
+          loadProcurementConcentrationChart();
+          window._procConcentrationLoaded = true;
+        }
+      }
+      // loadProcurementCurrencyChart hook (M2.2.5)
+      if (btn.dataset.sub === 'ops-procurement' && typeof loadProcurementCurrencyChart === 'function') {
+        if (!window._procCurrencyLoaded) {
+          loadProcurementCurrencyChart();
+          window._procCurrencyLoaded = true;
+        }
+      }
       // Counterparty Explorer hook (M2.1)
       if (btn.dataset.sub === 'ops-counterparty' && typeof ceInit === 'function') {
         if (!window.CE || !window.CE._initialized) {
@@ -1592,6 +1627,7 @@ async function loadInternal() {
     renderOpsKpis(kpi);
     renderOpsContraAlert(contra);
     renderOpsProcurementChart(proc);
+    renderOpsProcurementMixChart(proc);
     renderOpsCostChart(cost);
     renderOpsRevenueChart(rev);
     renderOpsSuppliersTable(suppliers);
@@ -1857,6 +1893,230 @@ function renderOpsProcurementChart(payload) {
   }, PLOTLY_CONFIG);
 }
 
+/* -- Procurement mix % chart (M2.2.3) ----------------------------------- */
+function renderOpsProcurementMixChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const buckets = payload.buckets || [
+    'raw_material_yarn', 'raw_material_chemical',
+    'raw_material_dye', 'raw_material_greige_fabric',
+  ];
+  const colorMap = {
+    raw_material_yarn:           C.blue,
+    raw_material_chemical:       C.purple,
+    raw_material_dye:            C.orange,
+    raw_material_greige_fabric:  C.green,
+  };
+  const labelMap = {
+    raw_material_yarn:           'Yarn',
+    raw_material_chemical:       'Chemical',
+    raw_material_dye:            'Dye',
+    raw_material_greige_fabric:  'Greige fabric',
+  };
+
+  const monthTotals = {};
+  months.forEach(m => { monthTotals[m] = 0; });
+  data.forEach(d => {
+    if (buckets.includes(d.business_bucket)) {
+      monthTotals[d.month] = (monthTotals[d.month] || 0) + (d.amount_tl || 0);
+    }
+  });
+
+  const traces = buckets.map(bucket => {
+    const byMonth = Object.fromEntries(
+      data.filter(d => d.business_bucket === bucket)
+          .map(d => [d.month, d.amount_tl || 0])
+    );
+    return {
+      x: months,
+      y: months.map(m => {
+        const total = monthTotals[m] || 0;
+        if (total === 0) return 0;
+        return ((byMonth[m] || 0) / total) * 100;
+      }),
+      name: labelMap[bucket] || bucket,
+      type: 'bar',
+      marker: { color: colorMap[bucket] || C.muted, opacity: 0.85 },
+      hovertemplate: `${labelMap[bucket] || bucket}: %{y:.1f}%<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-ops-procurement-mix', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    barmode: 'stack',
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: {
+      ...PLOTLY_BASE.yaxis,
+      ticksuffix: '%',
+      range: [0, 100],
+      tickvals: [0, 25, 50, 75, 100],
+    },
+  }, PLOTLY_CONFIG);
+}
+
+/* ── Procurement concentration trend chart (M2.2.4) ────────────────────── */
+async function loadProcurementConcentrationChart() {
+  try {
+    const data = await api('/api/internal/procurement-concentration-trend');
+    if (!data || !data.data || !data.data.length) return;
+    renderOpsProcurementConcentrationChart(data);
+  } catch (e) {
+    console.error('procurement-concentration fetch failed', e);
+  }
+}
+
+function renderOpsProcurementConcentrationChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = data.map(d => d.month);
+  const top1   = data.map(d => d.top_1_share_pct  ?? null);
+  const top3   = data.map(d => d.top_3_share_pct  ?? null);
+  const top10  = data.map(d => d.top_10_share_pct ?? null);
+  const threshold = payload.threshold ?? 33;
+
+  const traces = [
+    {
+      x: months, y: top10,
+      name: 'Top 10 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.green, width: 2 },
+      marker: { color: C.green, size: 5 },
+      hovertemplate: 'Top 10: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: top3,
+      name: 'Top 3 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.orange, width: 2.5 },
+      marker: { color: C.orange, size: 6 },
+      hovertemplate: 'Top 3: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: top1,
+      name: 'Top 1 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.blue, width: 2 },
+      marker: { color: C.blue, size: 5 },
+      hovertemplate: 'Top 1: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: months.map(_ => threshold),
+      name: `Watch zone (${threshold}%)`,
+      type: 'scatter', mode: 'lines',
+      line: { color: C.red || '#e03131', width: 1.2, dash: 'dash' },
+      hovertemplate: `Watch: ${threshold}%<extra></extra>`,
+    },
+  ];
+
+  Plotly.newPlot('chart-ops-procurement-concentration', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: {
+      ...PLOTLY_BASE.yaxis,
+      ticksuffix: '%',
+      range: [0, 100],
+      tickvals: [0, 25, 50, 75, 100],
+    },
+    annotations: [
+      {
+        xref: 'paper', yref: 'y',
+        x: 1, xanchor: 'right',
+        y: threshold, yanchor: 'bottom',
+        text: `Top 3 watch zone (${threshold}%)`,
+        showarrow: false,
+        font: { color: C.red || '#e03131', size: 10 },
+      },
+    ],
+  }, PLOTLY_CONFIG);
+}
+
+/* ── Procurement currency composition mix % chart (M2.2.5) ─────────────── */
+async function loadProcurementCurrencyChart() {
+  try {
+    const data = await api('/api/internal/procurement-currency-trend');
+    if (!data || !data.data || !data.data.length) return;
+    renderOpsProcurementCurrencyChart(data);
+  } catch (e) {
+    console.error('procurement-currency-trend fetch failed', e);
+  }
+}
+
+function renderOpsProcurementCurrencyChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = [...new Set(data.map(d => d.month))].sort();
+  const currencies = payload.currencies || ['TRY', 'USD', 'EUR', 'OTHER'];
+
+  const colorMap = {
+    TRY:   C.blue,
+    USD:   C.green,
+    EUR:   C.orange,
+    OTHER: C.muted,
+  };
+  const labelMap = {
+    TRY:   'TRY (₺)',
+    USD:   'USD ($)',
+    EUR:   'EUR (€)',
+    OTHER: 'Other',
+  };
+
+  // Per-month totals (TL equivalent across all currencies)
+  const monthTotals = {};
+  months.forEach(m => { monthTotals[m] = 0; });
+  data.forEach(d => {
+    if (currencies.includes(d.currency)) {
+      monthTotals[d.month] = (monthTotals[d.month] || 0) + (d.amount_tl || 0);
+    }
+  });
+
+  const traces = currencies.map(curr => {
+    const byMonth = Object.fromEntries(
+      data.filter(d => d.currency === curr)
+          .map(d => [d.month, d.amount_tl || 0])
+    );
+    return {
+      x: months,
+      y: months.map(m => {
+        const total = monthTotals[m] || 0;
+        if (total === 0) return 0;
+        return ((byMonth[m] || 0) / total) * 100;
+      }),
+      name: labelMap[curr] || curr,
+      type: 'bar',
+      marker: { color: colorMap[curr] || C.muted, opacity: 0.85 },
+      hovertemplate: `${labelMap[curr] || curr}: %{y:.1f}%<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-ops-procurement-currency', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    barmode: 'stack',
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: {
+      ...PLOTLY_BASE.yaxis,
+      ticksuffix: '%',
+      range: [0, 100],
+      tickvals: [0, 25, 50, 75, 100],
+    },
+  }, PLOTLY_CONFIG);
+}
+
+
+
+
 /* ── Cost structure chart ──────────────────────────────────────────────────── */
 
 function renderOpsCostChart(payload) {
@@ -2051,46 +2311,89 @@ function renderOpsSuppliersTable(payload) {
       </tbody>
     </table>
   `;
-  el.innerHTML = html;
 }
 
 function renderOpsCustomersTable(payload) {
-  const rows = payload?.customers || [];
+  // Accept either an array (legacy callers) or a {customers: [...]} payload (new pattern)
+  const customers = Array.isArray(payload)
+    ? payload
+    : (payload?.customers || []);
   const el = document.getElementById('ops-customers-table');
   if (!el) return;
-  if (!rows.length) {
-    el.innerHTML = '<div class="ops-empty">No customer data available.</div>';
+  if (!customers || customers.length === 0) {
+    el.innerHTML = '<div class="empty-state">No customer data.</div>';
     return;
   }
-  const html = `
-    <table class="ops-table">
+
+  // M2.3.1 enrichment helpers (same as M2.2.1)
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return '₺' + (v/1e9).toFixed(1) + 'B';
+    if (abs >= 1e6) return '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₺' + (v/1e3).toFixed(0) + 'K';
+    return '₺' + v.toFixed(0);
+  };
+  const _fmtFx = (v, sym) => {
+    if (v == null || isNaN(v) || v === 0) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e6) return sym + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return sym + (v/1e3).toFixed(0) + 'K';
+    return sym + v.toFixed(0);
+  };
+  const _badges = c => {
+    const out = [];
+    if (c.is_verified === false) {
+      out.push('<span class="ce-badge ce-badge-warn" title="No verified tax id — name-grouped">no-tax</span>');
+    }
+    if (c.name_variants_count > 1) {
+      out.push(`<span class="ce-badge ce-badge-info" title="${c.name_variants_count} display name variants">${c.name_variants_count} vars</span>`);
+    }
+    return out.join(' ');
+  };
+  const _trendCell = t => {
+    if (t === '▲') return '<span class="trend-up" title="Revenue rising (last 6m vs prior 6m, ≥10%)">▲</span>';
+    if (t === '▼') return '<span class="trend-down" title="Revenue falling (last 6m vs prior 6m, ≥10%)">▼</span>';
+    return '<span class="trend-flat" title="Revenue stable (within ±10%)">–</span>';
+  };
+
+  el.innerHTML = `
+    <table class="ops-table ops-suppliers">
       <thead>
         <tr>
-          <th>#</th>
+          <th class="num">#</th>
           <th>Customer</th>
           <th class="num">TL revenue</th>
-          <th class="num">USD-invoiced</th>
-          <th class="num">EUR-invoiced</th>
-          <th class="num">USD rows</th>
-          <th class="num">TRY rows</th>
+          <th class="num">Share</th>
+          <th class="num">USD invoiced</th>
+          <th class="num">EUR invoiced</th>
+          <th class="num">Buckets</th>
+          <th class="num">Last invoice</th>
+          <th class="num">Trend</th>
         </tr>
       </thead>
       <tbody>
-        ${rows.map((r, i) => `
+        ${customers.map((c, i) => `
           <tr>
-            <td class="num">${i + 1}</td>
-            <td>${r.customer_name || '—'}</td>
-            <td class="num">${fmtTL(r.amount_tl)}</td>
-            <td class="num">${fmtUSD(r.amount_usd) || '—'}</td>
-            <td class="num">${fmtEUR(r.amount_eur) || '—'}</td>
-            <td class="num">${(r.rows_usd || 0).toLocaleString()}</td>
-            <td class="num">${(r.rows_try || 0).toLocaleString()}</td>
+            <td class="num">${i+1}</td>
+            <td>
+              <div class="cell-supplier">
+                <span class="supplier-name">${(c.customer_name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+                ${_badges(c) ? `<span class="supplier-badges">${_badges(c)}</span>` : ''}
+              </div>
+            </td>
+            <td class="num">${_fmtTL(c.amount_tl)}</td>
+            <td class="num">${c.share_pct != null ? c.share_pct.toFixed(2) + '%' : '—'}</td>
+            <td class="num">${_fmtFx(c.amount_usd, '$')}</td>
+            <td class="num">${_fmtFx(c.amount_eur, '€')}</td>
+            <td class="num">${c.bucket_count}</td>
+            <td class="num">${c.last_invoice_date || '—'}</td>
+            <td class="num">${_trendCell(c.trend_direction)}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
-  el.innerHTML = html;
 }
 
 /* ── End of Operations Intelligence block ─────────────────────────────────── */
@@ -2424,3 +2727,264 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 // === END COUNTERPARTY SUB-TAB WIRING ===
+
+// === PROCUREMENT KPI STRIP (M2.2.2) ===
+async function loadProcurementKpis() {
+  const el = document.getElementById('ops-procurement-kpis');
+  if (!el) return;
+  try {
+    const data = await api('/api/internal/procurement-kpis');
+    if (!data || data.error) {
+      el.innerHTML = '<div class="empty-state">No procurement KPI data.</div>';
+      return;
+    }
+    renderProcurementKpis(data);
+  } catch (e) {
+    console.error('procurement-kpis fetch failed', e);
+    el.innerHTML = '<div class="empty-state">Failed to load KPIs.</div>';
+  }
+}
+
+function renderProcurementKpis(d) {
+  const el = document.getElementById('ops-procurement-kpis');
+
+  const _fmtPct = v => (v == null || isNaN(v)) ? '—' : v.toFixed(2) + '%';
+  const _fmtInt = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString();
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const sign = v >= 0 ? '+' : '';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return sign + '₺' + (v/1e9).toFixed(1) + 'B';
+    if (abs >= 1e6) return sign + '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return sign + '₺' + (v/1e3).toFixed(0) + 'K';
+    return sign + '₺' + v.toFixed(0);
+  };
+  const _fmtPctSigned = v => {
+    if (v == null || isNaN(v)) return '—';
+    const sign = v >= 0 ? '+' : '';
+    return sign + v.toFixed(1) + '%';
+  };
+  const _bucketLabel = s => (s || '—').replace(/_/g, ' ');
+  const _moverClass = v => v == null ? '' : (v >= 0 ? 'mover-up' : 'mover-down');
+
+  const moverDirection = (d.biggest_mover_tl != null && d.biggest_mover_tl >= 0) ? '▲' : '▼';
+
+  el.innerHTML = `
+    <div class="proc-kpi-row proc-kpi-anchor">
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Top 3 supplier share</div>
+        <div class="proc-kpi-value">${_fmtPct(d.top_3_supplier_share_pct)}</div>
+        <div class="proc-kpi-sub">of cost-relevant 12m procurement</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">FX-invoiced share</div>
+        <div class="proc-kpi-value">${_fmtPct(d.fx_invoiced_share_pct)}</div>
+        <div class="proc-kpi-sub">USD + EUR invoicing</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Active suppliers (12m)</div>
+        <div class="proc-kpi-value">${_fmtInt(d.active_supplier_count)}</div>
+        <div class="proc-kpi-sub">distinct cost-relevant</div>
+      </div>
+    </div>
+    <div class="proc-kpi-row proc-kpi-context">
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Yarn share</div>
+        <div class="proc-kpi-value-sm">${_fmtPct(d.yarn_share_pct)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Greige share</div>
+        <div class="proc-kpi-value-sm">${_fmtPct(d.greige_share_pct)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Largest MoM mover (${d.latest_month || '—'} vs ${d.prior_month || '—'})</div>
+        <div class="proc-kpi-value-sm ${_moverClass(d.biggest_mover_tl)}">
+          ${moverDirection} ${_bucketLabel(d.biggest_mover_bucket)}
+          <span class="proc-kpi-mover-detail">${_fmtPctSigned(d.biggest_mover_pct)} (${_fmtTL(d.biggest_mover_tl)})</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+// === END PROCUREMENT KPI STRIP ===
+
+
+// === REVENUE KPI STRIP (M2.3.2) ===
+async function loadRevenueKpis() {
+  const el = document.getElementById('ops-revenue-kpis');
+  if (!el) return;
+  try {
+    const data = await api('/api/internal/revenue-kpis');
+    if (!data || data.error) {
+      el.innerHTML = '<div class="empty-state">No revenue KPI data.</div>';
+      return;
+    }
+    renderRevenueKpis(data);
+  } catch (e) {
+    console.error('revenue-kpis fetch failed', e);
+    el.innerHTML = '<div class="empty-state">Failed to load KPIs.</div>';
+  }
+}
+
+function renderRevenueKpis(d) {
+  const el = document.getElementById('ops-revenue-kpis');
+
+  const _fmtPct = v => (v == null || isNaN(v)) ? '—' : v.toFixed(2) + '%';
+  const _fmtInt = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString();
+  const _fmtPP = v => {
+    if (v == null || isNaN(v)) return '—';
+    const sign = v >= 0 ? '+' : '';
+    return sign + v.toFixed(1) + 'pp';
+  };
+  const _fmtTL = v => {
+    if (v == null || isNaN(v)) return '—';
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return '₺' + (v/1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return '₺' + (v/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₺' + (v/1e3).toFixed(0) + 'K';
+    return '₺' + v.toFixed(0);
+  };
+
+  // Avg monthly revenue (frontend-computed)
+  const avgMonthly = (d.core_total_12m_tl != null) ? d.core_total_12m_tl / 12 : null;
+
+  // KPI 6: concentration shift — color INVERTED relative to Procurement.
+  //   Δ positive (rising concentration)  → RED  (more risk)
+  //   Δ negative (dispersing)            → GREEN (less risk)
+  //   Δ small (stable)                   → muted
+  const concDelta = d.top_3_share_delta_pp;
+  let concClass = 'mover-flat';
+  let concArrow = '–';
+  if (concDelta != null) {
+    if (concDelta >= 1.0) {
+      concClass = 'mover-down'; // RED — concentration up = bad
+      concArrow = '▲';
+    } else if (concDelta <= -1.0) {
+      concClass = 'mover-up';   // GREEN — concentration down = good
+      concArrow = '▼';
+    }
+  }
+
+  el.innerHTML = `
+    <div class="proc-kpi-row proc-kpi-anchor">
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Top 3 customer share</div>
+        <div class="proc-kpi-value">${_fmtPct(d.top_3_customer_share_pct)}</div>
+        <div class="proc-kpi-sub">of core 12m revenue</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">FX-invoiced share</div>
+        <div class="proc-kpi-value">${_fmtPct(d.fx_invoiced_share_pct)}</div>
+        <div class="proc-kpi-sub">USD + EUR invoicing</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-large">
+        <div class="proc-kpi-label">Active customers (12m)</div>
+        <div class="proc-kpi-value">${_fmtInt(d.active_customer_count)}</div>
+        <div class="proc-kpi-sub">distinct core customers</div>
+      </div>
+    </div>
+    <div class="proc-kpi-row proc-kpi-context-4">
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Core revenue share</div>
+        <div class="proc-kpi-value-sm">${_fmtPct(d.core_revenue_share_pct)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Avg monthly revenue</div>
+        <div class="proc-kpi-value-sm">${_fmtTL(avgMonthly)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Contra share of gross</div>
+        <div class="proc-kpi-value-sm">${_fmtPct(d.contra_share_pct)}</div>
+      </div>
+      <div class="proc-kpi-card proc-kpi-small">
+        <div class="proc-kpi-label">Top 3 share Δ (${d.latest_month || '—'} vs ${d.prior_month || '—'})</div>
+        <div class="proc-kpi-value-sm ${concClass}">
+          ${concArrow} ${_fmtPP(concDelta)}
+          <span class="proc-kpi-mover-detail">${_fmtPct(d.top_3_share_prior_pct)} → ${_fmtPct(d.top_3_share_latest_pct)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+// === END REVENUE KPI STRIP ===
+
+
+/* ── Customer concentration trend chart (M2.3.3) ───────────────────────── */
+async function loadCustomerConcentrationChart() {
+  try {
+    const data = await api('/api/internal/customer-concentration-trend');
+    if (!data || !data.data || !data.data.length) return;
+    renderOpsCustomerConcentrationChart(data);
+  } catch (e) {
+    console.error('customer-concentration fetch failed', e);
+  }
+}
+
+function renderOpsCustomerConcentrationChart(payload) {
+  const data = payload?.data || [];
+  if (!data.length) return;
+
+  const months = data.map(d => d.month);
+  const top1   = data.map(d => d.top_1_share_pct  ?? null);
+  const top3   = data.map(d => d.top_3_share_pct  ?? null);
+  const top10  = data.map(d => d.top_10_share_pct ?? null);
+  const threshold = payload.threshold ?? 33;
+
+  const traces = [
+    {
+      x: months, y: top10,
+      name: 'Top 10 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.green, width: 2 },
+      marker: { color: C.green, size: 5 },
+      hovertemplate: 'Top 10: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: top3,
+      name: 'Top 3 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.orange, width: 2.5 },
+      marker: { color: C.orange, size: 6 },
+      hovertemplate: 'Top 3: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: top1,
+      name: 'Top 1 share',
+      type: 'scatter', mode: 'lines+markers',
+      line:   { color: C.blue, width: 2 },
+      marker: { color: C.blue, size: 5 },
+      hovertemplate: 'Top 1: %{y:.1f}%<extra></extra>',
+    },
+    {
+      x: months, y: months.map(_ => threshold),
+      name: `Watch zone (${threshold}%)`,
+      type: 'scatter', mode: 'lines',
+      line: { color: C.red || '#e03131', width: 1.2, dash: 'dash' },
+      hovertemplate: `Watch: ${threshold}%<extra></extra>`,
+    },
+  ];
+
+  Plotly.newPlot('chart-ops-customer-concentration', traces, {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 60, r: 16, t: 12, b: 60 },
+    legend: { orientation: 'h', y: -0.18, font: { color: C.muted, size: 11 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -45 },
+    yaxis: {
+      ...PLOTLY_BASE.yaxis,
+      ticksuffix: '%',
+      range: [0, 100],
+      tickvals: [0, 25, 50, 75, 100],
+    },
+    annotations: [
+      {
+        xref: 'paper', yref: 'y',
+        x: 1, xanchor: 'right',
+        y: threshold, yanchor: 'bottom',
+        text: `Top 3 watch zone (${threshold}%)`,
+        showarrow: false,
+        font: { color: C.red || '#e03131', size: 10 },
+      },
+    ],
+  }, PLOTLY_CONFIG);
+}

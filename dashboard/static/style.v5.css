@@ -1830,3 +1830,55 @@ html, body {
   display: inline-flex;
   gap: 4px;
 }
+
+
+/* === Procurement KPI strip (M2.2.2) === */
+.proc-kpi-strip { display: flex; flex-direction: column; gap: 10px; }
+.proc-kpi-row { display: grid; gap: 12px; }
+.proc-kpi-anchor { grid-template-columns: repeat(3, 1fr); }
+.proc-kpi-context { grid-template-columns: 1fr 1fr 2fr; }
+.proc-kpi-card {
+  background: var(--card-bg, #1a1d2e);
+  border: 1px solid var(--card-border, #2a2f45);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.proc-kpi-large { padding: 18px 20px; }
+.proc-kpi-small { padding: 12px 14px; }
+.proc-kpi-label {
+  font-size: 11px;
+  color: var(--text-muted, #8a8f9e);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.proc-kpi-value {
+  font-size: 28px; font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  line-height: 1.1;
+}
+.proc-kpi-value-sm {
+  font-size: 18px; font-weight: 600;
+  color: var(--text-primary, #ffffff);
+}
+.proc-kpi-sub {
+  font-size: 11px;
+  color: var(--text-muted, #8a8f9e);
+  margin-top: 4px;
+}
+.proc-kpi-mover-detail {
+  display: inline-block; margin-left: 6px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted, #8a8f9e);
+}
+.mover-up   { color: #2f9e44; }
+.mover-down { color: #e03131; }
+
+/* === Revenue KPI strip (M2.3.2) — 4-card context === */
+/* Procurement uses .proc-kpi-context (3 cards). Revenue uses 4 cards.        */
+/* Last card (Top 3 Δ) gets more room because it has two-line content.        */
+.proc-kpi-context-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.6fr;
+  gap: 12px;
+}

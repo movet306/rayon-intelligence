@@ -6,10 +6,13 @@ Run:
 """
 
 import os
+import threading as _threading
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from pathlib import Path
 
 import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
@@ -80,11 +83,117 @@ async def add_no_cache_headers(request, call_next):
     return response
 
 
+# === Connection pool (M2.2.6) ===
+# Pool is initialized lazily on first request to avoid blocking module import
+# if Railway is briefly unreachable. minconn=1 keeps the warm connection alive,
+# maxconn=8 covers the burst of concurrent requests during a detail-drawer fetch.
+_pool: ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        _pool = ThreadedConnectionPool(minconn=1, maxconn=8, dsn=DB_URL)
+    return _pool
+
+
+class _PooledConn:
+    """Context manager that borrows a connection from the pool and returns it.
+
+    On exception inside the `with` block we still return the connection to
+    the pool but mark it for rollback so a poisoned transaction does not
+    leak to the next caller.
+    """
+
+    def __init__(self) -> None:
+        self.pool = _get_pool()
+        self.conn = None
+
+    def __enter__(self):
+        self.conn = self.pool.getconn()
+        # M2.2.6b: autocommit avoids implicit BEGIN/COMMIT round-trip per query.
+        # The dashboard is read-only, so per-statement autocommit is safe and
+        # eliminates ~700ms per query against Railway's high-latency network.
+        if not self.conn.autocommit:
+            self.conn.autocommit = True
+        return self.conn
+
+    def __exit__(self, exc_type, exc, tb):
+        if self.conn is None:
+            return
+        # In autocommit mode there is no open transaction to commit or roll
+        # back. We just return the connection to the pool.
+        self.pool.putconn(self.conn)
+        self.conn = None
+
+
 def _conn():
-    return psycopg2.connect(DB_URL)
+    return _PooledConn()
+
+
+@app.on_event("shutdown")
+def _close_pool() -> None:
+    global _pool
+    if _pool is not None:
+        try:
+            _pool.closeall()
+        except Exception:
+            pass
+        _pool = None
+
+
+# === Thread-local connection sharing (M2.2.6c) ===
+# Endpoints that issue many queries can borrow a single pool connection at
+# entry and bind it to a thread-local. _rows() then reuses that connection
+# for the duration of the request, avoiding pool getconn/putconn overhead
+# per query (~200ms each against Railway US-West).
+_request_conn = _threading.local()
+
+
+def _begin_shared_conn():
+    """Borrow a pool connection and bind it to thread-local. Returns the
+    holder so the caller can release it with _end_shared_conn()."""
+    holder = _PooledConn()
+    conn = holder.__enter__()
+    _request_conn.conn = conn
+    return holder
+
+
+def _end_shared_conn(holder, exc_type=None, exc=None, tb=None):
+    """Release a connection borrowed by _begin_shared_conn()."""
+    _request_conn.conn = None
+    if holder is not None:
+        holder.__exit__(exc_type, exc, tb)
+
+
+def with_shared_conn(fn):
+    """Decorator: borrow one pooled connection for the whole endpoint.
+
+    Use on endpoints that issue many sequential queries (e.g. counterparty_detail
+    with 11 queries). The body is unchanged — _rows() automatically reuses the
+    bound connection via thread-local.
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        holder = _begin_shared_conn()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _end_shared_conn(holder)
+    return wrapper
 
 
 def _rows(sql: str, params=None) -> list[dict]:
+    # M2.2.6c — if an endpoint has bound a shared connection via
+    # _begin_shared_conn() (typically through the @with_shared_conn decorator),
+    # reuse it for this query. This avoids pool getconn/putconn round-trip
+    # per call (~200ms each against Railway US-West).
+    shared = getattr(_request_conn, "conn", None)
+    if shared is not None:
+        with shared.cursor() as cur:
+            cur.execute(sql, params or [])
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
     with _conn() as conn:
         cur = conn.cursor()
         cur.execute(sql, params or [])
@@ -1052,6 +1161,81 @@ def internal_revenue_trend(
     }
 
 
+# ── /api/internal/procurement-kpis ─────────────────────────────────────────
+# M2.2.2 — Procurement Phase 1 KPI strip.
+# Returns 6 metrics (3 anchor + 3 context) over the 12m rolling window,
+# plus window metadata (latest complete month, total 12m TL).
+@app.get("/api/internal/procurement-kpis")
+def internal_procurement_kpis():
+    rows = _rows("""
+        SELECT
+            top_3_supplier_share_pct::float AS top_3_supplier_share_pct,
+            fx_invoiced_share_pct::float    AS fx_invoiced_share_pct,
+            active_supplier_count,
+            yarn_share_pct::float           AS yarn_share_pct,
+            greige_share_pct::float         AS greige_share_pct,
+            biggest_mover_bucket,
+            biggest_mover_pct::float        AS biggest_mover_pct,
+            biggest_mover_tl::float         AS biggest_mover_tl,
+            latest_month,
+            prior_month,
+            total_12m_tl::float             AS total_12m_tl
+        FROM v_procurement_kpis
+    """)
+    if not rows:
+        return {"error": "no procurement data"}
+    return rows[0]
+
+
+# ── /api/internal/procurement-concentration-trend ──────────────────────────
+# M2.2.4 — Procurement Phase 1 Chart 3: top 1 / top 3 / top 10 supplier share
+# month-by-month over the trailing 24-month window. Source: v_procurement_concentration_trend.
+@app.get("/api/internal/procurement-concentration-trend")
+def internal_procurement_concentration_trend():
+    rows = _rows("""
+        SELECT
+            month,
+            top_1_share_pct::float  AS top_1_share_pct,
+            top_3_share_pct::float  AS top_3_share_pct,
+            top_10_share_pct::float AS top_10_share_pct,
+            total_tl::float          AS total_tl,
+            active_suppliers
+        FROM v_procurement_concentration_trend
+        ORDER BY month
+    """)
+    return {
+        "data":      rows,
+        "threshold": 33.0,
+        "window":    "24 months rolling",
+        "scope":     "cost_model_relevant only",
+    }
+
+
+# ── /api/internal/procurement-currency-trend ───────────────────────────────
+# M2.2.5 — Procurement Phase 1 Chart 4: TL-equivalent spend by invoice
+# currency (TRY/USD/EUR/OTHER) over 24m. Source: v_monthly_procurement_by_currency.
+# Note: amount_tl is the invoice-date TL equivalent stored by Nebim
+# (net_tutar_y), NOT a re-conversion at today's FX rate.
+@app.get("/api/internal/procurement-currency-trend")
+def internal_procurement_currency_trend():
+    rows = _rows("""
+        SELECT
+            month,
+            currency,
+            row_count,
+            amount_tl::float AS amount_tl
+        FROM v_monthly_procurement_by_currency
+        ORDER BY month, currency
+    """)
+    return {
+        "data":       rows,
+        "currencies": ["TRY", "USD", "EUR", "OTHER"],
+        "window":     "24 months rolling",
+        "scope":      "cost_model_relevant only",
+        "note":       "amount_tl is invoice-date TL equivalent (net_tutar_y), not re-converted at current FX rate",
+    }
+
+
 # ── /api/internal/top-suppliers ────────────────────────────────────────────
 # Panel 1 list. Top N suppliers by spend in cost-relevant buckets (last 12 months).
 
@@ -1091,6 +1275,57 @@ def internal_top_suppliers(
     }
 
 
+# ── /api/internal/revenue-kpis ─────────────────────────────────────────────
+# M2.3.2 — Revenue Phase 1 KPI strip.
+# Returns 6+ metrics over the 12m rolling window.
+# core_total_12m_tl is provided for frontend-side avg-monthly calc (÷ 12).
+# KPI 6 = Top 3 customer share Δ (pp). Positive = concentration rising.
+@app.get("/api/internal/revenue-kpis")
+def internal_revenue_kpis():
+    rows = _rows("""
+        SELECT
+            top_3_customer_share_pct::float AS top_3_customer_share_pct,
+            fx_invoiced_share_pct::float    AS fx_invoiced_share_pct,
+            active_customer_count,
+            core_revenue_share_pct::float   AS core_revenue_share_pct,
+            contra_share_pct::float         AS contra_share_pct,
+            top_3_share_delta_pp::float     AS top_3_share_delta_pp,
+            top_3_share_latest_pct::float   AS top_3_share_latest_pct,
+            top_3_share_prior_pct::float    AS top_3_share_prior_pct,
+            latest_month,
+            prior_month,
+            core_total_12m_tl::float        AS core_total_12m_tl
+        FROM v_revenue_kpis
+    """)
+    if not rows:
+        return {"error": "no revenue data"}
+    return rows[0]
+
+
+# ── /api/internal/customer-concentration-trend ─────────────────────────────
+# M2.3.3 — Revenue Phase 1: top 1 / top 3 / top 10 customer share month by
+# month over the trailing 24-month window. Mirror of procurement-concentration.
+@app.get("/api/internal/customer-concentration-trend")
+def internal_customer_concentration_trend():
+    rows = _rows("""
+        SELECT
+            month,
+            top_1_share_pct::float  AS top_1_share_pct,
+            top_3_share_pct::float  AS top_3_share_pct,
+            top_10_share_pct::float AS top_10_share_pct,
+            total_tl::float          AS total_tl,
+            active_customers
+        FROM v_customer_concentration_trend
+        ORDER BY month
+    """)
+    return {
+        "data":      rows,
+        "threshold": 33.0,
+        "window":    "24 months rolling",
+        "scope":     "core_product_sales + outsourced_service_revenue (yarn_resale excluded)",
+    }
+
+
 # ── /api/internal/top-customers ────────────────────────────────────────────
 # Panel 3 list. Top N customers by core-revenue spend (last 12 months).
 # Yarn resale customers excluded at view level.
@@ -1111,7 +1346,15 @@ def internal_top_customers(
             rows_try,
             rows_eur,
             to_char(first_invoice_date, 'YYYY-MM-DD') AS first_invoice_date,
-            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date
+            to_char(last_invoice_date,  'YYYY-MM-DD') AS last_invoice_date,
+            -- M2.3.1 enrichment (Migration 019)
+            share_pct::float    AS share_pct,
+            trend_direction,
+            amount_tl_h1::float AS amount_tl_h1,
+            amount_tl_h2::float AS amount_tl_h2,
+            vergi_numarasi,
+            is_verified,
+            name_variants_count
         FROM v_top_customers_overall
         ORDER BY amount_tl DESC NULLS LAST
         LIMIT %s
@@ -1285,6 +1528,7 @@ def list_counterparties(
 
 
 @app.get("/api/internal/counterparty/detail")
+@with_shared_conn
 def counterparty_detail(
     side: str = "purchase",
     canonical_key: str = "",
@@ -1294,6 +1538,11 @@ def counterparty_detail(
     Detail panel for a single counterparty.
     Returns: summary, monthly_trend, bucket_split, subtype_split,
              currency_split, top_accounts, classification_quality, recent_rows.
+
+    M2.2.6c: @with_shared_conn borrows ONE pool connection for the whole
+    request. All 11 _rows() calls below reuse it via thread-local, eliminating
+    pool getconn/putconn round-trip per query (~200ms each against Railway
+    US-West).
     """
     if side not in ("purchase", "sales"):
         return {"error": "side must be purchase or sales"}, 400
@@ -1544,4 +1793,3 @@ def counterparty_detail(
 # === END COUNTERPARTY EXPLORER (M2.1) ===
 
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
-

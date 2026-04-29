@@ -6,7 +6,7 @@
   <title>Rayon Intelligence Platform</title>
   <link rel="stylesheet" href="style.v5.css?v=6">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js?v=6" defer></script>
+  <script src="app.v5.js?v=20260429113907" defer></script>
 </head>
 <body>
 
@@ -280,9 +280,22 @@
 
     <!-- Procurement detail -->
     <div id="sub-ops-procurement" class="sub-section">
+      <div id="ops-procurement-kpis" class="proc-kpi-strip" style="margin-bottom:16px"></div>
       <div class="chart-panel" style="margin-bottom:16px">
         <div class="chart-panel-title">Monthly Procurement by Bucket (TL)</div>
         <div class="chart-wrap" id="chart-ops-procurement"></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Procurement Mix % over time</div>
+        <div class="chart-wrap" id="chart-ops-procurement-mix"></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Supplier Concentration trend (top 1 / top 3 / top 10)</div>
+        <div class="chart-wrap" id="chart-ops-procurement-concentration"></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Currency composition mix % (invoice-date TL equivalent)</div>
+        <div class="chart-wrap" id="chart-ops-procurement-currency"></div>
       </div>
       <div class="table-wrap">
         <div class="table-title">Top 10 Suppliers (last 12 months, cost-relevant)</div>
@@ -303,9 +316,14 @@
 
     <!-- Revenue reality detail -->
     <div id="sub-ops-revenue" class="sub-section">
+      <div id="ops-revenue-kpis" class="proc-kpi-strip" style="margin-bottom:16px"></div>
       <div class="chart-panel" style="margin-bottom:16px">
         <div class="chart-panel-title">Monthly Revenue: Gross vs Net (TL, yarn resale excluded)</div>
         <div class="chart-wrap" id="chart-ops-revenue"></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:16px">
+        <div class="chart-panel-title">Customer Concentration trend (top 1 / top 3 / top 10)</div>
+        <div class="chart-wrap" id="chart-ops-customer-concentration"></div>
       </div>
       <div class="table-wrap">
         <div class="table-title">Top 10 Customers (last 12 months, core revenue, yarn resale excluded)</div>
