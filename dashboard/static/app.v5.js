@@ -474,6 +474,7 @@ async function _loadEarlyWarningBar() {
 }
 
 function _renderEarlyWarningBar(bar, signals) {
+  // PI-1.3: tiered presentation (Action / Watch / All) with hard caps.
   if (!signals || !signals.length) {
     bar.innerHTML = '<div class="no-signals-muted">Aktif fiyat sinyali yok — piyasalar sakin</div>';
     return;
@@ -491,7 +492,8 @@ function _renderEarlyWarningBar(bar, signals) {
     DATA_QUALITY_WARNING:    'Veri Uyarısı',
   };
 
-  bar.innerHTML = signals.map(s => {
+  // Render a single signal card (unchanged from the previous flat version).
+  const renderCard = (s) => {
     const sev      = s.severity || 'low';
     const typeText = TYPE_LABEL[s.signal_type] || s.signal_type;
     const valChip  = s.value_pct != null
@@ -500,7 +502,6 @@ function _renderEarlyWarningBar(bar, signals) {
       ? `<div class="ew-lag">&#8594; Türkiye tahmini: ${s.turkey_lag_min}–${s.turkey_lag_max} hafta</div>` : '';
     const impl     = s.business_implication
       ? `<div class="ew-implication">${esc(s.business_implication)}</div>` : '';
-
     return `
       <div class="early-warning-card ew-card-${sev}">
         <div class="ew-left">
@@ -513,7 +514,72 @@ function _renderEarlyWarningBar(bar, signals) {
         </div>
         ${valChip}
       </div>`;
-  }).join('');
+  };
+
+  // Tier the signals. Server already returns them sorted by severity then
+  // signal_date DESC (via v_active_signals), so we just walk the array and
+  // partition with hard caps.
+  const ACTION_CAP = 3;
+  const WATCH_CAP  = 5;
+
+  const action = [];
+  const watch  = [];
+  const all    = [];
+
+  signals.forEach(s => {
+    const sev = s.severity || 'low';
+    if ((sev === 'critical' || sev === 'high') && action.length < ACTION_CAP) {
+      action.push(s);
+    } else if (sev === 'medium' && watch.length < WATCH_CAP) {
+      watch.push(s);
+    } else {
+      all.push(s);
+    }
+  });
+
+  // Render a section. Action and Watch are open by default and always shown
+  // (with a muted note when empty so the user can read "calm" at a glance).
+  // All Signals is collapsed by default and hidden if empty.
+  const renderSection = (label, items, opts) => {
+    const { defaultOpen, idSuffix, emptyMsg, hideWhenEmpty } = opts;
+    if (!items.length && hideWhenEmpty) return '';
+    const openCls = defaultOpen ? 'open' : '';
+    const chevron = defaultOpen ? '▼' : '▶';
+    const body = items.length
+      ? items.map(renderCard).join('')
+      : `<div class="ew-section-empty">${emptyMsg}</div>`;
+    return `
+      <div class="ew-section ${openCls}" data-section="${idSuffix}">
+        <div class="ew-section-header" onclick="this.parentElement.classList.toggle('open');
+                                                 const c=this.querySelector('.ew-chevron');
+                                                 if(c)c.textContent=this.parentElement.classList.contains('open')?'▼':'▶';">
+          <span class="ew-chevron">${chevron}</span>
+          <span class="ew-section-label">${label}</span>
+          <span class="ew-section-count">(${items.length})</span>
+        </div>
+        <div class="ew-section-content">${body}</div>
+      </div>`;
+  };
+
+  bar.innerHTML =
+    renderSection('Action Now', action, {
+      defaultOpen: true,
+      idSuffix: 'action',
+      emptyMsg: 'Şu an aksiyon gerektiren kritik / yüksek sinyal yok.',
+      hideWhenEmpty: false,
+    }) +
+    renderSection('Watch', watch, {
+      defaultOpen: true,
+      idSuffix: 'watch',
+      emptyMsg: 'Orta seviye izleme sinyali yok.',
+      hideWhenEmpty: false,
+    }) +
+    renderSection('All Signals', all, {
+      defaultOpen: false,
+      idSuffix: 'all',
+      emptyMsg: '',
+      hideWhenEmpty: true,
+    });
 }
 
 function _renderPriceDashboard(data) {
