@@ -2167,3 +2167,26 @@ html, body {
   opacity: 0.85;
   transform: translateX(2px);
 }
+
+/* === Sidebar branded logo (replaces hexagon mark) === */
+.sidebar-logo .logo-mark-img {
+  display: block;
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  margin: 0 auto 6px auto;
+}
+
+/* === Sidebar logo refinements (alignment + tagline) === */
+.sidebar-logo .logo-mark-img {
+  max-width: 150px;
+  margin: 0 0 8px 0;
+}
+.sidebar-logo .logo-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
