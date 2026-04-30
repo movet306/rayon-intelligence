@@ -87,11 +87,39 @@ Goal: make the existing feed legible and consistent. No new data sources, no new
 | 1.2 | **HIGH IMPACT KPI bug.** Top-strip "HIGH IMPACT (7D): 0" contradicts feed showing YÜKSEK signals. Fix severity terminology mapping (Türkçe ↔ English). | TODO |
 | 1.3 | **Action / Watch / All three-tier feed.** Action: max **3** cards. Watch: max **5**. All: rest, collapsible. Near-duplicate clustering mandatory. | TODO |
 | 1.4 | **Signal card evolution.** Add three elements per card: timestamp, "why this matters to Rayon" one-liner, source hierarchy badge (🟢 Benchmark / 🟡 Directional / 🟠 Weak Proxy — hardcoded mapping in this phase). | TODO |
-| 1.5 | **Polyester chain chart fix.** Add PTA line (currently in boxes but missing from chart). Align all series start dates. Label dashed lines (forecast / MA / etc.). Move sigma into top boxes; remove redundant detail cards. | TODO |
+| 1.5 | **Polyester chain chart fix (visual stabilization).** Added PTA line (teal, distinct from DTY). Aligned all series x-axis to common start. Removed MA7 dashed ghost traces. Moved sigma into chain-flow node footers. Hid redundant detail cards (HTML preserved, display:none). Hid rangeslider strip. **Topology correction (linear chain misrepresents staple/filament branches) split out as PI-1.5b.** | DONE |
 | 1.6 | **Cotton panel split.** SunSirs Çin Spot and ICE Vadeli into two separate cards with independent y-axes. The "different markets" warning must match the visual layout. | TODO |
 | 1.7 | **Nylon panel.** Extend date range to match other panels (currently only Apr 9–27). Highlight active signals (e.g. Adipic Acid -6.5%) with chart annotation. | TODO |
 | 1.8 | **Materials summary table.** Category groups (POLYESTER ZİNCİRİ / PAMUK / NAYLON / DİĞER) with sub-headers. Sortable columns. Replace empty "30G%" / "Trend" cells with "(insufficient history)" placeholder. | TODO |
 | 1.9 | **Section title rename.** "Price Intelligence" → "Raw Material Price Intelligence" (more accurate scope). | TODO |
+
+
+### PI-1.5b — Polyester Chain Topology Correction (1 day)
+
+**Why this is a separate phase:** the current chain visualization (PTA → PSF → FDY → POY → DTY in a single line) is technically incorrect. PSF is the staple branch; POY/FDY/DTY are filament branches. PSF is not the upstream of FDY, and POY does not feed FDY. Forcing all five into a fake linear chain misrepresents the underlying chemistry to anyone who reads the dashboard.
+
+**Industrially correct topology:**
+```
+                ┌─→ PSF                           (staple branch)
+PTA → polymer ──┤
+                └─→ POY → DTY  (filament branch, with FDY as parallel filament product)
+```
+
+**Scope:**
+
+| # | Task | Status |
+|---|---|---|
+| 1.5b.1 | Replace linear `POLY_CHAIN` array with a branched structure that the renderer understands. | TODO |
+| 1.5b.2 | Update `_renderChainFlow` to draw two branches under PTA: staple (PSF) and filament (POY → DTY). FDY rendered as a parallel reference node alongside the filament branch, not as a downstream step. | TODO |
+| 1.5b.3 | Update section title from "Polyester Zinciri — PTA → PSF → FDY → POY → DTY" to a topology-accurate string (e.g. "Polyester Chain — Staple & Filament"). | TODO |
+| 1.5b.4 | Update legend ordering in chart so it reflects branch grouping rather than the false linear sequence. | TODO |
+| 1.5b.5 | Update `CHAIN_UPSTREAM` mapping to match the corrected topology (PSF and POY both point to PTA; DTY points to POY; FDY points to PTA as a parallel filament product). | TODO |
+
+**Out of scope:**
+- Adding a "polymer/melt" intermediate node. We don't have data for it; inserting a dummy node would introduce a different kind of misrepresentation.
+- Changing the underlying spread / divergence calculations. Those are already pair-based (FDY−PSF, DTY−POY) and remain valid.
+
+**Reversal:** revert `POLY_CHAIN` and `CHAIN_UPSTREAM` to their pre-1.5b state; revert `_renderChainFlow` to the linear loop.
 
 ### PI-2 — Rayon Relevance Engine (1–2 weeks)
 
@@ -163,9 +191,14 @@ Goal: this is the highest-value phase. The page becomes prescriptive — telling
 ## Sequencing
 
 ```
-PI-0  Data Safety Map        ── DONE (this doc)
+PI-0  Data Safety Map        ── DONE
    ↓
-PI-1  Cleanup                ── ~1 week
+PI-1  Cleanup                ── in progress
+       1.1 Signal dedup           ── DONE
+       1.2 KPI strip               ── DONE
+       1.5 Polyester chart visual  ── DONE
+       1.5b Polyester topology     ── ~1 day (new)
+       1.3, 1.4, 1.6–1.9          ── ~3-4 days
    ↓
 PI-2  Rayon Relevance        ── 1–2 weeks
    ↓
@@ -192,3 +225,5 @@ PI-5B Expansion              ── ~1 month
 - **2026-04-29:** PI-4-skeleton pulled forward (originally planned as part of PI-4-full). Reason: supplier crosswalk is the single highest-leverage feature; even a thin version transforms every signal card.
 - **2026-04-29:** PI-5 split into 5A (calibration) and 5B (expansion). Original PI-5 was too broad to be a single phase.
 - **2026-04-29:** Action / Watch / All caps locked at 3 / 5 / unlimited. Near-duplicate clustering mandatory.
+- **2026-04-29:** PI-1.2 (KPI strip) and PI-1.1 (signal dedup) shipped (commits `6ccc00b`, `dbb5794`). Feed reduced from 30+ duplicate cards to 9 distinct patterns; KPI strip now scoped to Price Intelligence with correct data source.
+- **2026-04-29:** PI-1.5 closed as **visual stabilization** only. Topology correction split out into new sub-phase PI-1.5b. Reason: the chart-order issue (linear chain misrepresents staple vs filament branches) is a modeling problem, not a polish problem, and trying to fold it into PI-1.5 would have been scope creep.

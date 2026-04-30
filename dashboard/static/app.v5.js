@@ -55,6 +55,8 @@ const MATERIAL_LABELS = {
 };
 
 const POLY_MATS = [
+  // PI-1.5: PTA added (upstream trigger of polyester chain).
+  { key: 'pta',                    color: '#22c1c3',  label: 'PTA' },  // PI-1.5 closeout: teal, distinct from DTY purple
   { key: 'polyester_staple_fiber', color: C.blue,     label: 'PSF' },
   { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
   { key: 'polyester_poy',          color: C.green,    label: 'POY' },
@@ -555,6 +557,11 @@ function _renderChainFlow(data) {
     const mom     = _momentumArrow(latest?.momentum_score);
     const tierHtml = _tierBadge(tier);
     const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
+    // PI-1.5: sigma (7d volatility) moved here from poly-metric-cards.
+    const vol     = latest?.volatility_7d;
+    const volHtml = vol != null
+      ? `<span class="chain-vol" style="font-size:11px; color:var(--muted); margin-left:6px">σ ${vol.toFixed(1)}</span>`
+      : '';
 
     let divHtml = '';
     if (idx > 0) {
@@ -575,7 +582,7 @@ function _renderChainFlow(data) {
         <div class="chain-node-name">${node.label}</div>
         <div class="chain-node-price">${price}</div>
         ${c7Html}
-        <div class="chain-node-footer">${tierHtml}${momHtml}</div>
+        <div class="chain-node-footer">${tierHtml}${momHtml}${volHtml}</div>
       </div>`;
   });
 
@@ -658,19 +665,7 @@ function _renderPolyesterFamily(data, mode) {
         line: { color: m.color, width: 2.5 },
         hovertemplate: `${m.label}: %{y:${hoverFmt}}<extra></extra>`,
       });
-      const rate = data.meta?.rmb_usd_rate ?? 1;
-      const yMa7 = d.series.map(p => {
-        if (p.ma7 == null) return null;
-        return _currency === 'usd' ? p.ma7 * rate : p.ma7;
-      });
-      if (yMa7.some(v => v != null)) {
-        traces.push({
-          x, y: yMa7, name: `${m.label} MA7`,
-          type: 'scatter', mode: 'lines',
-          line: { color: m.color, width: 1.5, dash: 'dash' },
-          opacity: 0.5, showlegend: false, hoverinfo: 'skip',
-        });
-      }
+      // PI-1.5: MA7 dashed ghost traces removed (visual noise, no UX value).
     });
 
   } else if (mode === 'normalize') {
@@ -736,11 +731,39 @@ function _renderPolyesterFamily(data, mode) {
       '<div class="empty-state" style="padding:40px">Veri yok</div>';
     return;
   }
+  // PI-1.5: align x-axis to latest first-date across visible series.
+  // Prevents the misleading "spike" effect when one series starts later.
+  const _firstDates = traces
+    .filter(t => Array.isArray(t.x) && t.x.length)
+    .map(t => t.x[0]);
+  if (_firstDates.length) {
+    const _commonStart = _firstDates.sort().reverse()[0];
+    const _commonEnd = traces
+      .filter(t => Array.isArray(t.x) && t.x.length)
+      .map(t => t.x[t.x.length - 1])
+      .sort()
+      .reverse()[0];
+    layout.xaxis = {
+      ...(layout.xaxis || {}),
+      range: [_commonStart, _commonEnd],
+      // PI-1.5 closeout: hide rangeslider strip (low value at this density).
+      rangeslider: { visible: false },
+    };
+  }
   Plotly.newPlot('chart-polyester', traces, layout, PLOTLY_CONFIG);
 }
 
 function _renderPolyMetricCards(data) {
+  // PI-1.5: detail cards are now redundant (sigma moved to chain-flow footer).
+  // HTML container preserved for easy rollback; rendered as hidden no-op.
   const container = document.getElementById('poly-metric-cards');
+  if (container) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+  }
+  return;
+  // eslint-disable-next-line no-unreachable
+  /* original implementation kept below for reference, never executed:
   container.innerHTML = POLY_MATS.map(m => {
     const d    = data[m.key];
     const l    = d?.latest;
@@ -788,6 +811,7 @@ function _renderPolyMetricCards(data) {
         <div class="card-meta" style="margin-top:4px">${tierHtml}</div>
       </div>`;
   }).join('');
+  */
 }
 
 function _renderSecondaryCharts(data) {
