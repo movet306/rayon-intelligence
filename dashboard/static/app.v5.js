@@ -50,7 +50,7 @@ const MATERIAL_LABELS = {
   polyamide_fdy:          'Nylon FDY (PA6)',
   pa6_chip:               'PA6 Chip',
   pa66_chip:              'PA66 Chip',
-  rayon_yarn:             'Rayon İpliği',
+  rayon_yarn:             'Viscose Yarn',
   adipic_acid:            'Adipic Acid',
 };
 
@@ -79,7 +79,7 @@ const ALL_PRICE_MATS = [
   { key: 'pa6_chip',               fam: 'nylon'     },
   { key: 'pa66_chip',              fam: 'nylon'     },
   { key: 'adipic_acid',            fam: 'nylon'     },
-  { key: 'rayon_yarn',             fam: 'rayon'     },
+  { key: 'rayon_yarn',             fam: 'viscose'   },
 ];
 
 // PI-1.5b: linear POLY_CHAIN replaced with branched POLY_TOPOLOGY.
@@ -1041,6 +1041,14 @@ function _renderMultiLine(elId, mats, data, xRangeOverride) {
     legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 10 } },
     showlegend: true,
   }, PLOTLY_CONFIG);
+  // PI-1.7c: resize after paint — flex container height isn't
+  // final at newPlot time on initial load. Plotly's responsive
+  // observer fires later, but only on subsequent resizes. Force
+  // an explicit resize on the next frame so the chart fills the
+  // container immediately.
+  requestAnimationFrame(() => {
+    try { Plotly.Plots.resize(elId); } catch (e) { /* element may have unmounted */ }
+  });
 }
 
 function _renderPriceSummaryTable(data) {
