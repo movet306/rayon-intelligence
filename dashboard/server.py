@@ -528,9 +528,7 @@ def price_intelligence_signals_endpoint():
             turkey_lag_min,
             turkey_lag_max,
             suppressed
-        FROM price_intelligence_signals
-        WHERE signal_date >= NOW() - INTERVAL '7 days'
-          AND suppressed = FALSE
+        FROM v_active_signals
         ORDER BY
             CASE severity
                 WHEN 'critical' THEN 1
