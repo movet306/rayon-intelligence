@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rayon Intelligence Platform</title>
-  <link rel="stylesheet" href="style.v5.css?v=1777550676">
+  <link rel="stylesheet" href="style.v5.css?v=1777552276">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js?v=1777548398" defer></script>
+  <script src="app.v5.js?v=1777552276" defer></script>
 </head>
 <body>
 
@@ -110,7 +110,7 @@
 
   <!-- 2. Price Intelligence -->
   <section id="section-prices" class="section">
-    <div class="section-title">Emtia Fiyat İstihbaratı</div>
+    <div class="section-title">Commodity Price Intelligence</div>
 
     <!-- Price Intelligence specific KPI strip (PI-1.2) -->
     <div class="kpi-strip" id="kpi-strip-price" style="margin-bottom:16px">
@@ -156,7 +156,7 @@
       <div class="price-block-header">
         <span class="price-block-title">Polyester Chain &#8212; Staple &amp; Filament</span>
         <div class="chart-toggle" id="poly-toggle">
-          <button class="toggle-btn active" data-mode="price">Fiyat</button>
+          <button class="toggle-btn active" data-mode="price">Price</button>
           <button class="toggle-btn" data-mode="normalize">Normalize (baz=100)</button>
           <button class="toggle-btn" data-mode="spread">Spread</button>
         </div>
@@ -173,14 +173,22 @@
 
     <!-- C. Secondary row -->
     <div class="two-col price-secondary-row">
-      <div class="chart-panel">
-        <div class="chart-panel-title">Pamuk — Spot &amp; Vadeli</div>
+            <div class="chart-panel">
+        <!-- PI-1.6: split into two stacked sub-charts with separate y-axes -->
+        <div class="chart-panel-title">Cotton &#8212; Spot vs Futures</div>
         <div id="cotton-series-info" class="cotton-series-info"></div>
-        <div class="chart-wrap" id="chart-cotton-raw"></div>
+        <div class="cotton-subchart">
+          <div class="cotton-subchart-label">SunSirs &#199;in Spot</div>
+          <div class="chart-wrap" id="chart-cotton-spot"></div>
+        </div>
+        <div class="cotton-subchart">
+          <div class="cotton-subchart-label">ICE Futures (Global)</div>
+          <div class="chart-wrap" id="chart-cotton-futures"></div>
+        </div>
         <div class="cotton-disclaimer" id="cotton-disclaimer"></div>
       </div>
       <div class="chart-panel">
-        <div class="chart-panel-title">Naylon Ailesi &amp; Adipik Asit</div>
+        <div class="chart-panel-title">Nylon Family &amp; Adipic Acid</div>
         <div class="chart-wrap" id="chart-nylon"></div>
       </div>
     </div>
@@ -188,7 +196,7 @@
     <!-- D. Summary table (collapsible) -->
     <div class="table-wrap price-summary-wrap">
       <div class="table-title price-table-toggle-header" id="price-table-toggle">
-        Tüm Materyaller — Özet <span id="price-table-arrow">▼</span>
+        All Materials — Summary <span id="price-table-arrow">▼</span>
       </div>
       <div id="price-summary-table"></div>
     </div>
@@ -230,7 +238,7 @@
               <th style="width: 24px"></th>
               <th>Yarn / Driver</th>
               <th class="num">Driver Price</th>
-              <th class="num">7G%</th>
+              <th class="num">7D%</th>
               <th class="num">Momentum</th>
               <th class="num">Pressure</th>
               <th class="num">TR Lag</th>

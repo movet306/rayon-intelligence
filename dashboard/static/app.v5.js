@@ -42,16 +42,16 @@ const MATERIAL_LABELS = {
   polyester_fdy:          'Polyester FDY',
   polyester_poy:          'Polyester POY',
   polyester_dty:          'Polyester DTY',
-  polyester_yarn:         'Polyester İplik',
+  polyester_yarn:         'Polyester Yarn',
   pta:                    'PTA',
-  cotton_lint:            'Pamuk (SunSirs Çin)',
-  cotton_lint_futures:    'Pamuk (ICE Vadeli)',
-  cotton_yarn:            'Pamuk İpliği',
-  polyamide_fdy:          'Naylon FDY (PA6)',
+  cotton_lint:            'Cotton (SunSirs China)',
+  cotton_lint_futures:    'Cotton (ICE Futures)',
+  cotton_yarn:            'Cotton Yarn',
+  polyamide_fdy:          'Nylon FDY (PA6)',
   pa6_chip:               'PA6 Chip',
   pa66_chip:              'PA66 Chip',
   rayon_yarn:             'Rayon İpliği',
-  adipic_acid:            'Adipik Asit',
+  adipic_acid:            'Adipic Acid',
 };
 
 const POLY_MATS = [
@@ -481,7 +481,7 @@ async function loadPriceDashboard() {
     return;
   }
   document.getElementById('chart-polyester').innerHTML =
-    '<div class="loading">Fiyat verisi yükleniyor…</div>';
+    '<div class="loading">Loading price data…</div>';
   document.getElementById('poly-metric-cards').innerHTML = '';
 
   try {
@@ -506,20 +506,20 @@ async function _loadEarlyWarningBar() {
 function _renderEarlyWarningBar(bar, signals) {
   // PI-1.3: tiered presentation (Action / Watch / All) with hard caps.
   if (!signals || !signals.length) {
-    bar.innerHTML = '<div class="no-signals-muted">Aktif fiyat sinyali yok — piyasalar sakin</div>';
+    bar.innerHTML = '<div class="no-signals-muted">No active price signals — markets calm</div>';
     return;
   }
 
-  const SEV_LABEL  = { critical: 'KRİTİK', high: 'YÜKSEK', medium: 'ORTA', low: 'DÜŞÜK' };
+  const SEV_LABEL  = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
   const TYPE_LABEL = {
-    COST_PRESSURE_UP:        'Maliyet Artışı',
-    COST_PRESSURE_DOWN:      'Maliyet Düşüşü',
-    UPSTREAM_DOWNSTREAM_DIVG:'Zincir Uyumsuzluğu',
-    SPREAD_WIDENING:         'Spread Genişleme',
-    SPREAD_TIGHTENING:       'Spread Daralma',
-    VOLATILITY_SPIKE:        'Volatilite',
-    DELAYED_PASS_THROUGH_RISK:'Gecikmiş Yansıma',
-    DATA_QUALITY_WARNING:    'Veri Uyarısı',
+    COST_PRESSURE_UP:        'Cost Pressure Up',
+    COST_PRESSURE_DOWN:      'Cost Pressure Down',
+    UPSTREAM_DOWNSTREAM_DIVG:'Chain Divergence',
+    SPREAD_WIDENING:         'Spread Widening',
+    SPREAD_TIGHTENING:       'Spread Tightening',
+    VOLATILITY_SPIKE:        'Volatility',
+    DELAYED_PASS_THROUGH_RISK:'Delayed Pass-Through',
+    DATA_QUALITY_WARNING:    'Data Quality',
   };
 
   // Render a single signal card (unchanged from the previous flat version).
@@ -529,7 +529,7 @@ function _renderEarlyWarningBar(bar, signals) {
     const valChip  = s.value_pct != null
       ? `<div class="ew-value-chip">${s.value_pct > 0 ? '+' : ''}${s.value_pct.toFixed(1)}%</div>` : '';
     const lagHtml  = (s.turkey_lag_min && s.turkey_lag_max)
-      ? `<div class="ew-lag">&#8594; Türkiye tahmini: ${s.turkey_lag_min}–${s.turkey_lag_max} hafta</div>` : '';
+      ? `<div class="ew-lag">&#8594; Turkey lag est.: ${s.turkey_lag_min}–${s.turkey_lag_max} weeks</div>` : '';
     const impl     = s.business_implication
       ? `<div class="ew-implication">${esc(s.business_implication)}</div>` : '';
     return `
@@ -595,13 +595,13 @@ function _renderEarlyWarningBar(bar, signals) {
     renderSection('Action Now', action, {
       defaultOpen: true,
       idSuffix: 'action',
-      emptyMsg: 'Şu an aksiyon gerektiren kritik / yüksek sinyal yok.',
+      emptyMsg: 'No critical / high-severity signals require action right now.',
       hideWhenEmpty: false,
     }) +
     renderSection('Watch', watch, {
       defaultOpen: true,
       idSuffix: 'watch',
-      emptyMsg: 'Orta seviye izleme sinyali yok.',
+      emptyMsg: 'No medium-severity signals to watch right now.',
       hideWhenEmpty: false,
     }) +
     renderSection('All Signals', all, {
@@ -722,12 +722,12 @@ function _renderPolyLagRow(data) {
     if (!lagMin || !lagMax) return '';
     return `<div class="lag-item">
       <span class="lag-item-name">${node.label}</span>
-      <span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>
+      <span class="turkey-lag-badge">${lagMin}–${lagMax} wk</span>
     </div>`;
   }).filter(Boolean);
 
   if (!items.length) { el.style.display = 'none'; return; }
-  el.innerHTML = `<span class="lag-row-label">&#127481;&#127479; Türkiye yansıma:</span> ${items.join('')}`;
+  el.innerHTML = `<span class="lag-row-label">&#127481;&#127479; Turkey lag:</span> ${items.join('')}`;
 }
 
 function _priceVal(point) {
@@ -773,11 +773,11 @@ function _renderPolyesterFamily(data, mode) {
 
       if (conf === 'minimal') {
         traces.push({
-          x, y, name: `${m.label} (yetersiz veri)`,
+          x, y, name: `${m.label} (insufficient data)`,
           type: 'scatter', mode: 'lines',
           line: { color: m.color, width: 1.5, dash: 'dot' },
           opacity: 0.3,
-          hovertemplate: `${m.label}: %{y:${hoverFmt}} (yetersiz veri)<extra></extra>`,
+          hovertemplate: `${m.label}: %{y:${hoverFmt}} (insufficient data)<extra></extra>`,
         });
         return;
       }
@@ -898,7 +898,7 @@ function _renderPolyMetricCards(data) {
     if (isMinimal) {
       return `
         <div class="poly-metric-card" style="border-top: 3px solid ${m.color}; opacity: 0.5"
-             title="Yetersiz veri — 7'den az veri noktası">
+             title="Insufficient data — fewer than 7 data points">
           <div class="card-label">${m.label}</div>
           <div class="card-price">${price}</div>
           <div class="card-meta"><span class="pct-badge pct-flat">—</span></div>
@@ -942,8 +942,8 @@ function _renderSecondaryCharts(data) {
   _renderMultiLine('chart-nylon', [
     { key: 'pa6_chip',      color: C.blue,   label: 'PA6 Chip' },
     { key: 'pa66_chip',     color: C.orange, label: 'PA66 Chip' },
-    { key: 'polyamide_fdy', color: C.purple, label: 'Naylon FDY' },
-    { key: 'adipic_acid',   color: '#56d364',label: 'Adipik Asit (öncü)' },
+    { key: 'polyamide_fdy', color: C.purple, label: 'Nylon FDY' },
+    { key: 'adipic_acid',   color: '#56d364',label: 'Adipic Acid (leading)' },
   ], data);
 }
 
@@ -955,23 +955,27 @@ function _renderCottonPanel(data) {
     const fmtP = v => v?.price_usd != null ? `$${Math.round(v.price_usd).toLocaleString('en')}/t` : '—';
     infoEl.innerHTML = `
       <div class="cotton-series-card">
-        <div class="cotton-series-label">SunSirs Çin Spot</div>
+        <div class="cotton-series-label">SunSirs China Spot</div>
         <div class="cotton-series-price" style="color:${C.orange}">${fmtP(sunsirs)}</div>
       </div>
       <div class="cotton-series-card">
-        <div class="cotton-series-label">ICE Vadeli (Küresel)</div>
+        <div class="cotton-series-label">ICE Futures (Global)</div>
         <div class="cotton-series-price" style="color:${C.blue}">${fmtP(iceFut)}</div>
       </div>`;
   }
 
   const discEl = document.getElementById('cotton-disclaimer');
   if (discEl) {
-    discEl.textContent = 'Bu iki seri farklı piyasalardır — doğrudan karşılaştırılmamalıdır.';
+    discEl.textContent = 'Different markets — not directly comparable.';
   }
 
-  _renderMultiLine('chart-cotton-raw', [
-    { key: 'cotton_lint',         color: C.orange, label: 'Pamuk — SunSirs Çin Spot' },
-    { key: 'cotton_lint_futures', color: C.blue,   label: 'Pamuk — ICE Vadeli (USD/t)' },
+  // PI-1.6: render SunSirs and ICE on separate sub-charts so they no longer
+  // share a y-axis. Different markets, different price scales.
+  _renderMultiLine('chart-cotton-spot', [
+    { key: 'cotton_lint', color: C.orange, label: 'SunSirs China Spot (USD/t)' },
+  ], data);
+  _renderMultiLine('chart-cotton-futures', [
+    { key: 'cotton_lint_futures', color: C.blue, label: 'ICE Futures (USD/t)' },
   ], data);
 }
 
@@ -995,6 +999,8 @@ function _renderMultiLine(elId, mats, data) {
     return;
   }
   Plotly.newPlot(elId, traces, {
+      // PI-1.6: pin legend top-right so it sits in the upper corner of the plot.
+      legend: { x: 1, xanchor: 'right', y: 1, yanchor: 'top' },
     ...PRICE_CHART_LAYOUT,
     height: 320,
     yaxis: {
@@ -1043,7 +1049,7 @@ function _renderPriceSummaryTable(data) {
     const lagMin = dm?.lag_min_weeks;
     const lagMax = dm?.lag_max_weeks;
     const lagHtml = (lagMin && lagMax)
-      ? `<span class="turkey-lag-badge">${lagMin}–${lagMax} hf</span>` : INS;
+      ? `<span class="turkey-lag-badge">${lagMin}–${lagMax} wk</span>` : INS;
 
     return `<tr class="${famCls} ${tierECls} ${minCls}"${tooltip}>
       <td>${esc(MATERIAL_LABELS[m.key] || m.key)}</td>
@@ -1061,11 +1067,11 @@ function _renderPriceSummaryTable(data) {
   document.getElementById('price-summary-table').innerHTML = `
     <table class="data-table">
       <thead><tr>
-        <th>Materyal</th>
-        <th class="num">Fiyat (${_currency === 'usd' ? 'USD/t' : 'RMB/t'})</th>
-        <th class="num">1G%</th>
-        <th class="num">7G%</th>
-        <th class="num">30G%</th>
+        <th>Material</th>
+        <th class="num">Price (${_currency === 'usd' ? 'USD/t' : 'RMB/t'})</th>
+        <th class="num">1D%</th>
+        <th class="num">7D%</th>
+        <th class="num">30D%</th>
         <th class="num">Trend</th>
         <th class="num">Momentum</th>
         <th class="num" title="Data quality tier: A=60+ days, B=30+, C=14+, D=7+, E=under 7">Quality</th>
@@ -1212,7 +1218,7 @@ async function loadYarnIntelligence() {
       : '\u2014';
 
     const fmtLag = (a, b) => (a && b)
-      ? `<span class="turkey-lag-badge">${a}\u2013${b} hf</span>`
+      ? `<span class="turkey-lag-badge">${a}\u2013${b} wk</span>`
       : '\u2014';
 
     const fmtTier = (t) => t
@@ -1289,7 +1295,7 @@ async function loadYarnIntelligence() {
       // SPEC (child) rows — metadata only
       items.forEach(y => {
         const subspec = y.subspec_sensitive
-          ? ' <span title="Alt-spec varyantlar mevcut \u2014 fiyat farki olabilir" style="color:#f0883e;font-size:10px">\u26a0</span>'
+          ? ' <span title="Sub-spec variants present \u2014 price may vary" style="color:#f0883e;font-size:10px">\u26a0</span>'
           : '';
 
         const chips = [];

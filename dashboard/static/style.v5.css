@@ -2353,3 +2353,38 @@ html, body {
   color: var(--text, #e6e9ef);
   opacity: 1;
 }
+
+/* ── PI-1.6: cotton sub-chart split ───────────────────────────────────────── */
+.cotton-subchart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+.cotton-subchart-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text, #e6e9ef);
+  opacity: 0.85;
+  padding-left: 4px;
+}
+.cotton-subchart .chart-wrap {
+  /* slightly shorter than the original combined chart since we now have two */
+  min-height: 180px;
+}
+
+/* ── PI-1.6: cotton labels white ──────────────────────────────────────────── */
+.cotton-series-label {
+  color: var(--text, #e6e9ef);
+  opacity: 1;
+}
+.cotton-subchart-label {
+  color: var(--text, #e6e9ef);
+  opacity: 1;
+}
+.cotton-disclaimer {
+  color: var(--text, #e6e9ef);
+  opacity: 0.85;
+}
