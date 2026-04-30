@@ -1920,4 +1920,82 @@ def counterparty_detail(
 
 # === END COUNTERPARTY EXPLORER (M2.1) ===
 
+
+# ── /api/price_intelligence_stats ──────────────────────────────────────────────
+
+@app.get("/api/price_intelligence_stats")
+def price_intelligence_stats():
+    """
+    KPI strip data for the Price Intelligence sub-tab.
+
+    Backed by price_intelligence_signals (chain mismatch / cost pressure / etc.),
+    NOT by market_signals (news). Avoids the conceptual mismatch where the
+    global header strip showed 'HIGH IMPACT 0' while the price feed showed
+    YÜKSEK signals.
+
+    Action Now uses a permissive Rayon-relevance filter that auto-activates
+    once dim_material is populated in PI-2.
+    """
+    # 1. Action Now — high severity, last 7d, Rayon-relevant (or unscored)
+    action_now = _one(
+        """
+        SELECT COUNT(DISTINCT (
+                 signal_type, chain,
+                 COALESCE(material_slug, ''),
+                 COALESCE(upstream_slug, ''),
+                 COALESCE(downstream_slug, '')
+               ))::int AS n
+        FROM price_intelligence_signals s
+        LEFT JOIN dim_material m ON m.slug = s.material_slug
+        WHERE s.signal_date >= NOW() - INTERVAL '7 days'
+          AND s.suppressed = FALSE
+          AND s.severity = 'high'
+          AND (m.rayon_relevance_score IS NULL OR m.rayon_relevance_score >= 2)
+        """,
+    ).get("n", 0)
+
+    # 2. Cost Pressure Up — distinct (chain, material) clusters, last 7d
+    cost_up = _one(
+        """
+        SELECT COUNT(DISTINCT (chain, COALESCE(material_slug, '')))::int AS n
+        FROM price_intelligence_signals
+        WHERE signal_date >= NOW() - INTERVAL '7 days'
+          AND suppressed = FALSE
+          AND signal_type IN ('COST_PRESSURE_UP', 'UPSTREAM_DOWNSTREAM_DIVG',
+                              'DELAYED_PASS_THROUGH_RISK')
+        """,
+    ).get("n", 0)
+
+    # 3. Cost Pressure Down — distinct (chain, material) clusters, last 7d
+    cost_down = _one(
+        """
+        SELECT COUNT(DISTINCT (chain, COALESCE(material_slug, '')))::int AS n
+        FROM price_intelligence_signals
+        WHERE signal_date >= NOW() - INTERVAL '7 days'
+          AND suppressed = FALSE
+          AND signal_type = 'COST_PRESSURE_DOWN'
+        """,
+    ).get("n", 0)
+
+    # 4. Polyester FDY benchmark — latest USD spot
+    poly = _one(
+        """
+        SELECT price_usd::float    AS price_usd,
+               change_7d::float    AS change_7d
+        FROM price_metrics_daily
+        WHERE material = 'polyester_fdy' AND frequency = 'daily'
+        ORDER BY metric_date DESC
+        LIMIT 1
+        """,
+    )
+
+    return {
+        "action_now":          action_now,
+        "cost_pressure_up":    cost_up,
+        "cost_pressure_down":  cost_down,
+        "polyester_fdy_usd":   poly.get("price_usd"),
+        "polyester_fdy_chg7d": poly.get("change_7d"),
+    }
+
+
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

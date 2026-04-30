@@ -3605,3 +3605,62 @@ function renderSectionHealthBadges(signalsPayload) {
   _paintHeader('ops-section-header-cost',        sectionHealth.cost);
   _paintHeader('ops-section-header-revenue',     sectionHealth.revenue);
 }
+
+
+// PI-1.2: Price Intelligence KPI strip
+async function _loadPriceIntelStats() {
+  try {
+    const stats = await api('/api/price_intelligence_stats');
+    setText('kpi-pi-action',     stats.action_now ?? '—');
+    setText('kpi-pi-cost-up',    stats.cost_pressure_up ?? '—');
+    setText('kpi-pi-cost-down',  stats.cost_pressure_down ?? '—');
+
+    const fdyUsd = stats.polyester_fdy_usd;
+    setText('kpi-pi-fdy', fdyUsd != null ? `$${Math.round(fdyUsd).toLocaleString()}` : '—');
+
+    const chg = stats.polyester_fdy_chg7d;
+    const chgEl = document.getElementById('kpi-pi-fdy-change');
+    if (chgEl) {
+      if (chg != null) {
+        const sign = chg >= 0 ? '+' : '';
+        const cls = chg >= 0 ? 'kpi-change-up' : 'kpi-change-down';
+        chgEl.textContent = `${sign}${chg.toFixed(1)}% 7d`;
+        chgEl.className = `kpi-change ${cls}`;
+      } else {
+        chgEl.textContent = '';
+      }
+    }
+  } catch (e) {
+    console.warn('Price Intelligence stats failed:', e);
+  }
+}
+
+// Show/hide the global header KPI strip vs the Price Intelligence-specific one.
+// Called on every section navigation.
+function _togglePriceIntelKpiStrip() {
+  const active = document.querySelector('section.section.active');
+  const isPriceTab = active && active.id === 'section-prices';
+
+  // Global header strip lives in <header>, has class 'kpi-strip' and no id.
+  // The PI-specific one has id='kpi-strip-price'. Hide global on price tab.
+  const headerStrip = document.querySelector('header .kpi-strip');
+  if (headerStrip) {
+    headerStrip.style.display = isPriceTab ? 'none' : '';
+  }
+
+  if (isPriceTab) _loadPriceIntelStats();
+}
+
+// Hook into existing nav-item click handlers AFTER they've fired.
+document.addEventListener('click', (ev) => {
+  const navItem = ev.target.closest('.nav-item[data-section]');
+  if (!navItem) return;
+  // Defer to next tick so the .active class swap has happened.
+  setTimeout(_togglePriceIntelKpiStrip, 0);
+});
+
+// Run once on initial load to catch direct landing on Price Intelligence.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(_togglePriceIntelKpiStrip, 100);
+});
+

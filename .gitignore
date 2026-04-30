@@ -33,12 +33,12 @@ data/
 # M2.1 backups
 *.bak_*
 # Local diagnostic scripts (run-once, root level)
-check_*.py
-discover_schema.py
-fix_*.py
-add_sidebar_nav.py
-apply_migration_012.py
-verify_*.py
+/check_*.py
+/discover_schema.py
+/fix_*.py
+/add_sidebar_nav.py
+/apply_migration_012.py
+/verify_*.py
 # Generated reports
 audit_report.md
 # Intermediate patch helper files (one-time use)
@@ -52,3 +52,7 @@ check_mv.py
 explain_detail.py
 profile_detail.py
 apply_migration_*.py
+
+# Temporary debug dumps
+*_dump.txt
+kpi_usage.txt
