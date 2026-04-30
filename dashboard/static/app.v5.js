@@ -56,11 +56,13 @@ const MATERIAL_LABELS = {
 
 const POLY_MATS = [
   // PI-1.5: PTA added (upstream trigger of polyester chain).
-  { key: 'pta',                    color: '#22c1c3',  label: 'PTA' },  // PI-1.5 closeout: teal, distinct from DTY purple
+  // PI-1.5b: order now reflects branch structure, not the false linear chain.
+  //   PTA -> PSF (staple) -> POY -> DTY (filament main) -> FDY (parallel)
+  { key: 'pta',                    color: '#22c1c3',  label: 'PTA' },
   { key: 'polyester_staple_fiber', color: C.blue,     label: 'PSF' },
-  { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
   { key: 'polyester_poy',          color: C.green,    label: 'POY' },
   { key: 'polyester_dty',          color: '#a371f7',  label: 'DTY' },
+  { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
 ];
 
 const ALL_PRICE_MATS = [
@@ -80,12 +82,40 @@ const ALL_PRICE_MATS = [
   { key: 'rayon_yarn',             fam: 'rayon'     },
 ];
 
+// PI-1.5b: linear POLY_CHAIN replaced with branched POLY_TOPOLOGY.
+// Correct industrial structure: PTA splits into staple (PSF) and filament
+// (POY -> DTY) branches; FDY is a parallel filament product, not a step
+// downstream of POY. POLY_CHAIN kept as a derived flat list because lag-row
+// rendering and a few helpers still iterate over the chain in display order.
+const POLY_TOPOLOGY = {
+  root: { key: 'pta', label: 'PTA', color: '#22c1c3' },
+  branches: {
+    staple: {
+      label: 'Staple branch',
+      nodes: [
+        { key: 'polyester_staple_fiber', label: 'PSF', color: C.blue },
+      ],
+    },
+    filament: {
+      label: 'Filament branch',
+      main: [
+        { key: 'polyester_poy', label: 'POY', color: C.green },
+        { key: 'polyester_dty', label: 'DTY', color: '#a371f7' },
+      ],
+      parallel: {
+        label: 'Parallel filament',
+        nodes: [
+          { key: 'polyester_fdy', label: 'FDY', color: C.orange },
+        ],
+      },
+    },
+  },
+};
 const POLY_CHAIN = [
-  { key: 'pta',                    label: 'PTA',  color: C.blue   },
-  { key: 'polyester_staple_fiber', label: 'PSF',  color: C.purple },
-  { key: 'polyester_fdy',          label: 'FDY',  color: C.orange },
-  { key: 'polyester_poy',          label: 'POY',  color: C.green  },
-  { key: 'polyester_dty',          label: 'DTY',  color: '#a371f7'},
+  POLY_TOPOLOGY.root,
+  ...POLY_TOPOLOGY.branches.staple.nodes,
+  ...POLY_TOPOLOGY.branches.filament.main,
+  ...POLY_TOPOLOGY.branches.filament.parallel.nodes,
 ];
 
 const CHAIN_UPSTREAM = {
@@ -607,52 +637,78 @@ function _tierBadge(tier) {
 }
 
 function _renderChainFlow(data) {
+  // PI-1.5b v2: grouped-card layout (replaces the v1 connector-heavy layout
+  // which was sparse and fragmented). PTA on top spanning full width, then
+  // three group cards side by side: Staple (PSF), Filament (POY -> DTY),
+  // FDY reference. No floating spread badges.
   const el = document.getElementById('chain-flow-polyester');
   if (!el) return;
 
-  let html = '';
-  POLY_CHAIN.forEach((node, idx) => {
-    const d       = data[node.key];
-    const latest  = d?.latest;
-    const price   = latest?.price_usd != null ? `$${Math.round(latest.price_usd).toLocaleString('en')}` : '—';
-    const c7      = latest?.change_7d;
-    const c7Html  = c7 != null
+  const renderNode = (node) => {
+    const d        = data[node.key];
+    const latest   = d?.latest;
+    const price    = latest?.price_usd != null
+      ? `$${Math.round(latest.price_usd).toLocaleString('en')}`
+      : '—';
+    const c7       = latest?.change_7d;
+    const c7Html   = c7 != null
       ? `<div class="chain-node-change ${c7 > 0 ? 'stat-up' : c7 < 0 ? 'stat-down' : ''}">${c7 > 0 ? '+' : ''}${c7.toFixed(1)}%</div>`
       : '<div class="chain-node-change" style="color:var(--muted)">—</div>';
-    const tier    = latest?.confidence_tier;
-    const mom     = _momentumArrow(latest?.momentum_score);
+    const tier     = latest?.confidence_tier;
+    const mom      = _momentumArrow(latest?.momentum_score);
     const tierHtml = _tierBadge(tier);
     const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
-    // PI-1.5: sigma (7d volatility) moved here from poly-metric-cards.
-    const vol     = latest?.volatility_7d;
-    const volHtml = vol != null
+    const vol      = latest?.volatility_7d;
+    const volHtml  = vol != null
       ? `<span class="chain-vol" style="font-size:11px; color:var(--muted); margin-left:6px">σ ${vol.toFixed(1)}</span>`
       : '';
-
-    let divHtml = '';
-    if (idx > 0) {
-      const leftKey    = POLY_CHAIN[idx - 1].key;
-      const upstreamOf = CHAIN_UPSTREAM[node.key];
-      const div        = latest?.divergence_score;
-      const showDiv    = div != null && Math.abs(div) >= 3.0 && upstreamOf === leftKey;
-      divHtml = showDiv
-        ? `<span class="divergence-badge">&#9889; ${div.toFixed(1)}%</span>`
-        : '';
-    }
-
-    if (idx > 0) {
-      html += `<div class="chain-separator"><span class="chain-arrow-icon">&#8594;</span>${divHtml}</div>`;
-    }
-    html += `
+    return `
       <div class="chain-node" style="border-top: 2px solid ${node.color}">
         <div class="chain-node-name">${node.label}</div>
         <div class="chain-node-price">${price}</div>
         ${c7Html}
         <div class="chain-node-footer">${tierHtml}${momHtml}${volHtml}</div>
       </div>`;
-  });
+  };
 
-  el.innerHTML = html;
+  const T = POLY_TOPOLOGY;
+
+  el.innerHTML = `
+    <div class="chain-grouped">
+
+      <div class="chain-grouped-root">
+        ${renderNode(T.root)}
+      </div>
+
+      <div class="chain-grouped-arrow">&#8595;</div>
+
+      <div class="chain-grouped-branches">
+
+        <div class="chain-group chain-group-staple">
+          <div class="chain-group-label">Staple</div>
+          <div class="chain-group-flow">
+            ${T.branches.staple.nodes.map(renderNode).join('')}
+          </div>
+        </div>
+
+        <div class="chain-group chain-group-filament">
+          <div class="chain-group-label">Filament</div>
+          <div class="chain-group-flow">
+            ${renderNode(T.branches.filament.main[0])}
+            <span class="chain-group-arrow">&#8594;</span>
+            ${renderNode(T.branches.filament.main[1])}
+          </div>
+        </div>
+
+        <div class="chain-group chain-group-parallel">
+          <div class="chain-group-label">FDY reference</div>
+          <div class="chain-group-flow">
+            ${T.branches.filament.parallel.nodes.map(renderNode).join('')}
+          </div>
+        </div>
+
+      </div>
+    </div>`;
 }
 
 function _renderPolyLagRow(data) {

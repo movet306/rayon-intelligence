@@ -2239,3 +2239,117 @@ html, body {
   color: var(--muted, #8a92a3);
   font-style: italic;
 }
+
+/* ── PI-1.5b v2: grouped-card polyester chain topology ───────────────────── */
+.chain-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 4px 2px;
+}
+.chain-grouped-root {
+  display: flex;
+  justify-content: stretch;
+}
+.chain-grouped-root .chain-node {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.chain-grouped-arrow {
+  text-align: center;
+  font-size: 16px;
+  color: var(--muted, #8a92a3);
+  line-height: 1;
+}
+.chain-grouped-branches {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+.chain-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+.chain-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted, #8a92a3);
+  padding: 2px 0 4px;
+}
+.chain-group-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.chain-group-flow > .chain-node {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.chain-group-arrow {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted, #8a92a3);
+}
+
+/* ── PI-1.5b polish: PTA narrow, FDY muted, arrow stronger ────────────────── */
+
+/* (1) PTA card narrowed and centered. Still a single full-width container
+       so the layout grid stays the same, but the inner card is constrained. */
+.chain-grouped-root {
+  justify-content: center;
+}
+.chain-grouped-root .chain-node {
+  flex: 0 1 60%;
+  max-width: 60%;
+}
+
+/* (2) FDY reference group de-emphasized. Lower-contrast label, slightly
+       muted border, slightly reduced body opacity so it reads as secondary. */
+.chain-group-parallel {
+  border-color: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.012);
+}
+.chain-group-parallel .chain-group-label {
+  opacity: 0.65;
+  font-size: 9px;
+}
+.chain-group-parallel .chain-node {
+  opacity: 0.88;
+}
+
+/* (3) POY -> DTY arrow inside the Filament group: more visible. */
+.chain-group-filament .chain-group-arrow {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text, #e6e9ef);
+  opacity: 0.7;
+  padding: 0 2px;
+}
+
+/* ── PI-1.5b: chain group labels white for readability ───────────────────── */
+.chain-group-label {
+  color: var(--text, #e6e9ef);
+}
+.chain-group-parallel .chain-group-label {
+  color: var(--text, #e6e9ef);
+  opacity: 0.7;  /* still slightly de-emphasized vs. main branches */
+}
+
+/* ── PI-1.5b: full white text on labels and node names ────────────────────── */
+.chain-group-parallel .chain-group-label {
+  /* override the earlier opacity:0.7 — user wants it just white */
+  opacity: 1;
+}
+.chain-node-name {
+  color: var(--text, #e6e9ef);
+  opacity: 1;
+}
