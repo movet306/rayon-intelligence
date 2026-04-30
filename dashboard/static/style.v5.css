@@ -2388,3 +2388,17 @@ html, body {
   color: var(--text, #e6e9ef);
   opacity: 0.85;
 }
+
+/* ── PI-1.7 followup: chart-panel chart fills available height ────────────── */
+/* When two chart-panels sit side by side and one has dense content (e.g. the
+   cotton panel with two stacked sub-charts) and the other has just one chart
+   (e.g. the nylon panel), the lighter panel ends up looking half-empty. Make
+   the chart-wrap stretch so the chart fills the available vertical space. */
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+}
+.chart-panel > .chart-wrap {
+  flex: 1 1 auto;
+  min-height: 280px;
+}

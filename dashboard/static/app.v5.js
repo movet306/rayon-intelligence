@@ -971,15 +971,31 @@ function _renderCottonPanel(data) {
 
   // PI-1.6: render SunSirs and ICE on separate sub-charts so they no longer
   // share a y-axis. Different markets, different price scales.
+  // PI-1.7 followup: ensure both sub-charts use the same x-axis window so
+  // the user reads them as one comparison, not two unrelated time series.
+  // We pick the latest first-date and the latest last-date across the two
+  // series so neither sub-chart shows extrapolated empty space and short
+  // series aren't squeezed into a tiny corner.
+  const _spotSer  = data['cotton_lint']?.series          || [];
+  const _futSer   = data['cotton_lint_futures']?.series  || [];
+  let _xRange = null;
+  if (_spotSer.length && _futSer.length) {
+    const _firsts = [_spotSer[0].date, _futSer[0].date].sort().reverse();
+    const _lasts  = [
+      _spotSer[_spotSer.length - 1].date,
+      _futSer[_futSer.length - 1].date,
+    ].sort().reverse();
+    _xRange = [_firsts[0], _lasts[0]];
+  }
   _renderMultiLine('chart-cotton-spot', [
     { key: 'cotton_lint', color: C.orange, label: 'SunSirs China Spot (USD/t)' },
-  ], data);
+  ], data, _xRange);
   _renderMultiLine('chart-cotton-futures', [
     { key: 'cotton_lint_futures', color: C.blue, label: 'ICE Futures (USD/t)' },
-  ], data);
+  ], data, _xRange);
 }
 
-function _renderMultiLine(elId, mats, data) {
+function _renderMultiLine(elId, mats, data, xRangeOverride) {
   const hoverFmt = _currency === 'usd' ? '$.2f' : ',.0f';
   const traces = mats.map(m => {
     const d = data[m.key];
@@ -999,6 +1015,21 @@ function _renderMultiLine(elId, mats, data) {
     return;
   }
   Plotly.newPlot(elId, traces, {
+      // PI-1.7: align x-axis. Caller can pass xRangeOverride [start, end]
+      // (used by _renderCottonPanel to keep both sub-charts on the same
+      // window). Otherwise, fall back to common-start across visible series
+      // (good for multi-trace charts like the nylon family).
+      ...(function _multiLineRange() {
+        if (Array.isArray(xRangeOverride) && xRangeOverride.length === 2) {
+          return { xaxis: { range: xRangeOverride, autorange: false } };
+        }
+        const fd = traces.filter(t => Array.isArray(t.x) && t.x.length).map(t => t.x[0]);
+        const ld = traces.filter(t => Array.isArray(t.x) && t.x.length).map(t => t.x[t.x.length - 1]);
+        if (!fd.length) return {};
+        const start = fd.sort().reverse()[0];
+        const end   = ld.sort().reverse()[0];
+        return { xaxis: { range: [start, end], autorange: false } };
+      })(),
       // PI-1.6: pin legend top-right so it sits in the upper corner of the plot.
       legend: { x: 1, xanchor: 'right', y: 1, yanchor: 'top' },
     ...PRICE_CHART_LAYOUT,
