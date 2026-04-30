@@ -2402,3 +2402,61 @@ html, body {
   flex: 1 1 auto;
   min-height: 280px;
 }
+
+/* ── PI-1.8a: family grouping + sortable summary table ────────────────────── */
+.summary-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.summary-table th.sortable:hover {
+  color: var(--accent, #6cb6ff);
+}
+.summary-table .sort-ind {
+  font-size: 10px;
+  opacity: 0.85;
+  color: var(--accent, #6cb6ff);
+}
+.summary-table tr.fam-header {
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.03);
+}
+.summary-table tr.fam-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.summary-table tr.fam-header td {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  color: var(--text, #e6e9ef);
+}
+.summary-table .fam-chevron {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: var(--muted, #8a92a3);
+  margin-right: 4px;
+}
+.summary-table .fam-count {
+  color: var(--muted, #8a92a3);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.fam-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted, #8a92a3);
+}
+.fam-badge-polyester { color: #8ad7ff; background: rgba(76, 154, 255, 0.12); }
+.fam-badge-cotton    { color: #ffb86c; background: rgba(241, 161, 105, 0.12); }
+.fam-badge-nylon     { color: #c7a3ff; background: rgba(163, 113, 247, 0.14); }
+.fam-badge-viscose   { color: #7ee787; background: rgba(86, 211, 100, 0.12); }
