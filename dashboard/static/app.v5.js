@@ -1092,6 +1092,8 @@ function _renderPriceSummaryTable(data) {
   const fn = _renderPriceSummaryTable;
   if (!fn._sortState)  fn._sortState  = null;
   if (!fn._collapsed)  fn._collapsed  = new Set();
+  // PI-2b: filter chips — null means All. Otherwise one of the type names.
+  if (fn._typeFilter === undefined) fn._typeFilter = null;
 
   const FAMILY_LABEL = {
     polyester: 'POLYESTER',
@@ -1224,10 +1226,21 @@ function _renderPriceSummaryTable(data) {
     </tr></thead>
   `;
 
+  // PI-2b: build the chip row counts BEFORE filtering, so chip counts
+  // always reflect the full universe, not the filtered subset.
+  const typeCounts = { Direct: 0, Benchmark: 0, Proxy: 0, Estimate: 0 };
+  records.forEach(r => { if (r.type && typeCounts[r.type] !== undefined) typeCounts[r.type]++; });
+  const totalCount = records.length;
+
+  // Apply filter to the records used for body rendering.
+  const visibleRecords = fn._typeFilter
+    ? records.filter(r => r.type === fn._typeFilter)
+    : records;
+
   let bodyHtml;
   if (fn._sortState) {
     const { col, dir } = fn._sortState;
-    const sorted = records.slice().sort((a, b) => {
+    const sorted = visibleRecords.slice().sort((a, b) => {
       const va = a[col], vb = b[col];
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
@@ -1241,7 +1254,7 @@ function _renderPriceSummaryTable(data) {
   } else {
     const groups = {};
     FAMILY_ORDER.forEach(f => groups[f] = []);
-    records.forEach(r => {
+    visibleRecords.forEach(r => {
       if (!groups[r.fam]) groups[r.fam] = [];
       groups[r.fam].push(r);
     });
@@ -1259,7 +1272,7 @@ function _renderPriceSummaryTable(data) {
       }
     });
     // Defensive: any record whose family isn't in FAMILY_ORDER ends up here.
-    const leftover = records.filter(r => !FAMILY_ORDER.includes(r.fam));
+    const leftover = visibleRecords.filter(r => !FAMILY_ORDER.includes(r.fam));
     if (leftover.length) {
       const byFam = {};
       leftover.forEach(r => { (byFam[r.fam] ||= []).push(r); });
@@ -1278,8 +1291,34 @@ function _renderPriceSummaryTable(data) {
     bodyHtml = `<tbody>${rowsHtml}</tbody>`;
   }
 
+  // PI-2b: build chip bar
+  const mkChip = (label, count, value) => {
+    const isActive = (fn._typeFilter === value) || (value === null && fn._typeFilter === null);
+    const cls = `type-chip ${isActive ? 'type-chip-active' : ''} ${value ? `type-chip-${value.toLowerCase()}` : 'type-chip-all'}`.trim();
+    return `<button class="${cls}" data-type-filter="${value === null ? 'all' : value}">${label} <span class="type-chip-count">${count}</span></button>`;
+  };
+  const chipBar = `
+    <div class="type-chip-bar">
+      ${mkChip('All', totalCount, null)}
+      ${mkChip('Direct', typeCounts.Direct, 'Direct')}
+      ${mkChip('Benchmark', typeCounts.Benchmark, 'Benchmark')}
+      ${mkChip('Proxy', typeCounts.Proxy, 'Proxy')}
+      ${mkChip('Estimate', typeCounts.Estimate, 'Estimate')}
+    </div>
+  `;
+
   document.getElementById('price-summary-table').innerHTML = `
+    ${chipBar}
     <table class="data-table summary-table">${headerHtml}${bodyHtml}</table>`;
+
+  // Wire chip clicks
+  document.querySelectorAll('#price-summary-table .type-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.typeFilter;
+      fn._typeFilter = (v === 'all') ? null : v;
+      _renderPriceSummaryTable(data);
+    });
+  });
 
   document.querySelectorAll('#price-summary-table th.sortable').forEach(th => {
     th.addEventListener('click', () => {

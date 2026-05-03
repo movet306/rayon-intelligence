@@ -2492,3 +2492,86 @@ html, body {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.12);
 }
+
+/* ── PI-2b: type filter chips ─────────────────────────────────────────────── */
+.type-chip-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--muted, #8a92a3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.type-chip:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text, #e6e9ef);
+}
+.type-chip-count {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted, #8a92a3);
+}
+.type-chip-active {
+  background: rgba(108, 182, 255, 0.12);
+  border-color: rgba(108, 182, 255, 0.40);
+  color: #cfe5ff;
+}
+.type-chip-active .type-chip-count {
+  background: rgba(108, 182, 255, 0.20);
+  color: #cfe5ff;
+}
+/* tinted active styles, matching the type-badge palette */
+.type-chip-direct.type-chip-active {
+  background: rgba(86, 211, 100, 0.12);
+  border-color: rgba(86, 211, 100, 0.40);
+  color: #b6f0bf;
+}
+.type-chip-direct.type-chip-active .type-chip-count {
+  background: rgba(86, 211, 100, 0.20);
+  color: #b6f0bf;
+}
+.type-chip-benchmark.type-chip-active {
+  background: rgba(76, 154, 255, 0.12);
+  border-color: rgba(76, 154, 255, 0.40);
+  color: #cfe5ff;
+}
+.type-chip-benchmark.type-chip-active .type-chip-count {
+  background: rgba(76, 154, 255, 0.20);
+  color: #cfe5ff;
+}
+.type-chip-proxy.type-chip-active {
+  background: rgba(241, 161, 105, 0.12);
+  border-color: rgba(241, 161, 105, 0.40);
+  color: #ffd9b3;
+}
+.type-chip-proxy.type-chip-active .type-chip-count {
+  background: rgba(241, 161, 105, 0.20);
+  color: #ffd9b3;
+}
+.type-chip-estimate.type-chip-active {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.30);
+  color: #e6e9ef;
+}
+.type-chip-estimate.type-chip-active .type-chip-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: #e6e9ef;
+}
