@@ -1,0 +1,46 @@
+column_index,column_name,category,type,filled_by,validation,example,notes
+1,family,identification,enum,auto_from_tab,"polyester|polyamide|viscose|modal|blend",polyester,Tab name determines value
+2,subfamily,identification,enum_family_specific,claude,"see family-specific enum table",FDY,Different allowed values per family
+3,raw_label_examples,identification,text_newline_separated,claude,"min 1 example, max ~10","%100 POLYESTER 75D/72F SD\nPES 75/72 FDY ECRU",Real-world label variants observed in sources
+4,canonical_code,identification,text,claude,"regex ^[A-Z0-9_]+$, max 60 char, family prefix required, unique per sheet",PES_75D_72F_SD,Primary identification key
+5,display_name,identification,text,claude,"human-readable, max 40 char",PES 75D/72F SD,Used in UI rendering
+6,form,spec_attributes,enum,claude,"filament|spun|blend",filament,Yarn form classification
+7,count_type,spec_attributes,enum,claude,"denier|Ne",denier,Determines which count column is required
+8,denier,spec_attributes,int_nullable,claude,"range 10-4000; NOT NULL if count_type=denier",75,Filament-only field
+9,filament_count,spec_attributes,int_nullable,claude,"range 1-500; NOT NULL if count_type=denier",72,Filament-only field
+10,denier_class,spec_attributes,enum_nullable,sheets_formula,"derived: <=30 micro / 31-80 fine / 81-150 medium / >150 heavy",fine,Formula-derived from denier
+11,ne_count,spec_attributes,decimal_nullable,claude,"range 5-80; NOT NULL if count_type=Ne",30.0,Spun/staple-only field
+12,ply,spec_attributes,int,claude,"range 1-4, default 1",1,Yarn ply count
+13,twist_direction,spec_attributes,enum_nullable,claude,"Z|S|NULL",Z,NULL when unspecified in source
+14,luster,spec_attributes,enum_nullable,claude,"SD|FD|BR|CD|HT|FR|NULL",SD,Filament-weighted but applies broadly
+15,recycle_flag,spec_attributes,bool,claude,"default false",false,GRS/recycle marker
+16,color_state,spec_attributes,enum,claude,"ECRU|BLACK|NAVY|RED|ANTHRACITE|OTHER|NULL",ECRU,Yarn-dyed/dope-dyed color category
+17,specialty_flags,spec_attributes,text_csv_enum,claude,"controlled vocab atomic flags only",CHANNEL,"Allowed: CATIONIC,CHANNEL,HT,FR,DOPE_DYED,TWISTED,AIR_TEXTURED,MICRO,BRIGHT,FULL_DULL"
+18,blend_ratio_json,spec_attributes,json_nullable,claude,"NOT NULL if family=blend; sum=100","{""PES"":65,""VIS"":35}",JSON object with fiber percentages
+19,tier_0_internal,source_evidence,bool,claude_or_mert,"true if Rayon yarn_costs/quote/sales record exists",false,Tier 0 - Internal Rayon truth
+20,tier_1_turkish,source_evidence,int,claude,"count of distinct Turkish producer catalogs",2,Tier 1 evidence count
+21,tier_2_global,source_evidence,int,claude,"count of distinct global producer/seller sources",4,Tier 2 evidence count
+22,tier_3_b2b,source_evidence,int,claude,"count of distinct B2B listings",7,Tier 3 evidence count
+23,tier_4_benchmark,source_evidence,enum,claude,"direct|benchmark|proxy|estimate|none",estimate,Tier 4 - benchmark availability
+24,source_names,source_evidence,text_pipe_separated,claude,"positionally matched with source_types",Sanko | Lenzing | Indorama | Alibaba,Audit trail for source identification
+25,source_types,source_evidence,text_pipe_separated_enum,claude,"controlled vocab; positionally matched with source_names",turkish_catalog | global_catalog | global_catalog | b2b_listing,"Allowed: internal_purchase,internal_quote,internal_sales,turkish_catalog,global_catalog,industry_report,trade_article,b2b_listing,benchmark_index"
+26,evidence_urls,source_evidence,text_newline_separated,claude,"soft cap; B2B max 3 URLs",https://sanko.com/...\nhttps://lenzing.com/...,Audit URLs for sources
+27,repeat_count,source_evidence,int,sheets_formula,"= tier_1 + tier_2 + tier_3",13,Total non-internal source repetition
+28,evidence_strength,source_evidence,enum,sheets_formula,"strong|moderate|weak|insufficient",moderate,Quality signal NOT decision signal
+29,source_count_total,source_evidence,int,sheets_formula,"all tiers including internal and benchmark",14,Full evidence density
+30,has_commercial_use_case,decision_support,bool,mert,"true if mainstream commercial OR technical mainstream use-case exists",true,5th criterion of 2-of-5 rule
+31,meets_2_of_5_rule,decision_support,bool,sheets_formula,"true if at least 2 of 5 criteria met",true,Methodology 2-of-5 evidence rule
+32,market_common_candidate,decision_support,enum,formula_plus_mert_override,"yes|no|pending",yes,Main decision field
+33,market_common_subtype,decision_support,enum_nullable,mert,"mainstream|technical|niche-but-repeatable|NULL",mainstream,Internal classification only - not in DB
+34,override_reason,decision_support,text_nullable,mert,"NOT NULL when final differs from formula suggestion",,Required only on override
+35,pricing_basis_candidate,decision_support,enum,claude_suggest_mert_confirm,"direct|benchmark|proxy|estimate|none",estimate,Will populate dim_yarn_master.pricing_basis on seed
+36,primary_driver_candidate,decision_support,text_dropdown_or_new,claude_suggest_mert_confirm,"dim_material slug or _NEW: prefix",polyester_fdy,Will populate dim_yarn_price_driver on seed
+37,secondary_driver_candidate,decision_support,text_dropdown_nullable,claude_suggest_mert_confirm,"same vocab as primary; NULL OK",pta,Optional secondary driver
+38,rayon_confirmed_candidate,decision_support,enum,mert_advisory,"yes|no|unsure|pending",yes,Advisory only - not applied in Phase B seed
+39,active_tracked_candidate,decision_support,enum,mert_advisory,"yes|no|second-wave|pending",no,Advisory only - feeds Phase E later
+40,status,review,enum_person_neutral,claude_or_mert,"draft|research_filled|under_review|approved|rejected|on_hold",under_review,Lifecycle state
+41,reviewer_notes,review,text,mert,"free text max 500 char","Bu spec'i kullanmiyoruz ama markette yaygin",Mert's review observations
+42,claude_notes,review,text,claude,"free text soft cap 500 char",Tier 2 only - needs Turkish catalog confirmation,Claude's research observations and warnings
+43,last_updated_by,review,enum,apps_script_b22,"claude|mert (extensible)",claude,Apps Script onEdit trigger
+44,last_updated_at,review,datetime,apps_script_b22,"ISO 8601 timestamp",2026-05-04T14:30:00,Set by Apps Script not =NOW() formula
+45,created_at,review,datetime,apps_script_b22,"ISO 8601 timestamp frozen on first write",2026-05-04T10:15:00,Frozen by Apps Script - never recalculates
