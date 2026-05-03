@@ -1052,6 +1052,7 @@ function _renderMultiLine(elId, mats, data, xRangeOverride) {
 }
 
 function _renderPriceSummaryTable(data) {
+  // PI-1.8b: tooltips applied
   // PI-1.8a: family grouping + sortable columns + flat-list-when-sorted hybrid.
   const fn = _renderPriceSummaryTable;
   if (!fn._sortState)  fn._sortState  = null;
@@ -1122,11 +1123,20 @@ function _renderPriceSummaryTable(data) {
     const minCls   = r.isMinimal ? 'row-minimal' : '';
     const tooltip  = r.isTierE ? ' title="Collecting data \u2014 metrics disabled"' : '';
 
-    const tierHtml = r.tier ? `<span class="tier-badge tier-${r.tier}">${r.tier}</span>` : INS;
+    const TIER_DESC = {
+      A: '60+ days of history — high confidence',
+      B: '30+ days of history — usable directional',
+      C: '14+ days of history — directional, weaker',
+      D: '7+ days of history — short series',
+      E: '<7 days of history — collecting data',
+    };
+    const tierHtml = r.tier
+      ? `<span class="tier-badge tier-${r.tier}" title="${TIER_DESC[r.tier] || ''}">${r.tier}</span>`
+      : INS;
     const mom      = _momentumArrow(r.momentum);
     const momHtml  = `<span class="chain-momentum ${mom.cls}">${mom.icon}</span>`;
     const lagHtml  = (r.lagMin && r.lagMax)
-      ? `<span class="turkey-lag-badge">${r.lagMin}\u2013${r.lagMax} wk</span>`
+      ? `<span class="turkey-lag-badge" title="Turkey supplier pass-through estimate: ${r.lagMin} to ${r.lagMax} weeks">${r.lagMin}\u2013${r.lagMax} wk</span>`
       : INS;
 
     const matBadge = showFamBadge
@@ -1151,9 +1161,10 @@ function _renderPriceSummaryTable(data) {
     if (!s || s.col !== col) return '';
     return s.dir === 'desc' ? ' <span class="sort-ind">\u25BC</span>' : ' <span class="sort-ind">\u25B2</span>';
   };
-  const sortableTh = (col, label, extraCls = '') => {
+  const sortableTh = (col, label, extraCls = '', tooltip = '') => {
     const cls = `sortable ${extraCls}`.trim();
-    return `<th class="${cls}" data-sort-col="${col}">${label}${sortIndicator(col)}</th>`;
+    const t   = tooltip ? ` title="${tooltip}"` : '';
+    return `<th class="${cls}"${t} data-sort-col="${col}">${label}${sortIndicator(col)}</th>`;
   };
 
   const headerHtml = `
@@ -1163,10 +1174,10 @@ function _renderPriceSummaryTable(data) {
       ${sortableTh('change_1d', '1D%', 'num')}
       ${sortableTh('change_7d', '7D%', 'num')}
       ${sortableTh('change_30d', '30D%', 'num')}
-      <th class="num">Trend</th>
-      <th class="num">Momentum</th>
-      ${sortableTh('tier', 'Quality', 'num')}
-      ${sortableTh('lagMid', 'TR Lag', 'num')}
+      <th class="num" title="Direction over the last window (up / flat / down)">Trend</th>
+      <th class="num" title="Speed and acceleration of recent price movement">Momentum</th>
+      ${sortableTh('tier', 'Quality', 'num', 'Data quality: A=60+ days, B=30+, C=14+, D=7+, E=<7 days of usable history')}
+      ${sortableTh('lagMid', 'TR Lag', 'num', 'Estimated Turkey supplier pass-through lag (weeks)')}
     </tr></thead>
   `;
 
