@@ -97,7 +97,7 @@ BASE = "https://www.sunsirs.com/uk/"
 
 COMMODITIES = [
     # material_key                url                            unit
-    ("polyester_staple_fiber",   BASE + "frodetail-976.html",   "RMB/ton"),  # spot + futures
+    ("polyester_staple_fiber",   BASE + "prodetail-976.html",   "RMB/ton"),  # spot (was frodetail; futures page stopped updating Apr 30)
     ("polyester_fdy",            BASE + "prodetail-1005.html",  "RMB/ton"),
     ("polyester_poy",            BASE + "prodetail-1006.html",  "RMB/ton"),
     ("polyester_dty",            BASE + "prodetail-1007.html",  "RMB/ton"),
