@@ -65,6 +65,41 @@ const POLY_MATS = [
   { key: 'polyester_fdy',          color: C.orange,   label: 'FDY' },
 ];
 
+// PI-2a: MATERIAL_TYPE — role of each tracked material in Rayon's procurement.
+//   Direct    = bought and used directly
+//   Benchmark = tracked for market awareness only
+//   Proxy     = upstream / leading driver of an input we use
+//   Estimate  = driver-based estimated price
+// Override rule: if item-level Nebim data later shows direct purchase,
+// flip Benchmark/Proxy to Direct.
+const MATERIAL_TYPE = {
+  // Polyester
+  polyester_staple_fiber: 'Benchmark',
+  polyester_fdy:          'Direct',
+  polyester_poy:          'Proxy',
+  polyester_dty:          'Direct',
+  polyester_yarn:         'Estimate',
+  pta:                    'Proxy',
+  // Cotton
+  cotton_lint:            'Benchmark',
+  cotton_lint_futures:    'Benchmark',
+  cotton_yarn:            'Direct',
+  // Nylon
+  polyamide_fdy:          'Direct',
+  pa6_chip:                'Proxy',
+  pa66_chip:               'Proxy',
+  adipic_acid:             'Proxy',
+  // Viscose
+  rayon_yarn:              'Direct',
+};
+const MATERIAL_TYPE_ORDER = { Direct: 0, Benchmark: 1, Proxy: 2, Estimate: 3 };
+const MATERIAL_TYPE_TOOLTIP = {
+  Direct:    'Direct: bought and used in production',
+  Benchmark: 'Benchmark: tracked for market awareness, not purchased',
+  Proxy:     'Proxy: upstream / leading driver of an input we use',
+  Estimate:  'Estimate: driver-based price, not a real quote',
+};
+
 const ALL_PRICE_MATS = [
   { key: 'polyester_staple_fiber', fam: 'polyester' },
   { key: 'polyester_fdy',          fam: 'polyester' },
@@ -1104,6 +1139,8 @@ function _renderPriceSummaryTable(data) {
     return {
       key: m.key, fam: m.fam,
       label: MATERIAL_LABELS[m.key] || m.key,
+      type: MATERIAL_TYPE[m.key] || null,
+      typeOrder: MATERIAL_TYPE_ORDER[MATERIAL_TYPE[m.key]] ?? 99,
       price: _latestPrice(l),
       change_1d: l?.change_1d, change_7d: l?.change_7d, change_30d: l?.change_30d,
       trend: l?.trend_direction, momentum: l?.momentum_score,
@@ -1143,8 +1180,13 @@ function _renderPriceSummaryTable(data) {
       ? `<span class="fam-badge fam-badge-${r.fam}" title="${FAMILY_LABEL[r.fam] || r.fam}">${(FAMILY_LABEL[r.fam] || r.fam).slice(0, 3)}</span> `
       : '';
 
+    const typeBadge = r.type
+      ? `<span class="type-badge type-${r.type.toLowerCase()}" title="${MATERIAL_TYPE_TOOLTIP[r.type] || ''}">${r.type}</span>`
+      : INS;
+
     return `<tr class="${famCls} ${tierECls} ${minCls}"${tooltip}>
       <td>${matBadge}${esc(r.label)}</td>
+      <td>${typeBadge}</td>
       <td class="num">${_priceFmt(r.price)}</td>
       <td class="num">${fmtPct(r.change_1d)}</td>
       <td class="num">${fmtPct(r.change_7d)}</td>
@@ -1170,6 +1212,7 @@ function _renderPriceSummaryTable(data) {
   const headerHtml = `
     <thead><tr>
       ${sortableTh('label', 'Material')}
+      ${sortableTh('typeOrder', 'Type', '', 'Material role: Direct (bought) / Benchmark (tracked only) / Proxy (upstream driver) / Estimate (driver-based)')}
       ${sortableTh('price', `Price (${_currency === 'usd' ? 'USD/t' : 'RMB/t'})`, 'num')}
       ${sortableTh('change_1d', '1D%', 'num')}
       ${sortableTh('change_7d', '7D%', 'num')}
@@ -1209,7 +1252,7 @@ function _renderPriceSummaryTable(data) {
       const collapsed = fn._collapsed.has(fam);
       const chevron = collapsed ? '\u25B6' : '\u25BC';
       rowsHtml += `<tr class="fam-header" data-fam="${fam}">
-        <td colspan="9"><span class="fam-chevron">${chevron}</span> <span class="fam-name">${FAMILY_LABEL[fam] || fam}</span> <span class="fam-count">(${items.length})</span></td>
+        <td colspan="10"><span class="fam-chevron">${chevron}</span> <span class="fam-name">${FAMILY_LABEL[fam] || fam}</span> <span class="fam-count">(${items.length})</span></td>
       </tr>`;
       if (!collapsed) {
         rowsHtml += items.map(r => rowHtml(r, { showFamBadge: false })).join('');
@@ -1225,7 +1268,7 @@ function _renderPriceSummaryTable(data) {
         const collapsed = fn._collapsed.has(fam);
         const chevron = collapsed ? '\u25B6' : '\u25BC';
         rowsHtml += `<tr class="fam-header" data-fam="${fam}">
-          <td colspan="9"><span class="fam-chevron">${chevron}</span> <span class="fam-name">${(fam || 'OTHER').toUpperCase()}</span> <span class="fam-count">(${items.length})</span></td>
+          <td colspan="10"><span class="fam-chevron">${chevron}</span> <span class="fam-name">${(fam || 'OTHER').toUpperCase()}</span> <span class="fam-count">(${items.length})</span></td>
         </tr>`;
         if (!collapsed) {
           rowsHtml += items.map(r => rowHtml(r, { showFamBadge: false })).join('');

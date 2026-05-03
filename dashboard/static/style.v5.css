@@ -2460,3 +2460,35 @@ html, body {
 .fam-badge-cotton    { color: #ffb86c; background: rgba(241, 161, 105, 0.12); }
 .fam-badge-nylon     { color: #c7a3ff; background: rgba(163, 113, 247, 0.14); }
 .fam-badge-viscose   { color: #7ee787; background: rgba(86, 211, 100, 0.12); }
+
+/* ── PI-2a: type badges (Direct / Benchmark / Proxy / Estimate) ───────────── */
+.type-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  vertical-align: middle;
+  border: 1px solid transparent;
+}
+.type-direct {
+  color: #7ee787;
+  background: rgba(86, 211, 100, 0.10);
+  border-color: rgba(86, 211, 100, 0.25);
+}
+.type-benchmark {
+  color: #8ad7ff;
+  background: rgba(76, 154, 255, 0.10);
+  border-color: rgba(76, 154, 255, 0.25);
+}
+.type-proxy {
+  color: #ffb86c;
+  background: rgba(241, 161, 105, 0.10);
+  border-color: rgba(241, 161, 105, 0.25);
+}
+.type-estimate {
+  color: #c2c8d3;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
