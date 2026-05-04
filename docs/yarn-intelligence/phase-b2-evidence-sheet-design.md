@@ -280,18 +280,20 @@ Sheets formula columns (`denier_class`, `repeat_count`, `evidence_strength`, `so
 
 Cross-family overview tab. **10 columns**, fed via `QUERY` or `IMPORTRANGE` formulas from the 5 family tabs.
 
-| # | Column | Source |
-|---|---|---|
-| 1 | `family` | from family tab |
-| 2 | `canonical_code` | from family tab |
-| 3 | `display_name` | from family tab |
-| 4 | `evidence_strength` | from family tab |
-| 5 | `meets_2_of_5_rule` | from family tab |
-| 6 | `market_common_candidate` | from family tab |
-| 7 | `pricing_basis_candidate` | from family tab |
-| 8 | `rayon_confirmed_candidate` | from family tab |
-| 9 | `active_tracked_candidate` | from family tab |
-| 10 | `status` | from family tab |
+| # | Column | Source column letter (in family tab) | Source |
+|---|---|---|---|
+| 1 | `family` | A | from family tab |
+| 2 | `canonical_code` | D | from family tab |
+| 3 | `display_name` | E | from family tab |
+| 4 | `evidence_strength` | AB | from family tab |
+| 5 | `meets_2_of_5_rule` | AE | from family tab |
+| 6 | `market_common_candidate` | AF | from family tab |
+| 7 | `pricing_basis_candidate` | AI | from family tab |
+| 8 | `rayon_confirmed_candidate` | AL | from family tab |
+| 9 | `active_tracked_candidate` | AM | from family tab |
+| 10 | `status` | AN | from family tab |
+
+**Implementation note:** the source column letters above were verified against the live deployed sheet. The `QUERY` formula in `apps-script/setup-evidence-sheet.gs` uses these letters. If the family-tab schema is reordered, this table and the script must be updated together.
 
 ### Purpose
 - Cross-family review of decisions
@@ -338,6 +340,7 @@ This section is a forward reference for the next session.
 - **Methodology:** `docs/yarn-intelligence/phase-b-methodology.md` (commit `7b7fa3f`)
 - **Initial active set:** `docs/yarn-intelligence/active-tracked/2026-05-03-initial-active-set.md` (commit `b51057d`)
 - **Schema CSV:** `docs/yarn-intelligence/phase-b2-evidence-sheet-schema.csv` (machine-readable companion to this document)
+- **Deployment scripts:** `apps-script/setup-evidence-sheet.gs` and `apps-script/triggers.gs` (commit `f66ed14`)
 
 ---
 
@@ -346,6 +349,7 @@ This section is a forward reference for the next session.
 | Version | Date | Notes |
 |---|---|---|
 | 1.0 | 2026-05-04 | Initial FINAL — 5 categories, 45 columns, 6 tabs designed and locked |
+| 1.1 | 2026-05-04 | Section 4: added source column letters to `_summary` mapping table (A, D, E, AB, AE, AF, AI, AL, AM, AN) — verified against live deployed sheet. Section 6: added deployment-scripts cross-reference. |
 
 ---
 
