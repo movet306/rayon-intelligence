@@ -571,12 +571,12 @@ function buildSummaryTab_(ss) {
   sheet.setFrozenRows(1);
 
   // Stack rows from each family tab using QUERY + UNION via curly brace stacking
-  // Column letters in family tabs:
+  // Column letters in family tabs (verified against live sheet):
   //   family = A, canonical_code = D, display_name = E,
   //   evidence_strength = AB, meets_2_of_5_rule = AE,
-  //   market_common_candidate = AF, pricing_basis_candidate = AK,
-  //   rayon_confirmed_candidate = AN, active_tracked_candidate = AO,
-  //   status = AP
+  //   market_common_candidate = AF, pricing_basis_candidate = AI,
+  //   rayon_confirmed_candidate = AL, active_tracked_candidate = AM,
+  //   status = AN
   // We build per-family ranges and stack them.
   const formula = buildSummaryStackFormula_();
   sheet.getRange(2, 1).setFormula(formula);
@@ -588,17 +588,17 @@ function buildSummaryStackFormula_() {
   //  market_common_candidate, pricing_basis_candidate, rayon_confirmed_candidate,
   //  active_tracked_candidate, status]
   //
-  // Source columns in family tab (1-based):
+  // Source columns in family tab (1-based, verified against live sheet):
   //   1=A family, 4=D canonical_code, 5=E display_name,
   //   28=AB evidence_strength, 31=AE meets_2_of_5_rule,
-  //   32=AF market_common_candidate, 35=AK pricing_basis_candidate,
-  //   38=AN rayon_confirmed_candidate, 39=AO active_tracked_candidate,
-  //   40=AP status
+  //   32=AF market_common_candidate, 35=AI pricing_basis_candidate,
+  //   38=AL rayon_confirmed_candidate, 39=AM active_tracked_candidate,
+  //   40=AN status
   //
   // We use QUERY for filtering out empty rows: WHERE D is not null
 
-  const cols = 'A, D, E, AB, AE, AF, AK, AN, AO, AP';
-  const parts = FAMILY_TABS.map(f => `QUERY(${f}!A2:AP1000, "select ${cols} where D is not null", 0)`);
+  const cols = 'A, D, E, AB, AE, AF, AI, AL, AM, AN';
+  const parts = FAMILY_TABS.map(f => `QUERY(${f}!A2:AN1000, "select ${cols} where D is not null", 0)`);
   // IFERROR wrap to avoid #N/A when no data
   const wrapped = parts.map(p => `IFERROR(${p}, {"","","","","","","","","",""})`);
   return `=QUERY({${wrapped.join('; ')}}, "select * where Col2 <> ''", 0)`;
