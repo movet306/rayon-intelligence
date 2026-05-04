@@ -1,0 +1,5 @@
+﻿Phase B3: polyester filament + polyamide HT pilots completed (15 specs)
+
+Polyester filament FDY (11 specs, evidence sheet rows 2-12):
+- Anchor: PES_75D_72F (Fujian Billion, mainstream)
+...
