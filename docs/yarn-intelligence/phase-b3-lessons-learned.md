@@ -212,3 +212,134 @@ Do not default `tier_4_benchmark = direct` without verifying a real index exists
 4. Recycled `market_common = pending` — upgrade to yes/no after Tier 3/4 deeper evidence
 5. Structural column `tier_0_supplier_names` — Phase B6 candidate, not now
 6. Formula audit — `meets_2_of_5_rule` inconsistency (Row 5 polyester TRUE vs Row 11/12 FALSE for same pattern); `evidence_strength` returns moderate where strong expected. Advisory only, decisions are manual.
+---
+
+## 13. Market-Only Seed Pilot Lessons (Faz 1 Viscose, May 2026)
+
+The viscose pilot was the first **market-only seed pilot** on the platform — no workbook-side Tier 0 evidence, all rows seeded from market research. This forced a new methodology branch parallel to the polyester/polyamide workbook-first approach. Seven patterns were locked during this pilot.
+
+### 13.1 Market-First vs Workbook-First Methodology
+
+When the workbook contains zero records for a yarn family (verified, not assumed), the polyester/polyamide methodology of "start from yarn_costs Tier 0, expand to market evidence" cannot apply. Instead, open the pilot **market-first**: build the market map (fiber anchors, yarn-level spinners, traders, benchmarks) and seed canonical_codes from there.
+
+Critical pre-check before opening any market-first pilot: **verify the workbook gap is real**, not a naming convention difference. For viscose this was confirmed via Python pandas inspection of `material_key` / `polymer` / `yarn_raw` columns — 245 records all PES/PA6.6/PA6, zero VIS/MOD/RAYON/LYO matches.
+
+**Operational rule (one-line):** "market-seed pilot opens with all rows pending + proxy + rayon_confirmed=unsure; producer-pass research hardens decisions over time."
+
+### 13.2 [market-only] Prefix Flag Standard
+
+All claude_notes for market-seed rows must begin with the standardized prefix:
+
+```
+[market-only] No Tier 0 internal workbook evidence. Seeded from market-first viscose research.
+```
+
+This prefix replaces the need for a new schema enum (`status = market_seed` was rejected to keep schema clean). The flag plus `rayon_confirmed_candidate = unsure` is sufficient to identify and filter these rows downstream. Future families opening as market-seed should use the same prefix structure with the family name swapped.
+
+### 13.3 Three-Field Default State for Market-Seed Rows
+
+Market-seed rows differ from workbook-anchored rows in three boolean/enum fields. Lock these as the **default initial state** before any decision sharpening:
+
+| Field | Workbook-anchored | Market-seed |
+|---|---|---|
+| `tier_0_internal` | TRUE | **FALSE** |
+| `rayon_confirmed_candidate` | (typically blank or specific) | **unsure** |
+| `active_tracked_candidate` | TRUE/yes | **pending** |
+| `has_commercial_use_case` | TRUE | **FALSE** |
+| `market_common_candidate` | yes/no/pending (research-decided) | **pending** (locked initial) |
+
+Critical rule from Mert: even if evidence supports `yes` (e.g. Ne 30/1 viscose ring is obviously commodity-mainstream globally), market_common_candidate must start as `pending`. Sharpening to `yes/mainstream` happens only after producer-pass research is fully done. "Looks like commodity" is not the same as "market_common confirmed."
+
+### 13.4 Fiber Anchor vs Yarn Anchor Distinction
+
+Critical distinction not relevant for synthetic filament (where the same producer makes the chip → fiber → yarn, e.g. Toray, Indorama). For staple-fiber natural/regenerated families:
+
+- **Fiber anchor** = raw fiber producer (e.g. Birla Cellulose 824 KTPA VSF, Sateri 1.9M tonnes/yr, Lenzing premium MMCF). Family-support level evidence only.
+- **Yarn anchor** = independent spinner/converter who buys raw fiber and produces the actual yarn-level product (e.g. Aditya Birla Yarn 150K MT, Rajaguru Spinning Mills, Shijiazhuang Fibersyarn). Spec-direct evidence comes from this layer.
+
+For market-first pilots, **producer-pass research must explicitly cover both layers**. A pilot that only documents fiber anchors will have zero spec-direct Tier 2 evidence and the rows will incorrectly stay weak. Yarn-level traders (e.g. Texvin International) are also valid spec-direct evidence when they publish concrete price quotes for specific Ne counts and spinning technologies.
+
+### 13.5 Tier 4 Proxy Logic at Different Resolution Levels
+
+`tier_4_benchmark` enum has three tiers: `direct`, `proxy`, `estimate`. The choice depends on the **resolution match between the benchmark and the spec**:
+
+- **direct** — benchmark covers the exact spec at exact resolution (e.g. ICE Cotton No.2 for cotton lint price, SunSirs Polyester FDY 75D for PES_75D yarn at chip-fiber level).
+- **proxy** — benchmark covers a related quantity at a different resolution; conversion model needed (e.g. SunSirs VSF fiber index → yarn cost via spinning markup ~$0.80-1.45/kg).
+- **estimate** — no usable benchmark, qualitative only.
+
+Important: when the benchmark exists but at a different price-level (e.g. SunSirs Polyamide FDY ~$2.07/kg SE Asia commodity vs our Italian premium PA6.6 78/68 at $8.37/kg), `tier_4_benchmark = estimate` is correct, not `proxy`. Proxy means "use it via a conversion model"; if the conversion model itself fails (price-level mismatch too large), fall back to estimate. Document the reason in claude_notes.
+
+### 13.6 _NEW: Driver Slug Prefix Convention
+
+When `primary_driver_candidate` references a slug that does not yet exist in `dim_material`, prefix it with `_NEW:` (e.g. `_NEW:viscose_staple`). The prefix:
+
+1. Flags to Phase B5 migration script that this slug must be registered before the row can be activated.
+2. Prevents accidental joins in dashboard queries (a `_NEW:` slug will not match any real `dim_material.slug`).
+3. Carries semantic intent forward — the slug name (`viscose_staple`) is the proposed final name, not a placeholder.
+
+Existing scaffold rows from Migration 009 already used this convention (`_NEW:viscose_staple` was pre-flagged). Any new family pilot should follow the same pattern when the driver slug isn't yet in `dim_material`.
+
+### 13.7 Schema Enum Runtime Discovery (Defensive Script Pattern)
+
+Schema enum constraints in the evidence sheet are not visible from code without inspection. Subfamily enum was discovered at runtime when v2 script wrote `subfamily = "spun"` and Apps Script returned:
+
+```
+Exception: Allowed: filament, staple_ring, staple_vortex, staple_oe
+```
+
+Pre-check passed (canonical_code matched), but enum write failed mid-execution. Row 2 was left in an inconsistent partial-write state.
+
+**Defensive pattern locked:** the existing pre-check verifies row identity; add a **post-write verification phase** that checks every enum-bound field, not just signatures. The viscose v3 verification expanded from 7 checks to 13 checks per row including `subfamily`, `count_type`, `tier_4_benchmark`, `has_commercial_use_case`, `market_common_candidate`, `pricing_basis_candidate`, `rayon_confirmed_candidate`, `primary_driver_candidate`, `status`. When any check fails, the script logs the actual vs expected value, making the enum mismatch visible immediately.
+
+**Code template:**
+
+```javascript
+// Per-row verify with full enum coverage
+const checks = [
+  { name: 'subfamily',     actual: actualSf,   expected: expected.sf },
+  { name: 'count_type',    actual: actualCt,   expected: 'Ne' },
+  { name: 'tier_4',        actual: actualT4,   expected: 'proxy' },
+  { name: 'market_common', actual: actualMc,   expected: 'pending' },
+  { name: 'pricing_basis', actual: actualPb,   expected: 'proxy' },
+  // ... etc
+];
+checks.forEach(c => {
+  if (c.actual !== c.expected) {
+    Logger.log('  ' + c.name + ' FAIL: got "' + c.actual + '" expected "' + c.expected + '"');
+    rowOk = false;
+  }
+});
+```
+
+Known schema enums discovered as of Faz 1 viscose:
+- `subfamily`: filament | staple_ring | staple_vortex | staple_oe
+- `count_type`: Ne (capital N), denier (others not yet probed)
+- `tier_4_benchmark`: direct | proxy | estimate
+- `market_common_candidate`: yes | no | pending
+- `pricing_basis_candidate`: direct | proxy | estimate
+- `rayon_confirmed_candidate`: unsure | yes | no (string enum, not boolean)
+- `active_tracked_candidate`: pending | yes | no (string enum, not boolean)
+- `status`: research_filled | (others not yet probed)
+- `evidence_strength`: weak | moderate | strong | insufficient (computed by sheet formula)
+
+Add to this list as future pilots discover new enum values.
+
+---
+
+## 14. Methodology Branches Summary
+
+After Phase B3 + Faz 1 viscose, the platform has two parallel pilot methodologies:
+
+| Aspect | Workbook-anchored | Market-only seed |
+|---|---|---|
+| Starting point | yarn_costs Tier 0 records | Producer-pass market research |
+| Tier 0 | TRUE | FALSE |
+| Initial market_common state | research-decided (yes/no/pending) | pending (locked) |
+| Default rayon_confirmed | (not set) | unsure |
+| claude_notes prefix | none | [market-only] |
+| Use case | Active procurement family with workbook records | Family with structural workbook gap (procurement may exist but not digitized) |
+| Examples | Polyester filament FDY (11), Polyamide HT (4), Polyamide apparel (3) | Viscose staple/spun (5) |
+
+Future families to be opened: Modal staple/spun (market-only seed, similar to viscose), Lyocell (market-only seed, deferred), Viscose filament (waiting on Mert's spec list, methodology TBD), PV/PM blends (workbook-anchored if blend records exist, otherwise market-only seed).
+
+---
