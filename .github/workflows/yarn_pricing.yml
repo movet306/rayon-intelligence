@@ -1,0 +1,72 @@
+﻿name: Yarn Pricing Daily
+
+# Runs after daily_scraper.yml (which scrapes price_metrics_daily at 08:00 UTC).
+# Scheduled at 09:00 UTC to ensure fresh upstream commodity prices are available.
+# Also runnable on-demand via the Actions tab (workflow_dispatch).
+on:
+  schedule:
+    - cron: '0 9 * * *'    # 09:00 UTC = 12:00 Istanbul
+
+  workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: 'Number of past days to backfill (0 = today only)'
+        required: false
+        default: '0'
+        type: string
+      dry_run:
+        description: 'Dry-run mode (log only, no DB write)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  compute-yarn-pricing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --quiet psycopg2-binary
+
+      - name: Run yarn pricing engine
+        env:
+          DATABASE_URL: ${{ secrets.RAYON_DATABASE_URL }}
+        run: |
+          # Build the command based on workflow_dispatch inputs (or defaults)
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.backfill_days }}" != "" ] && [ "${{ github.event.inputs.backfill_days }}" != "0" ]; then
+            ARGS="$ARGS --backfill ${{ github.event.inputs.backfill_days }}"
+          fi
+          echo "Running: python scripts/build_yarn_pricing.py $ARGS"
+          python scripts/build_yarn_pricing.py $ARGS
+
+      - name: Upload audit log
+        # Always upload audit log, even on failure, to debug
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pricing-audit-${{ github.run_id }}
+          path: logs/pricing_inference/
+          retention-days: 30
+
+      - name: Notify on failure
+        # Optional: hook to Slack/Telegram. For now, log only â€” fails will be
+        # visible in the GitHub Actions run history.
+        if: failure()
+        run: |
+          echo "::warning::Yarn pricing run failed. Check audit log artifact and run logs."
+
