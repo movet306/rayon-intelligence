@@ -831,28 +831,47 @@ def get_yarn_master():
     }
 
 
-# ── /api/yarn_pressure ─────────────────────────────────────────────────────────
+# â”€â”€ /api/yarn_pressure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.get("/api/yarn_pressure")
 def get_yarn_pressure():
     """
-    For each yarn, returns estimated cost pressure based on primary driver.
-    Uses price_metrics_daily gold layer. Phase 1: indicative only.
+    For each yarn, returns estimated cost pressure based on primary driver,
+    plus Phase C yarn-level estimated pricing.
 
-    Coverage status is computed per-row in Python (not SQL) because the logic
-    is still evolving. Possible values:
-      - quote-validated : has a supplier quote in fact_supplier_quotes (last 90d)
+    Two layers of pricing data are returned, side by side:
+
+    1. Driver-level pressure (Phase A/B):
+       - driver_price_usd, driver_change_7d, etc. from price_metrics_daily
+         via dim_yarn_price_driver mapping.
+       - pressure_signal derived from change_7d (rising/firming/stable/easing/falling/watch)
+
+    2. Yarn-level estimated pricing (Phase C):
+       - yarn_estimated_index_usd_per_kg, yarn_pricing_method, yarn_confidence,
+         yarn_pressure_signal from fact_yarn_price_pressure.
+       - Computed daily by build_yarn_pricing.py via tier-based waterfall.
+       - Yarn-level pressure_7d is sparse until 7+ days of history accumulate.
+
+    Both layers coexist; driver-level pressure remains primary signal.
+    Yarn-level pricing is a complementary detail (final yarn $/kg).
+
+    Coverage status (driver-level interpretation, kept in Python):
+      - quote-validated : has supplier quote in fact_supplier_quotes (last 90d)
       - placeholder     : dim_yarn_master.is_placeholder = true
       - driver-priced   : pricing_eligible + has driver match + has price data
       - not-covered     : pricing_eligible = false OR no driver mapping OR no price
 
-    Pressure signals (derived from driver change_7d):
+    Pressure signals (driver-level, derived from driver change_7d):
       - rising  : > +5%
       - firming : > +2% (and <= +5%)
       - stable  : -2% to +2%
       - easing  : < -2% (and >= -5%)
       - falling : < -5%
       - watch   : no data / insufficient
+
+    Yarn-level pressure signal enum (from fact_yarn_price_pressure):
+      - rising / stable / falling / no_data
+      - Phase D will broaden to firming/easing/watch.
     """
     # Yarn IDs with fresh quotes (last 90 days). Currently empty, future-proof.
     quote_rows = _rows("""
@@ -862,8 +881,8 @@ def get_yarn_pressure():
     """)
     yarns_with_quotes = {r["yarn_id"] for r in quote_rows}
 
-    # Main query — all yarns, including placeholders and non-eligible specs.
-    # Now includes filament_count and alias_count for spec metadata rendering.
+    # Main query â€” all yarns, including placeholders and non-eligible specs.
+    # Phase C: includes yarn-level pricing from fact_yarn_price_pressure.
     rows = _rows("""
         SELECT
             ym.yarn_id,
@@ -882,6 +901,7 @@ def get_yarn_pressure():
             COALESCE(ac.alias_count, 0) AS alias_count,
             yd.primary_driver_slug,
             yd.price_confidence,
+            -- Driver-level pricing (Phase A/B, from price_metrics_daily)
             pmd.price_usd::float        AS driver_price_usd,
             pmd.change_7d::float        AS driver_change_7d,
             pmd.change_1d::float        AS driver_change_1d,
@@ -890,6 +910,15 @@ def get_yarn_pressure():
             pmd.confidence_tier         AS driver_data_quality,
             dm.lag_min_weeks,
             dm.lag_max_weeks,
+            -- Yarn-level pricing (Phase C, from fact_yarn_price_pressure)
+            yp.yarn_calc_date,
+            yp.yarn_estimated_index_usd_per_kg::float,
+            yp.yarn_driver_price_usd::float,
+            yp.yarn_pressure_signal,
+            yp.yarn_pressure_7d::float,
+            yp.yarn_confidence,
+            yp.yarn_pricing_method,
+            -- Driver-level pressure signal (existing, derived from change_7d)
             CASE
                 WHEN pmd.change_7d IS NULL     THEN 'watch'
                 WHEN pmd.change_7d > 5         THEN 'rising'
@@ -914,6 +943,20 @@ def get_yarn_pressure():
             FROM dim_yarn_label_alias
             GROUP BY yarn_id
         ) ac ON ac.yarn_id = ym.yarn_id
+        -- Phase C: latest yarn-level pricing per yarn_id
+        LEFT JOIN (
+            SELECT DISTINCT ON (yarn_id)
+                yarn_id,
+                calc_date          AS yarn_calc_date,
+                driver_price_usd   AS yarn_driver_price_usd,
+                estimated_index    AS yarn_estimated_index_usd_per_kg,
+                pressure_signal    AS yarn_pressure_signal,
+                pressure_7d        AS yarn_pressure_7d,
+                confidence         AS yarn_confidence,
+                pricing_method     AS yarn_pricing_method
+            FROM fact_yarn_price_pressure
+            ORDER BY yarn_id, calc_date DESC
+        ) yp ON yp.yarn_id = ym.yarn_id
         ORDER BY
             ym.fiber_family,
             CASE
@@ -956,13 +999,25 @@ def get_yarn_pressure():
         "total":           len(rows),
     }
 
+    # Phase C: yarn-level pricing coverage stats
+    yarn_pricing_summary = {
+        "with_yarn_pricing":      sum(1 for r in rows if r.get("yarn_estimated_index_usd_per_kg") is not None),
+        "tier_4_benchmark_proxy": sum(1 for r in rows if r.get("yarn_pricing_method") == "tier_4_benchmark_proxy"),
+        "tier_4_proxy_fallback":  sum(1 for r in rows if r.get("yarn_pricing_method") == "tier_4_proxy_fallback"),
+        "latest_calc_date":       max(
+            (r["yarn_calc_date"] for r in rows if r.get("yarn_calc_date")),
+            default=None,
+        ),
+    }
+
     return {
-        "by_family":         by_family,
-        "flat":              rows,
-        "coverage_summary":  coverage_summary,
-        "confidence_note":   "indicative — driver-based estimates only, not validated quotes",
-        "subspec_warning":   "yarns with subspec_sensitive=true may have pricing variants not captured here",
-        "phase":             "Phase 1 — synthetic yarn driver mapping only. Cotton / viscose / blend = Phase 2.",
+        "by_family":            by_family,
+        "flat":                 rows,
+        "coverage_summary":     coverage_summary,
+        "yarn_pricing_summary": yarn_pricing_summary,
+        "confidence_note":      "indicative - driver-based estimates only, not validated quotes",
+        "subspec_warning":      "yarns with subspec_sensitive=true may have pricing variants not captured here",
+        "phase":                "Phase C - yarn-level estimated pricing active alongside driver-level pressure tracking",
     }
 
 
