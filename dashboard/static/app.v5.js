@@ -1384,7 +1384,7 @@ async function loadYarnIntelligence() {
   const covStrip = document.getElementById('yarn-coverage-strip');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="8" class="loading">Yukleniyor...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="loading">Yukleniyor...</td></tr>';
 
   try {
     const data  = await api('/api/yarn_pressure');
@@ -1544,13 +1544,14 @@ async function loadYarnIntelligence() {
           <td class="num">${fmtPressure(sample.pressure_signal)}</td>
           <td class="num">${fmtLag(sample.lag_min_weeks, sample.lag_max_weeks)}</td>
           <td class="num">${fmtTier(sample.driver_data_quality)}</td>
+          <td class="num"></td>
         </tr>`;
       } else {
         html += `<tr class="yarn-driver-row yarn-driver-row-nodriver" data-group="${groupId}">
           <td class="yarn-expand-cell">
             <span class="yarn-expand-caret">\u25B6</span>
           </td>
-          <td colspan="7" class="muted">
+          <td colspan="8" class="muted">
             <em>No driver assigned</em> \u00B7 ${items.length} spec${items.length === 1 ? '' : 's'}
           </td>
         </tr>`;
@@ -1572,11 +1573,22 @@ async function loadYarnIntelligence() {
 
         const coverageCell = renderCoverageChip(y.coverage_status || 'driver-priced');
 
+        const yarnPriceCell = y.yarn_estimated_index_usd_per_kg != null
+          ? `<div class="yarn-price-cell">
+               <span class="yarn-price-value">$${y.yarn_estimated_index_usd_per_kg.toFixed(2)}</span>
+               <div class="yarn-price-badges">
+                 <span class="pricing-method-badge pm-${(y.yarn_pricing_method || 'unknown').replace(/_/g, '-')}" title="${y.yarn_pricing_method || ''}">${y.yarn_pricing_method === 'tier_4_benchmark_proxy' ? 'Benchmark' : y.yarn_pricing_method === 'tier_4_proxy_fallback' ? 'Proxy' : '?'}</span>
+                 <span class="confidence-badge conf-${y.yarn_confidence || 'unknown'}" title="Confidence: ${y.yarn_confidence || 'unknown'}">${y.yarn_confidence || '?'}</span>
+               </div>
+             </div>`
+          : '<span class="muted">\u2014</span>';
+
         html += `<tr class="yarn-spec-row" data-group="${groupId}" style="display:none">
           <td></td>
           <td class="spec-primary">${esc(y.yarn_code)}${subspec}</td>
           <td colspan="5" class="spec-meta-cell">${chips.join(' ')}</td>
           <td class="num">${coverageCell}</td>
+          <td class="num">${yarnPriceCell}</td>
         </tr>`;
       });
     });
@@ -1602,7 +1614,7 @@ async function loadYarnIntelligence() {
     }
 
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="8" class="error">Yuklenemedi: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="error"h>Yuklenemedi: ${e.message}</td></tr>`;
   }
 }
 

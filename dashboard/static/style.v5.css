@@ -2575,3 +2575,63 @@ html, body {
   background: rgba(255, 255, 255, 0.18);
   color: #e6e9ef;
 }
+/* === Phase C: yarn-level pricing badges ============================ */
+.yarn-price-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.yarn-price-value {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #c9d1d9);
+}
+.yarn-price-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.pricing-method-badge,
+.confidence-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+}
+.pricing-method-badge.pm-tier-4-benchmark-proxy {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+.pricing-method-badge.pm-tier-4-proxy-fallback {
+  background: rgba(240, 136, 62, 0.15);
+  color: #f0883e;
+  border: 1px solid rgba(240, 136, 62, 0.3);
+}
+.pricing-method-badge.pm-unknown {
+  background: rgba(139, 148, 158, 0.15);
+  color: #8b949e;
+  border: 1px solid rgba(139, 148, 158, 0.3);
+}
+.confidence-badge.conf-high {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+}
+.confidence-badge.conf-medium {
+  background: rgba(240, 136, 62, 0.15);
+  color: #f0883e;
+}
+.confidence-badge.conf-low {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+}
+.confidence-badge.conf-unknown {
+  background: rgba(139, 148, 158, 0.15);
+  color: #8b949e;
+}
