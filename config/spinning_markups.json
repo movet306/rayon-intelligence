@@ -1,14 +1,18 @@
 {
   "_metadata": {
-    "version": "v1.0.0",
+    "version": "v1.1.0",
     "last_updated": "2026-05-06",
     "source": "Texvin spinning markup baseline (April 2026 research) + Phase B fair evidence calibration",
-    "unit": "USD/kg added on top of upstream commodity benchmark price",
+    "unit": "USD/kg added on top of upstream commodity benchmark price (USD/kg)",
+    "changelog": {
+      "v1.1.0": "Renamed filament bucket keys to match driver_inference output: polyester_filament_FDY -> polyester_fdy, polyester_filament_DTY -> polyester_dty, polyester_filament_POY -> polyester_poy, polyester_filament_GIPE removed (DTY bucket used). Added polyamide_fdy bucket.",
+      "v1.0.0": "Initial Texvin baseline + family-specific buckets"
+    },
     "notes": [
       "Markups are family-specific; subfamily/spinning system/ply adjustments are multipliers.",
-      "Final yarn price = upstream_benchmark_price + family_base_markup * adjustments.",
+      "Final yarn price = upstream_benchmark_price (USD/kg) + family_base_markup * adjustments.",
       "Re-calibrate quarterly against Tier 1 Turkish quote evidence (sheet).",
-      "When evidence diverges >25% from this model, flag for manual review — markup buckets may need refinement.",
+      "When evidence diverges >25% from this model, flag for manual review.",
       "Modal proxy: rayon_yarn benchmark + 0.20 USD/kg (modal_premium) BEFORE markup.",
       "Recycled: virgin commodity benchmark + recycled_premium (0.30-0.50 USD/kg) BEFORE markup."
     ]
@@ -22,7 +26,7 @@
   },
 
   "family_base_markup": {
-    "_doc": "Base spinning markup per fiber family (USD/kg). Applied as f(spinning_system, ply, count).",
+    "_doc": "Base spinning markup per fiber family / driver_slug (USD/kg). Applied as f(spinning_system, ply, count).",
 
     "viscose_staple": {
       "ring_base": 1.00,
@@ -57,35 +61,34 @@
     "polyamide_staple": {
       "ring_base": 1.40,
       "vortex_base": 1.20,
-      "open_end_base": null,
       "_range_per_kg": "1.20 - 1.60",
       "_note": "Small market, limited evidence. Confidence: low."
     },
 
-    "polyester_filament_FDY": {
-      "_doc": "FDY = Fully Drawn Yarn, post-extrusion finished filament",
+    "polyester_fdy": {
+      "_doc": "FDY = Fully Drawn Yarn, post-extrusion finished filament. Default for polyester filament without specific suffix (incl. PA6.6 HT tire cord rerouted via filament fallback).",
       "base": 0.55,
       "_range_per_kg": "0.40 - 0.70"
     },
 
-    "polyester_filament_DTY": {
-      "_doc": "DTY = Draw Textured Yarn (texturized FDY)",
+    "polyester_dty": {
+      "_doc": "DTY = Draw Textured Yarn (texturized FDY). Also covers GIPE/Air Covered Yarn variant (DTY base + lycra integration overhead, ~0.20 implicit).",
       "base": 0.65,
       "_range_per_kg": "0.50 - 0.80",
       "_note": "Texturizing adds ~0.10-0.15 over FDY"
     },
 
-    "polyester_filament_POY": {
+    "polyester_poy": {
       "_doc": "POY = Partially Oriented Yarn (DTY precursor)",
       "base": 0.40,
       "_range_per_kg": "0.30 - 0.50"
     },
 
-    "polyester_filament_GIPE": {
-      "_doc": "GIPE / Air Covered Yarn = DTY wrapped around lycra core",
-      "base": 0.85,
-      "_range_per_kg": "0.70 - 1.00",
-      "_note": "DTY base + lycra integration cost"
+    "polyamide_fdy": {
+      "_doc": "Polyamide filament default bucket. Covers PA6/PA66 generic FDY and HT tire cord variants.",
+      "base": 0.70,
+      "_range_per_kg": "0.55 - 0.85",
+      "_note": "Higher than polyester_fdy due to chip cost differential"
     },
 
     "pv_blend_staple": {
@@ -118,14 +121,27 @@
 
     "corespun_staple": {
       "ring_base": 1.80,
-      "vortex_base": null,
       "_range_per_kg": "1.60 - 2.20",
       "_note": "Includes ~0.40 elastane integration premium over base ring spun"
+    },
+
+    "recycled_polyester_staple": {
+      "_doc": "Same markup base as polyester_staple; the recycled premium is applied in fiber_premium_over_benchmark (added to upstream price BEFORE this markup).",
+      "ring_base": 0.95,
+      "vortex_base": 0.80,
+      "_range_per_kg": "0.80 - 1.10"
+    },
+
+    "recycled_blend_staple": {
+      "_doc": "Mirrors cotton_blend_staple structure (most recycled blends are cotton-anchored).",
+      "ring_base": 1.40,
+      "vortex_base": 1.20,
+      "_range_per_kg": "1.20 - 1.60"
     }
   },
 
   "spec_adjustments": {
-    "_doc": "Multiplicative adjustments to family_base_markup. Applied in this order: ply -> compact -> combed -> color -> recycled. Compounded.",
+    "_doc": "Multiplicative adjustments to family_base_markup. Applied in this order: ply -> compact -> combed -> color -> specialty. Compounded.",
 
     "ply": {
       "1": 1.00,
@@ -151,14 +167,13 @@
       "COLORED": 1.15,
       "DOPE_DYED": 1.15,
       "PIECE_DYED": 1.20,
-      "_note": "Dope-dyed and colored: +10-20% per source (chips dyed at extrusion or yarn-stage dyed)"
+      "_note": "Dope-dyed and colored: +10-20%"
     },
 
     "specialty": {
       "corespun": 1.00,
       "siro": 1.05,
-      "slub": 1.15,
-      "_note": "Specialty constructions adjustment vs vanilla family base"
+      "slub": 1.15
     }
   },
 
@@ -168,7 +183,6 @@
     "Ne_20_to_30": 1.00,
     "Ne_30_to_40": 1.08,
     "Ne_40_to_60": 1.18,
-    "Ne_60_plus":  1.30,
-    "denier_bands_doc": "For filament: denier_class column already maps to bands; markup applied via family bucket (FDY/DTY/POY/GIPE)"
+    "Ne_60_plus":  1.30
   }
 }
