@@ -78,6 +78,24 @@ CONFIDENCE_MAP = {
 }
 
 
+# Phase C+1: driver slug normalization
+# Sheet workflow may use _NEW: prefix for drivers not yet in dim_material,
+# or generic family names. Map to existing canonical slugs to satisfy FK.
+DRIVER_ALIAS = {
+    'polyester_filament': 'polyester_dty',  # generic filament -> closest existing
+}
+
+
+def normalize_driver(driver_str):
+    """Normalize driver slug from sheet: strip _NEW: prefix, apply aliases."""
+    text = s(driver_str)
+    if text is None:
+        return None
+    if text.startswith('_NEW:'):
+        text = text[5:]
+    return DRIVER_ALIAS.get(text, text)
+
+
 def derive_material_form(subfamily):
     """Derive material_form (NOT NULL in dim_yarn_master) from subfamily.
 
@@ -224,8 +242,8 @@ def row_to_params(row, sheet_row_id):
         b(row.get('recycle_flag'), default=False),
         s(row.get('color_state')),
         s(row.get('specialty_flags')),
-        s(row.get('primary_driver_candidate')),
-        s(row.get('secondary_driver_candidate')),
+        normalize_driver(row.get('primary_driver_candidate')),
+        normalize_driver(row.get('secondary_driver_candidate')),
         is_market_common,
         b(row.get('rayon_confirmed_candidate'), default=False),
         b(row.get('active_tracked_candidate'), default=False),
