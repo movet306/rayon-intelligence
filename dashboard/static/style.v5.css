@@ -2635,3 +2635,21 @@ html, body {
   background: rgba(139, 148, 158, 0.15);
   color: #8b949e;
 }
+/* Phase C+1: yarn-level pressure trend display */
+.yarn-trend-row {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  margin-top: 2px;
+  opacity: 0.85;
+  align-items: center;
+}
+.yarn-trend-row .pct-up   { color: #ef4444; }
+.yarn-trend-row .pct-down { color: #10b981; }
+.yarn-trend-row .pct-flat { color: #94a3b8; }
+.yarn-trend-row sub {
+  font-size: 9px;
+  opacity: 0.6;
+  margin-left: 1px;
+  margin-right: 4px;
+}

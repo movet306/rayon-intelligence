@@ -1573,9 +1573,20 @@ async function loadYarnIntelligence() {
 
         const coverageCell = renderCoverageChip(y.coverage_status || 'driver-priced');
 
+        // Phase C+1: yarn-level 7d/30d pressure display
+        const fmtTrend = (v) => {
+          if (v == null) return '';
+          const cls = v > 0.5 ? 'pct-up' : (v < -0.5 ? 'pct-down' : 'pct-flat');
+          const sign = v > 0 ? '+' : '';
+          return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
+        };
+        const trendRow = (y.yarn_pressure_7d != null || y.yarn_pressure_30d != null)
+          ? `<div class="yarn-trend-row">${y.yarn_pressure_7d != null ? `${fmtTrend(y.yarn_pressure_7d)}<sub>7d</sub>` : ''}${y.yarn_pressure_30d != null ? `${fmtTrend(y.yarn_pressure_30d)}<sub>30d</sub>` : ''}</div>`
+          : '';
         const yarnPriceCell = y.yarn_estimated_index_usd_per_kg != null
           ? `<div class="yarn-price-cell">
                <span class="yarn-price-value">$${y.yarn_estimated_index_usd_per_kg.toFixed(2)}</span>
+               ${trendRow}
                <div class="yarn-price-badges">
                  <span class="pricing-method-badge pm-${(y.yarn_pricing_method || 'unknown').replace(/_/g, '-')}" title="${y.yarn_pricing_method || ''}">${y.yarn_pricing_method === 'tier_4_benchmark_proxy' ? 'Benchmark' : y.yarn_pricing_method === 'tier_4_proxy_fallback' ? 'Proxy' : '?'}</span>
                  <span class="confidence-badge conf-${y.yarn_confidence || 'unknown'}" title="Confidence: ${y.yarn_confidence || 'unknown'}">${y.yarn_confidence || '?'}</span>
