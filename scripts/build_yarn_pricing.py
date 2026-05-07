@@ -140,6 +140,8 @@ class PricingResult:
     confidence: str
     pricing_method: str
     debug_notes: list[str] = field(default_factory=list)
+    # Phase C+1: 30-day rolling % change in yarn estimated index
+    pressure_30d: Optional[Decimal] = None
 
 
 # ---------------------------------------------------------------------------
@@ -631,6 +633,32 @@ def compute_pressure_7d(conn, yarn_id: int, current_index: Decimal,
     return ((current_index - prev) / prev * Decimal("100")).quantize(Decimal("0.01"))
 
 
+def compute_pressure_30d(conn, yarn_id: int, current_index: Decimal,
+                          on_date: date) -> Optional[Decimal]:
+    """
+    30-day price change %. Looks up estimated_index from fact_yarn_price_pressure
+    for date - 30. Returns None on cold start (first 30 days of history).
+    """
+    if current_index is None:
+        return None
+    query = """
+        SELECT estimated_index
+        FROM fact_yarn_price_pressure
+        WHERE yarn_id = %s
+          AND calc_date = %s::date - INTERVAL '30 days'
+        LIMIT 1;
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (yarn_id, on_date))
+        row = cur.fetchone()
+    if not row or row[0] is None:
+        return None
+    prev = Decimal(str(row[0]))
+    if prev == 0:
+        return None
+    return ((current_index - prev) / prev * Decimal("100")).quantize(Decimal("0.01"))
+
+
 def classify_signal(pressure_7d: Optional[Decimal]) -> str:
     if pressure_7d is None:
         return "no_data"
@@ -683,7 +711,7 @@ def write_to_fact_table(conn, results: list[PricingResult], dry_run: bool):
         rows = [
             (
                 r.calc_date, r.yarn_id, r.driver_price_usd, r.estimated_index,
-                r.pressure_7d, r.pressure_signal, r.confidence, r.pricing_method,
+                r.pressure_7d, r.pressure_30d, r.pressure_signal, r.confidence, r.pricing_method,
             )
             for r in results
         ]
@@ -692,7 +720,7 @@ def write_to_fact_table(conn, results: list[PricingResult], dry_run: bool):
             """
             INSERT INTO fact_yarn_price_pressure
                 (calc_date, yarn_id, driver_price_usd, estimated_index,
-                 pressure_7d, pressure_signal, confidence, pricing_method)
+                 pressure_7d, pressure_30d, pressure_signal, confidence, pricing_method)
             VALUES %s
             """,
             rows,
@@ -746,6 +774,9 @@ def daily_run(conn, on_date: date, dry_run: bool = False,
             result.pressure_7d = compute_pressure_7d(
                 conn, yarn.yarn_id, result.estimated_index, on_date
             )
+            result.pressure_30d = compute_pressure_30d(
+                conn, yarn.yarn_id, result.estimated_index, on_date
+            )
             result.pressure_signal = classify_signal(result.pressure_7d)
             results.append(result)
         except Exception as e:
@@ -771,7 +802,14 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    # Phase C+1: TCP keepalive to survive Railway proxy idle timeout (~30min)
+    conn = psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+    )
     try:
         if args.backfill > 0:
             today = date.today()

@@ -899,7 +899,7 @@ def get_yarn_pressure():
             ym.is_placeholder,
             ym.pricing_eligible,
             COALESCE(ac.alias_count, 0) AS alias_count,
-            yd.primary_driver_slug,
+            COALESCE(yd.primary_driver_slug, ym.primary_driver_slug) AS primary_driver_slug,
             yd.price_confidence,
             -- Driver-level pricing (Phase A/B, from price_metrics_daily)
             pmd.price_usd::float        AS driver_price_usd,
@@ -916,6 +916,7 @@ def get_yarn_pressure():
             yp.yarn_driver_price_usd::float,
             yp.yarn_pressure_signal,
             yp.yarn_pressure_7d::float,
+            yp.yarn_pressure_30d::float,
             yp.yarn_confidence,
             yp.yarn_pricing_method,
             -- Driver-level pressure signal (existing, derived from change_7d)
@@ -936,8 +937,8 @@ def get_yarn_pressure():
             FROM price_metrics_daily
             WHERE frequency = 'daily'
             ORDER BY material, metric_date DESC
-        ) pmd ON pmd.material = yd.primary_driver_slug
-        LEFT JOIN dim_material dm ON dm.slug = yd.primary_driver_slug
+        ) pmd ON pmd.material = COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
+        LEFT JOIN dim_material dm ON dm.slug = COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
         LEFT JOIN (
             SELECT yarn_id, COUNT(*) AS alias_count
             FROM dim_yarn_label_alias
@@ -952,6 +953,7 @@ def get_yarn_pressure():
                 estimated_index    AS yarn_estimated_index_usd_per_kg,
                 pressure_signal    AS yarn_pressure_signal,
                 pressure_7d        AS yarn_pressure_7d,
+                pressure_30d       AS yarn_pressure_30d,
                 confidence         AS yarn_confidence,
                 pricing_method     AS yarn_pricing_method
             FROM fact_yarn_price_pressure
@@ -979,7 +981,8 @@ def get_yarn_pressure():
         elif (
             not r.get("pricing_eligible")
             or not r.get("primary_driver_slug")
-            or r.get("driver_price_usd") is None
+            or (r.get("driver_price_usd") is None
+                and r.get("yarn_estimated_index_usd_per_kg") is None)
         ):
             r["coverage_status"] = "not-covered"
         else:
