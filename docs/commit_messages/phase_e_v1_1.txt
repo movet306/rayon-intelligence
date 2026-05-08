@@ -1,0 +1,23 @@
+docs: Phase E roadmap v1.1 - add P0-D LLM relevance scoring fix
+
+Diagnostic findings (8 May 2026):
+- 4 scrapers all healthy (200 status, fresh content from May 8)
+- tekstil_teknik 403 issue confirmed FALSE (memory was wrong)
+- textilegence treadmill confirmed FALSE (lang=en endpoint
+  is fresh, newest article 2026-05-08)
+- Real bottleneck: LLM relevance scoring uses discrete buckets
+  (0.0/0.1/0.2/0.6) with 0.21-0.59 gap. Rayon-relevant articles
+  (Techtextil, EU regulation, ICAC carbon) score 0.20 and miss
+  the 0.25 threshold.
+
+P0-D added with three sub-tasks:
+- P0-D.1: Threshold reduction (0.25 -> 0.20) + backfill (~30 min)
+- P0-D.2: LLM prompt revision with Rayon business context +
+  granular scoring rubric (~1.5-2 hours)
+- P0-D.3: Re-analyze last 30 days (~15 min, ~$0.04 cost)
+
+Updated:
+- Phased Plan: P0 expanded to 8h, structured as P0-A/B/C/D
+- Success Metrics: added score variance, threshold, signals/day
+- Sequencing: critical path now P0-D -> P1-A -> P1-B -> P3
+- Changelog: v1.1 entry with diagnostic findings summary

@@ -1,6 +1,6 @@
 # Phase E — Market Signals Roadmap
 
-> **Status:** Draft v1.0 · Created 8 May 2026
+> **Status:** Draft v1.1 · Updated 8 May 2026
 > **Owner:** Mert Övet
 > **Repo:** [movet306/rayon-intelligence](https://github.com/movet306/rayon-intelligence)
 > **Predecessor:** Phase D — Yarn Intelligence (closed 8 May 2026, 5 commits)
@@ -84,48 +84,124 @@ Mevcut 4 kaynak generic textile news. Decision-grade kaynaklar yok:
 
 ## 4. Phased Plan
 
-### P0 — Quick Wins · 1-2 gün · ~5 saat
+### P0 — Quick Wins · 2-3 gün · ~8 saat
 
-**Goal:** Mevcut pipeline'ı kalibre et, ucuz fix'leri kapat. Yeni kod yazmadan mevcut sistem kalitesini yükselt.
+**Goal:** Mevcut pipeline'ı kalibre et, ucuz fix'leri kapat. Yeni kod yazmadan mevcut sistem kalitesini yükselt. Plus 8 May 2026 diagnosticinde keşfedilen LLM relevance scoring problemini çöz.
 
-#### Tasks
+#### P0-A · `published_at` scraper fix · ~2 saat
 
-1. **`published_at` scraper fix** — 4 scraper için
-   - `fibre2fashion_scraper.py`, `just_style_scraper.py`, `tekstilteknik_scraper.py`, `textilegence_scraper.py`
-   - Sıralı parse stratejisi: `<meta property="article:published_time">` → JSON-LD `datePublished` → `<time datetime="...">` → URL'den regex
-   - Backfill script (`scripts/backfill_published_at.py`) — son 330 article için yeniden parse
+- `fibre2fashion.py`, `just_style.py`, `tekstil_teknik.py`, `textilegence.py` (4 scraper)
+- Sıralı parse stratejisi: `<meta property="article:published_time">` → JSON-LD `datePublished` → `<time datetime="...">` → URL'den regex
+- WP REST API kaynaklı textilegence için `post['date']` zaten geliyor, sadece insert'e taşı
+- Backfill script (`scripts/migrations/backfill_published_at.py`) — mevcut 330 article için yeniden parse
 
-2. **LLM prompt tightening** — `scrapers/llm_analyzer.py`
-   - `signal_category`, `material_form`, `affected_segment` alanlarını **REQUIRED** olarak işaretle
-   - Hâlâ NULL gelirse fallback: `signal_category = 'OTHER'`, server-side validation
-   - Test: 5 article üzerinde dry-run
+**DoD:** Yeni article'larda `published_at` fill rate > %80, backfill sonrası mevcut 330 article'da > %50.
 
-3. **Existing enum'ı kullanmaya başla**
-   - SQL: `UPDATE companies SET category='customer' WHERE name='TDU Savunma';` (varsayılan değil, doğrula önce)
-   - Sektör derneklerini ayır (varsa)
+#### P0-B · LLM prompt: required fields · ~1 saat
 
-#### Files Affected
+- `scrapers/llm_analyzer.py` system prompt'unda
+- `signal_category`, `material_form`, `affected_segment` alanlarını **REQUIRED** olarak işaretle
+- Hâlâ NULL gelirse fallback: `signal_category = 'OTHER'`, server-side validation
+- Test: 5 article üzerinde dry-run
+
+**DoD:** Yeni signal'larda `signal_category` NULL rate < %5.
+
+#### P0-C · Companies enum kullanımı · ~30 dk
+
+- SQL: `UPDATE companies SET category='customer' WHERE name='TDU Savunma';` (varsayılan değil, doğrula önce)
+- Sektör derneklerini ayır (varsa)
+
+**DoD:** companies tablosunda en az 1 entity reclassify, 32 satırın hepsi 'competitor' olmaktan çıkar.
+
+#### P0-D · LLM Relevance Scoring Fix · ~3 saat 🆕
+
+**Goal:** 8 May 2026 diagnosticinde ortaya konan score discretization ve Rayon-spesifik bağlam eksikliği problemini çöz.
+
+**Diagnostic Bulguları (8 May 2026):**
+
+| Kontrol | Beklenen | Gerçek | Sonuç |
+|---|---|---|---|
+| 4 scraper sağlık | OK | OK ✅ | Scraper hygiene fix gereksiz |
+| tekstil_teknik 403 | Cloudflare bot detection | 200 status, 207 KB content | **Memory yanlıştı**, 403 yok |
+| textilegence treadmill | `lang=en` stale endpoint | newest 2026-05-08 ✅ | Treadmill **yok** |
+| Score dağılımı | Graduated 0-1 | 0.0/0.1/0.2/0.6 discrete | **Asıl problem** |
+| Rayon-relevant articles | 0.40+ | "EU ban" 0.20, "Techtextil" 0.20, "ICAC" 0.10 | **LLM Rayon bağlamını kaçırıyor** |
+
+**Root cause:** LLM scoring discrete bucket'larda (0.10/0.20/0.60) takılı. 0.21-0.59 boşluğu var. `RELEVANCE_THRESHOLD=0.25` yüzünden 0.20'deki yüksek-relevance article'lar (Techtextil, EU regulation, ICAC carbon credits) market_signals'a geçmiyor.
+
+##### P0-D.1 · Threshold reduction + backfill · ~30 dk
+
+1. `scrapers/llm_analyzer.py`: `RELEVANCE_THRESHOLD = 0.25` → `0.20`
+2. Backfill: `news_items.relevance_score BETWEEN 0.20 AND 0.249` → market_signals'a INSERT
+3. Test: dashboard Critical Signals + Intelligence Feed'de yeni cards görünmeli
+
+**Files:** `scrapers/llm_analyzer.py`, `scripts/migrations/threshold_backfill_0_20.py` (yeni)
+
+**DoD:** ~7-10 yeni signal market_signals'a eklendi, dashboard'da görünüyor.
+
+**Risk:** Çok düşük — additive change, mevcut signal'ları etkilemez.
+
+##### P0-D.2 · LLM prompt revision (Rayon context + granular scoring) · ~1.5-2 saat
+
+`scrapers/llm_analyzer.py` system prompt'una eklenecek Rayon business profile:
 
 ```
-scrapers/fibre2fashion_scraper.py
-scrapers/just_style_scraper.py
-scrapers/tekstilteknik_scraper.py
-scrapers/textilegence_scraper.py
-scrapers/llm_analyzer.py
-scripts/backfill_published_at.py (yeni)
+RAYON CONTEXT:
+- Business lines: woven (FOB Doğu Asya'dan ham, TR'de finishing) + knit (yarn-to-fabric integrated)
+- Material families: PES filament/staple, PA66, viscose, modal, cotton, blends, recycled (GRS)
+- Capabilities: dyeing, coating, lamination, technical/FR textiles, defense
+- Export markets: MENA (Egypt active), Eastern Europe, Russia/Ukraine, EU
+- Customer segments: konfeksiyon, ihaleciler, defense (TDU), outdoor/performance
+- Specific watch: PES/PA prices, recycled certification, technical fairs (Techtextil, ITMA), EU regulation
 ```
 
-#### Definition of Done
+Granular scoring rubric:
+- **0.40+**: Article touches Rayon business line AND material family
+- **0.30-0.39**: Adjacent (general TR textile policy, broad sector trend)
+- **0.20-0.29**: Relevant context but indirect
+- **0.10-0.19**: General industry, low Rayon-specificity
+- **0.0-0.09**: Off-topic
 
-- [ ] Yeni article'larda `published_at` fill rate > %80
-- [ ] Backfill sonrası mevcut 330 article'da fill rate > %50
-- [ ] Yeni signal'larda `signal_category` NULL rate < %5
-- [ ] companies tablosunda en az 1 entity reclassify (TDU Savunma örneği)
-- [ ] Daily run yarınki 11:00'de problem üretmeden tamamlanır
+Plus prompt'ta açık talimat: "Use the full 0.0-1.0 range. Do NOT cluster scores at 0.0/0.1/0.2/0.6."
 
-#### Risk
+**Files:** `scrapers/llm_analyzer.py`
 
-- Düşük. Tüm değişiklikler additive, mevcut akışı bozmaz. Backfill idempotent olmalı (UPDATE WHERE published_at IS NULL).
+**DoD:** Test 5 sample article'da granular scoring (en az 3'ü 0.30-0.59 aralığında).
+
+**Risk:** Orta — yeni prompt'un yan etkileri test edilmeli, daily cost +%10-15 olabilir ($0.001-0.002/gün artış).
+
+##### P0-D.3 · Re-analyze last 30 days · ~15 dk run + setup
+
+330 article × yeni prompt = ~$0.04 one-time cost.
+
+1. `scripts/migrations/reanalyze_last_30d.py` yaz
+2. news_items.relevance_score = NULL set et (last 30d)
+3. `python scrapers/llm_analyzer.py --limit 500` çağır (re-analyze)
+4. Promote pass: yeni 0.20+ article'lar market_signals'a
+
+**Files:** `scripts/migrations/reanalyze_last_30d.py` (yeni)
+
+**DoD:** Score histogram normalleşti (0.30-0.50 bucket'ı dolu), market_signals'da 30+ yeni signal.
+
+#### P0 · Files Affected (consolidated)
+
+```
+scrapers/fibre2fashion.py            (P0-A: published_at parsing)
+scrapers/just_style.py               (P0-A)
+scrapers/tekstil_teknik.py           (P0-A)
+scrapers/textilegence.py             (P0-A: post['date'] kullan)
+scrapers/llm_analyzer.py             (P0-B: required fields, P0-D.1: threshold, P0-D.2: Rayon prompt)
+scripts/migrations/backfill_published_at.py       (yeni, P0-A)
+scripts/migrations/threshold_backfill_0_20.py     (yeni, P0-D.1)
+scripts/migrations/reanalyze_last_30d.py          (yeni, P0-D.3)
+```
+
+#### P0 Risk Summary
+
+- **P0-A/B/C:** Düşük. Additive, mevcut akış bozulmaz.
+- **P0-D.1:** Çok düşük. Sadece threshold sayısal değişim.
+- **P0-D.2:** Orta. Yeni prompt → davranış değişikliği. Sample test ile valide et.
+- **P0-D.3:** Düşük. One-time backfill, idempotent.
 
 ---
 
@@ -478,7 +554,11 @@ P1'de prompt expansion sonrası `llm_cost_summary` view'ı haftada 1 kontrol edi
 | Articles with `affected_business_line` | <%20 | >%90 |
 | `published_at` fill rate | %0 | >%85 |
 | `signal_category` NULL rate | %78 | <%5 |
-| Threshold-passing rate (signal/total article) | %12 | %18-25 (target) |
+| **Relevance score buckets** | **0.0/0.1/0.2/0.6 discrete** | **graduated 0.0-1.0** |
+| **Score variance (last 30d)** | **çok düşük (3 bucket)** | **smooth distribution** |
+| **Threshold (RELEVANCE_THRESHOLD)** | **0.25** | **0.20 (P0-D.1)** |
+| **Articles >= threshold (last 30d)** | **40/330 (~%12)** | **>%25** |
+| **Market_signals/day average** | **<1** | **3-5** |
 | Daily LLM cost | ~$0.01 | <$0.015 |
 | Telegram digest format | plain | structured + action |
 | Weekly digest | yok | aktif |
@@ -488,16 +568,24 @@ P1'de prompt expansion sonrası `llm_cost_summary` view'ı haftada 1 kontrol edi
 ## 7. Sequencing & Dependencies
 
 ```
-P0 (1-2 gün)
-  └─→ P1-A: DB migration (1 gün)
-       └─→ P1-B: LLM prompt update (1 gün)
-            ├─→ P1-C: Priority entity seed (yarım gün)
-            └─→ P3: UI upgrade (paralel başlayabilir, P1-B'den schema bekler)
+P0 (2-3 gün, ~8 saat)
+  ├─→ P0-A: published_at fix (~2 saat)
+  ├─→ P0-B: required fields (~1 saat)
+  ├─→ P0-C: enum reclassify (~30 dk)
+  └─→ P0-D: LLM relevance scoring fix (~3 saat) 🆕
+        ├─→ P0-D.1: threshold 0.25→0.20 + backfill (~30 dk)
+        ├─→ P0-D.2: Rayon prompt + granular scoring (~2 saat)
+        └─→ P0-D.3: re-analyze last 30d (~15 dk)
+  ↓
+P1 (3-5 gün)
+  └─→ P1-A: DB migration → P1-B: LLM prompt expand → P1-C: priority entity seed
+       └─→ P3: UI upgrade (paralel başlayabilir, P1-B'den schema bekler)
        └─→ P2: Source expansion (P1-B sonrası anlamlı, paralel ilerleyebilir)
             └─→ P4: Productization (P2 + P3 sonrası)
 ```
 
-**Critical path:** P0 → P1-A → P1-B → P3
+**Critical path:** P0-D → P1-A → P1-B → P3
+**Acil yol (today):** P0-D.1 (30 dk) → instant dashboard impact
 **Parallelizable:** P1-C ile P2 birlikte
 **Independent:** P4 weekly digest (P0 sonrası bağımsız başlatılabilir)
 
@@ -537,7 +625,8 @@ Phase E kapanırken veya ilerleyen fazlarda değerlendirilecek:
 | Tarih | Versiyon | Değişiklik | Yapan |
 |---|---|---|---|
 | 2026-05-08 | v1.0 | İlk draft, Phase E komple roadmap | Mert + Claude |
+| 2026-05-08 | v1.1 | P0-D eklendi (LLM relevance scoring fix). Diagnostic findings: 4 scraper sağlıklı, gerçek bottleneck LLM scoring discretization (0.0/0.1/0.2/0.6 cluster, 0.21-0.59 boşluk). 3 alt-madde: D.1 threshold reduction (0.25→0.20), D.2 Rayon prompt + granular scoring, D.3 re-analyze 30d. Memory düzeltildi: tekstil_teknik 403 issue YOK (200 status), textilegence treadmill YOK (newest 2026-05-08). | Mert + Claude |
 
 ---
 
-> **Sıradaki adım:** Bu dokümanı GitHub'a commit ettikten sonra **P0**'dan başla. Tahmini başlangıç: 8 May 2026 akşam veya 9 May 2026 sabah. Tahmini tamamlanma: P0 → 9 May, P1 → 14 May, P2 → 21 May, P3 → 26 May, P4 → 5 Haz 2026.
+> **Sıradaki adım:** P0-D.1 (threshold reduction + backfill) ile başla — 30 dk içinde dashboard'da +7-10 yeni signal görünür. Sonra P0-D.2 → P0-D.3, ardından P0-A/B/C, ardından P1.
