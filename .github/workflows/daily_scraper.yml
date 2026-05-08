@@ -1,4 +1,4 @@
-﻿name: Daily Scraper
+name: Daily Scraper
 
 on:
   schedule:
@@ -62,6 +62,7 @@ jobs:
         run: python scrapers/build_price_signals.py
 
       - name: Run Texhibition exhibitor scraper
+        continue-on-error: true   # site URL changed; soft-fail until Phase E re-evaluation
         run: python scrapers/texhibition_scraper.py
 
       - name: Send Telegram report
