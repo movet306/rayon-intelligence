@@ -2653,3 +2653,29 @@ html, body {
   margin-left: 1px;
   margin-right: 4px;
 }
+/* Phase C+1: spun yarn spec chips */
+.spec-meta-chip.chip-ne {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.spec-meta-chip.chip-ply {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+.spec-meta-chip.chip-spinning {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.3);
+}
+.spec-meta-chip.chip-color-black {
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+.spec-meta-chip.chip-specialty {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border-color: rgba(234, 179, 8, 0.3);
+}

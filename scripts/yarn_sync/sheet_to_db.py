@@ -96,6 +96,20 @@ def normalize_driver(driver_str):
     return DRIVER_ALIAS.get(text, text)
 
 
+def derive_subfamily(yarn_code, subfamily_raw):
+    """Derive specific subfamily (staple_ring/vortex/oe) from yarn_code suffix
+    when sheet provides only generic 'staple'. Keeps existing specific values
+    untouched (e.g., DTY, staple_vortex from sheet pass through).
+    """
+    if subfamily_raw and subfamily_raw.lower().strip() != 'staple':
+        return subfamily_raw
+    code = (yarn_code or '').upper()
+    for spec, label in [('RING', 'staple_ring'), ('VORTEX', 'staple_vortex'), ('OE', 'staple_oe')]:
+        if code.endswith(f'_{spec}') or f'_{spec}_' in code:
+            return label
+    return subfamily_raw
+
+
 def derive_material_form(subfamily):
     """Derive material_form (NOT NULL in dim_yarn_master) from subfamily.
 
@@ -211,7 +225,7 @@ def row_to_params(row, sheet_row_id):
     else:
         count_type = None
 
-    subfamily = s(row.get('subfamily'))
+    subfamily = derive_subfamily(s(row.get('canonical_code')), s(row.get('subfamily')))
     material_form = derive_material_form(subfamily)
 
     # Phase C+1 semantics: rows reaching here are already filtered to

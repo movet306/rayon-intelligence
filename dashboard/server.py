@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
-DB_URL = os.environ.get("DATABASE_URL", "")
+DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
 STATIC_DIR = Path(__file__).parent / "static"
 
 # ── Live CNY/USD rate with 1-hour in-process cache ───────────────────────────
@@ -918,6 +918,12 @@ def get_yarn_pressure():
             yp.yarn_pressure_7d::float,
             yp.yarn_pressure_30d::float,
             yp.yarn_confidence,
+            ym.count_type      AS yarn_count_type,
+            ym.ne_count::float AS yarn_ne_count,
+            ym.ply             AS yarn_ply,
+            ym.subfamily       AS yarn_subfamily,
+            ym.color_state     AS yarn_color_state,
+            ym.specialty_flags AS yarn_specialty_flags,
             yp.yarn_pricing_method,
             -- Driver-level pressure signal (existing, derived from change_7d)
             CASE

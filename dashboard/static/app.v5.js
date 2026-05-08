@@ -1564,9 +1564,29 @@ async function loadYarnIntelligence() {
           : '';
 
         const chips = [];
-        if (y.denier != null)         chips.push(`<span class="spec-meta-chip chip-denier">${y.denier}D</span>`);
-        if (y.filament_count != null) chips.push(`<span class="spec-meta-chip chip-filament">${y.filament_count}F</span>`);
-        if (y.luster)                 chips.push(`<span class="spec-meta-chip chip-luster">${esc(y.luster)}</span>`);
+        // Phase C+1: branch on count_type
+        const _ct = y.yarn_count_type;
+        if (_ct === 'Ne') {
+          // Spun yarn branch
+          if (y.yarn_ne_count != null) chips.push(`<span class="spec-meta-chip chip-ne">Ne ${Math.round(y.yarn_ne_count)}</span>`);
+          if (y.yarn_ply != null && y.yarn_ply > 1) chips.push(`<span class="spec-meta-chip chip-ply">${y.yarn_ply}-ply</span>`);
+          const _spinLabel = { 'staple_ring': 'Ring', 'staple_vortex': 'Vortex', 'staple_oe': 'OE' }[y.yarn_subfamily];
+          if (_spinLabel) chips.push(`<span class="spec-meta-chip chip-spinning">${_spinLabel}</span>`);
+        } else {
+          // Filament branch (count_type='denier' or null)
+          if (y.denier != null)         chips.push(`<span class="spec-meta-chip chip-denier">${y.denier}D</span>`);
+          if (y.filament_count != null) chips.push(`<span class="spec-meta-chip chip-filament">${y.filament_count}F</span>`);
+          if (y.luster)                 chips.push(`<span class="spec-meta-chip chip-luster">${esc(y.luster)}</span>`);
+        }
+        // Common chips for both branches
+        if (y.yarn_color_state === 'BLACK')  chips.push(`<span class="spec-meta-chip chip-color-black">BLACK</span>`);
+        // specialty_flags can be TEXT (string) or TEXT[] (array)
+        const _sf = y.yarn_specialty_flags;
+        if (Array.isArray(_sf) && _sf.length) {
+          _sf.forEach(f => chips.push(`<span class="spec-meta-chip chip-specialty">${esc(String(f).toUpperCase())}</span>`));
+        } else if (typeof _sf === 'string' && _sf) {
+          chips.push(`<span class="spec-meta-chip chip-specialty">${esc(_sf.toUpperCase())}</span>`);
+        }
         if (y.recycle_flag)           chips.push(`<span class="spec-meta-chip chip-recycle">GRS</span>`);
         if (y.alias_count)            chips.push(`<span class="spec-meta-chip chip-alias" title="${y.alias_count} label alias(es) mapped to this spec">${y.alias_count} alias${y.alias_count === 1 ? '' : 'es'}</span>`);
         if (y.is_placeholder)         chips.push(`<span class="spec-meta-chip chip-placeholder">placeholder</span>`);
