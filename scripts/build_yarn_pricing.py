@@ -804,7 +804,7 @@ def main():
 
     # Phase C+1: TCP keepalive to survive Railway proxy idle timeout (~30min)
     conn = psycopg2.connect(
-        os.environ["DATABASE_URL"],
+        (os.environ.get("RAYON_DATABASE_URL") or os.environ["DATABASE_URL"]),
         keepalives=1,
         keepalives_idle=30,
         keepalives_interval=10,
