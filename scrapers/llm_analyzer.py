@@ -44,7 +44,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 PIPELINE = "llm_analyzer"
 LLM_MODEL = "gpt-4o-mini"
-RELEVANCE_THRESHOLD = 0.25
+RELEVANCE_THRESHOLD = 0.20
 # Competitor mentions are emitted as signals even at lower relevance
 COMPETITOR_MENTION_MIN_RELEVANCE = 0.15
 DEFAULT_BATCH_LIMIT = 20
