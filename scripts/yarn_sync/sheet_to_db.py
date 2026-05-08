@@ -26,7 +26,9 @@ Usage:
     python scripts/yarn_sync/sheet_to_db.py <csv_path> --tab viscose [--dry-run]
 """
 import argparse
+import json
 import os
+import re
 import sys
 
 import pandas as pd
@@ -110,6 +112,75 @@ def derive_subfamily(yarn_code, subfamily_raw):
     return subfamily_raw
 
 
+def derive_blend_ratio_json(yarn_code, fiber_family):
+    """Auto-derive blend_ratio_json (JSON string) from yarn_code patterns.
+
+    Only applies when fiber_family='blend'. Returns a JSON-encoded string
+    matching dim_yarn_master.blend_ratio_json (jsonb), or None.
+
+    Recognized patterns (checked in order):
+      1. Corespun (CORESPUN/ELASTANE/LYCRA keyword) -> base 93 + ELASTANE 7
+      2. PV_*_{a}_{b}              -> {PES: a, VIS: b}
+      3. PM_*_{a}_{b}              -> {PES: a, MOD: b}
+      4. COT_RECYCLED_{F}_{a}_{b}  -> {COT: a, RCY_PES/RCY_COT: b}
+      5. {F1}_{F2}_{F3}_{a}_{b}_{c} -> 3-component blend
+      6. COT_{F}_{a}_{b}           -> cotton-anchored 2-component
+    """
+    if fiber_family != 'blend' or not yarn_code:
+        return None
+
+    code = yarn_code.upper()
+
+    # 1) Corespun first (keyword can co-occur with PV/COT/VIS prefixes)
+    if 'CORESPUN' in code or 'ELASTANE' in code or 'LYCRA' in code:
+        if code.startswith('PV_'):
+            return json.dumps({"PES": 60.45, "VIS": 32.55, "ELASTANE": 7})
+        if code.startswith('COT_'):
+            return json.dumps({"COT": 93, "ELASTANE": 7})
+        if code.startswith('VIS_'):
+            return json.dumps({"VIS": 93, "ELASTANE": 7})
+
+    # 2) PV blends (PES + VIS)
+    m = re.match(r'^PV_(?:NE\d+_\d+_)?(\d{2})_(\d{2})', code)
+    if m:
+        return json.dumps({"PES": int(m.group(1)), "VIS": int(m.group(2))})
+
+    # 3) PM blends (PES + MOD)
+    m = re.match(r'^PM_(?:NE\d+_\d+_)?(\d{2})_(\d{2})', code)
+    if m:
+        return json.dumps({"PES": int(m.group(1)), "MOD": int(m.group(2))})
+
+    # 4) Cotton + recycled (must precede COT_X to win specificity)
+    m = re.match(r'^COT_RECYCLED_(\w+?)_(\d{2})_(\d{2})', code)
+    if m:
+        f, r1, r2 = m.group(1), int(m.group(2)), int(m.group(3))
+        if f == 'PES':
+            return json.dumps({"COT": r1, "RCY_PES": r2})
+        if f == 'COT':
+            return json.dumps({"COT": r1, "RCY_COT": r2})
+
+    # 5) 3-component blends
+    m = re.match(r'^([A-Z]{2,3})_([A-Z]{2,3})_([A-Z]{2,3})_(\d{2})_(\d{2})_(\d{2})', code)
+    if m:
+        valid = {"PES", "VIS", "MOD", "COT", "PA"}
+        f1, f2, f3 = m.group(1), m.group(2), m.group(3)
+        if f1 in valid and f2 in valid and f3 in valid:
+            return json.dumps({
+                f1: int(m.group(4)),
+                f2: int(m.group(5)),
+                f3: int(m.group(6)),
+            })
+
+    # 6) Cotton-anchored 2-component (COT_PES/VIS/MOD)
+    m = re.match(r'^COT_([A-Z]+)_(\d{2})_(\d{2})', code)
+    if m:
+        f = m.group(1)
+        if f in {"PES", "VIS", "MOD"}:
+            return json.dumps({"COT": int(m.group(2)), f: int(m.group(3))})
+
+    return None
+
+
 def derive_material_form(subfamily):
     """Derive material_form (NOT NULL in dim_yarn_master) from subfamily.
 
@@ -140,6 +211,7 @@ INSERT INTO dim_yarn_master (
     yarn_code, display_name, fiber_family, material_form, subfamily,
     count_type, denier, filament_count, ne_count, ply, twist_direction,
     luster, recycle_flag, color_state, specialty_flags,
+    blend_ratio_json,
     primary_driver_slug, secondary_driver_slug,
     is_market_common, is_rayon_confirmed, is_active_tracked,
     pricing_basis, spec_confidence,
@@ -148,7 +220,7 @@ INSERT INTO dim_yarn_master (
 ) VALUES (
     %s, %s, %s, %s, %s,
     %s, %s, %s, %s, %s, %s,
-    %s, %s, %s, %s,
+    %s, %s, %s, %s, %s,
     %s, %s,
     %s, %s, %s,
     %s, %s,
@@ -170,6 +242,7 @@ ON CONFLICT (yarn_code) DO UPDATE SET
     recycle_flag          = EXCLUDED.recycle_flag,
     color_state           = EXCLUDED.color_state,
     specialty_flags       = EXCLUDED.specialty_flags,
+    blend_ratio_json      = COALESCE(EXCLUDED.blend_ratio_json, dim_yarn_master.blend_ratio_json),
     primary_driver_slug   = EXCLUDED.primary_driver_slug,
     secondary_driver_slug = EXCLUDED.secondary_driver_slug,
     is_market_common      = EXCLUDED.is_market_common,
@@ -256,6 +329,7 @@ def row_to_params(row, sheet_row_id):
         b(row.get('recycle_flag'), default=False),
         s(row.get('color_state')),
         s(row.get('specialty_flags')),
+        derive_blend_ratio_json(yarn_code, s(row.get('fiber_family'))),
         normalize_driver(row.get('primary_driver_candidate')),
         normalize_driver(row.get('secondary_driver_candidate')),
         is_market_common,
