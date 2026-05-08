@@ -71,7 +71,7 @@ TIER_CONFIDENCE_LABEL = {
     "tier_1_turkish_quote":     "high",
     "tier_2_global":            "medium",
     "tier_3_b2b":               "medium",
-    "tier_4_benchmark_proxy":   "low",
+    "tier_4_benchmark_proxy":   "medium",  # upgraded: authoritative driver + 60+ day PMD history
     "tier_4_proxy_fallback":    "low",
 }
 
