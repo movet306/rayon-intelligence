@@ -1,0 +1,14 @@
+docs: add Phase E Market Signals roadmap
+
+Comprehensive roadmap for transforming Market Signals from
+news monitor to Rayon exposure intelligence layer.
+
+Phases:
+- P0: Quick wins (published_at fix, LLM prompt tightening)
+- P1: Entity & relevance refactor (15 priority entities)
+- P2: Source expansion (IHKIB, EURATEX, Ticaret Bakanligi)
+- P3: UI/UX upgrade (action feed, exposure chips, dedup)
+- P4: Productization (weekly digest, entity detail pages)
+
+Includes: DB migrations 010-012 spec, LLM schema expansion,
+priority entity seed list, success metrics, dependencies.
