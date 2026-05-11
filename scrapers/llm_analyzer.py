@@ -155,6 +155,14 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           }} or null
         }}
 
+        ══ NEW: SCORING DISTRIBUTION RULE ══
+        Use the FULL 0.0-1.0 range for relevance_score with granularity. Do NOT cluster
+        scores at round numbers (0.1, 0.2, 0.4, 0.6). Use nuanced intermediate values
+        such as 0.15, 0.22, 0.28, 0.35, 0.43, 0.52, 0.67, 0.74, 0.83, etc.
+        Score should reflect specific relevance gradation, not coarse buckets.
+
+        Same rule applies to impact_score (0-100): use 35, 42, 58, 71, 84, not just 30/50/70/90.
+
         ══ E. IMPACT SCORE RUBRIC (strict) ══
         90–100: Direct material cost change >5% affecting FDY/POY/DTY/Nylon FDY (Rayon's core inputs)
         70–89:  Competitor strategic move OR supply disruption in key materials OR
@@ -218,13 +226,37 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           - Major buyer decisions affecting Turkish suppliers (e.g. brand cutting orders)
           - Turkish textile export performance data (volumes, destinations, trends)
           - US/EU/regional tariff or trade policy affecting Turkish textile exports
+          - EU regulations on apparel/textiles (sustainability mandates, EPR rules,
+            destruction bans, CBAM, ecodesign, microplastics, GRS/recycled content) --
+            Turkiye is in the EU Customs Union, so EU regulations apply to Turkish
+            exporters and indirectly to all Turkish textile manufacturers, including Rayon
 
         Articles about the following topics are almost always irrelevant — set rayon_relevance="none":
           - design competitions, sustainability awards, CSR initiatives
           - general industry conferences or trade shows (unless specific price/capacity data)
+
+          EXCEPTION -- the following fair categories ARE 'indirect' minimum (often 'direct'):
+            * Technical textile fairs (Rayon's woven/coated/technical segments):
+              Techtextil, Texprocess, ITMA, Heimtextil, Cinte Techtextil,
+              Performance Days, Functional Fabric Fair, IFAI Expo
+            * Yarn fairs (Rayon's raw material upstream - PSF/FDY/POY/DTY/Nylon):
+              Yarn Expo Shanghai, Spinexpo, Pitti Filati, Filo,
+              Premiere Vision Yarns, Texworld Yarn
+            * Textile chemical / dyeing / finishing fairs:
+              China Interdye, ChinaTexChem, ITMA Chemtex, AATCC events,
+              Dyestuffs & Pigments China
+            * General rule: any fair specifically covering yarn production,
+              textile dyes/chemicals/auxiliaries, coating/lamination, or technical
+              textiles -> 'indirect' minimum (use 'direct' if Rayon-specific material
+              data is present)
           - fashion trends, retail consumer news, influencer/brand marketing
           - company financial results without supply/pricing implications
           - generic innovation or R&D announcements without commercial impact
+
+          DEFAULT BIAS: When uncertain between 'indirect' and 'none', prefer 'indirect'
+          with score 0.20-0.32 and impact 30-45. Rayon's analyst can dismiss false
+          positives quickly, but cannot recover signals filtered out at this stage.
+          Slightly over-include is preferable to under-include for borderline cases.
     """)
 
 
