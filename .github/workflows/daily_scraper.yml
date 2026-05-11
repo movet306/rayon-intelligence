@@ -9,7 +9,7 @@ jobs:
   scrape:
     name: Run scrapers
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
 
     env:
       DATABASE_URL:          ${{ secrets.RAYON_DATABASE_URL }}
