@@ -3,19 +3,17 @@
 -- Status: APPLY MANUALLY in next session, AFTER Migration 010 (entity_type column must exist)
 -- This file is committed for review; do NOT auto-apply
 -- Source: docs/P1_ENTITY_REFACTOR_DESIGN.md (Migration 012 section)
--- Migration 012: Seed 23 new entities per ChatGPT gap #8 + roadmap v1.2
--- Phase E P1 step 3/4
 
 BEGIN;
 
 -- Upstream / Supplier (8 entities)
 INSERT INTO entities (id, name, entity_type, country, geography, website, notes) VALUES
   (gen_random_uuid(), 'SASA', 'supplier', 'TR', 'TR', 'https://www.sasa.com.tr',
-   'TR PTA/PET/POY/fiber â€” primary cost driver for Rayon polyester inputs'),
+   'TR PTA/PET/POY/fiber — primary cost driver for Rayon polyester inputs'),
   (gen_random_uuid(), 'Korteks', 'supplier', 'TR', 'TR', 'https://www.korteks.com.tr',
-   'TR polyester filament â€” direct yarn input'),
+   'TR polyester filament — direct yarn input'),
   (gen_random_uuid(), 'Indorama', 'supplier', 'TH', 'GLOBAL', 'https://www.indoramaventures.com',
-   'Global PET/fiber â€” benchmark price'),
+   'Global PET/fiber — benchmark price'),
   (gen_random_uuid(), 'Reliance Recron', 'supplier', 'IN', 'GLOBAL', 'https://www.ril.com',
    'Global polyester capacity'),
   (gen_random_uuid(), 'Hyosung', 'supplier', 'KR', 'GLOBAL', 'https://www.hyosung.com',
@@ -33,9 +31,9 @@ INSERT INTO entities (id, name, entity_type, country, geography, website, notes)
    'TR knit leader'),
   (gen_random_uuid(), 'Bossa', 'competitor', 'TR', 'TR', 'https://www.bossa.com.tr',
    'TR denim/woven legacy'),
-  (gen_random_uuid(), 'SÃ¶ktaÅŸ', 'competitor', 'TR', 'TR', 'https://www.soktas.com',
+  (gen_random_uuid(), 'Söktaş', 'competitor', 'TR', 'TR', 'https://www.soktas.com',
    'TR shirting benchmark'),
-  (gen_random_uuid(), 'KÄ±vanÃ§ Tekstil', 'competitor', 'TR', 'TR', NULL,
+  (gen_random_uuid(), 'Kıvanç Tekstil', 'competitor', 'TR', 'TR', NULL,
    'TR woven export'),
   (gen_random_uuid(), 'Limonteks', 'competitor', 'TR', 'TR', NULL,
    'TR technical fabric'),
@@ -56,7 +54,7 @@ INSERT INTO entities (id, name, entity_type, country, geography, website, notes)
 
 -- Associations / Regulators (4 entities)
 INSERT INTO entities (id, name, entity_type, country, geography, website, notes) VALUES
-  (gen_random_uuid(), 'Ä°HKÄ°B', 'association', 'TR', 'TR', 'https://www.ihkib.org.tr',
+  (gen_random_uuid(), 'İHKİB', 'association', 'TR', 'TR', 'https://www.ihkib.org.tr',
    'TR garment export narrative'),
   (gen_random_uuid(), 'EURATEX', 'association', 'BE', 'EU', 'https://euratex.eu',
    'EU textile lobby & policy'),
