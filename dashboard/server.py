@@ -328,6 +328,7 @@ def signals(
                    ms.time_horizon,
                    ms.action_tag,
                    ms.signal_category,
+                   ms.signal_priority_profile,
                    ms.material_form,
                    ms.theme,
                    ms.affected_products,
