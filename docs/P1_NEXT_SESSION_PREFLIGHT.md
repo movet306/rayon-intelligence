@@ -226,3 +226,21 @@ After ALL above complete:
 - The Teijin polyester +20% RISK signal is the system's first action-grade signal. Verify it still surfaces post-P1.
 - LLM prompt sometimes returns OTHER for signal_priority_profile when COST/EXPORT/etc. is obvious - improve prompt examples in P1 step 4.
 - 30 commit/day was sustainable but exceptional. Aim for 10-15 commits in next session.
+
+
+---
+
+## Appendix: dashboard/app.py is legacy
+
+Investigated end of 11 May session: `dashboard/app.py` is **845 lines of Streamlit code**, while production runs FastAPI/uvicorn through `dashboard/server.py`. The Streamlit dashboard was the predecessor to the current FastAPI one. It still contains mojibake from older sessions and is not maintained.
+
+**Action for P1 step 1:** before deleting, run one final check:
+
+```powershell
+Get-ChildItem C:\Projects\rayon-intelligence -Recurse -Include *.py,*.yml,*.yaml,*.toml,*.json,*.md -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '__pycache__|\\backups\\|\.git\\' } |
+    Select-String -Pattern 'dashboard\.app|dashboard/app\.py|streamlit run.*app\.py'
+```
+
+If output is empty -> `git rm dashboard/app.py` (commit as part of P1 step 1 cleanup).
+If references exist -> evaluate before delete.
