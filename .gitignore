@@ -56,3 +56,7 @@ apply_migration_*.py
 # Temporary debug dumps
 *_dump.txt
 kpi_usage.txt
+
+# Pre-migration DB backup snapshots (large, local-only)
+backups/
+

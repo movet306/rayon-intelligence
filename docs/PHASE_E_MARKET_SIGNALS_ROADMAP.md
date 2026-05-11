@@ -1,6 +1,6 @@
 # Phase E — Market Signals Roadmap
 
-> **Status:** Draft v1.3 · Created 8 May 2026 · Updated 11 May 2026
+> **Status:** Draft v1.4 · Created 8 May 2026 · Updated 11 May 2026 (evening session)
 > **Owner:** Mert Övet
 > **Repo:** [movet306/rayon-intelligence](https://github.com/movet306/rayon-intelligence)
 > **Predecessor:** Phase D — Yarn Intelligence (closed 8 May 2026, 5 commits)
@@ -540,6 +540,7 @@ Phase E kapanırken veya ilerleyen fazlarda değerlendirilecek:
 | 2026-05-09 | v1.1 | P0-A reliability fix (published_at backfill 87.8%) + P0-D dashboard surfacing closed (12 commits) | Mert + Claude |
 | 2026-05-10 | v1.2 | ChatGPT analysis integration: 8 gaps tracked across P0-P4, design feedback round | Mert + Claude |
 | 2026-05-11 | v1.3 | P0-B closed (signal_priority_profile + required fields, Mig 006/007/008, NULL coverage 78.6%->0%, legacy enum cleanup, reanalysis OTHER 99->17 with 1 RISK signal: Teijin polyester +20%) + Weekly Monitor secret fix + P1 design doc published (805 lines) + Mig 010+011 SQL prepped for next-session apply | Mert + Claude |
+| 2026-05-11 | v1.4 | P0-B evening: server.py fix (signal_priority_profile in /api/signals), Mig 012 regen (added Sympatex, fixed entity_type enum mismatch, cleared mojibake), P1 preflight checklist published, pre-P1 DB backup taken (5 ext commits) | Mert + Claude |
 
 ---
 
