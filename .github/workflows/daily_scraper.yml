@@ -56,7 +56,7 @@ jobs:
         run: python scrapers/build_price_metrics.py
 
       - name: Run LLM analyzer
-        run: python scrapers/llm_analyzer.py --limit 50
+        run: python scrapers/llm_analyzer.py --limit 250
 
       - name: Build price intelligence signals
         run: python scrapers/build_price_signals.py
