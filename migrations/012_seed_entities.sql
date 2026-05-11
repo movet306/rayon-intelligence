@@ -2,7 +2,7 @@
 -- Phase E P1 step 3
 -- Status: APPLY MANUALLY in next session, AFTER Migration 010 (entity_type column must exist)
 -- This file is committed for review; do NOT auto-apply
--- Source: docs/P1_ENTITY_REFACTOR_DESIGN.md (Migration 012 section)
+-- Source: docs/P1_ENTITY_REFACTOR_DESIGN.md (Migration 012 section), regenerated for entity_type consistency
 
 BEGIN;
 
@@ -18,54 +18,55 @@ INSERT INTO entities (id, name, entity_type, country, geography, website, notes)
    'Global polyester capacity'),
   (gen_random_uuid(), 'Hyosung', 'supplier', 'KR', 'GLOBAL', 'https://www.hyosung.com',
    'Global filament benchmark'),
-  (gen_random_uuid(), 'UNIFI REPREVE', 'benchmark_brand', 'US', 'GLOBAL', 'https://unifi.com',
-   'Recycled polyester signaling'),
-  (gen_random_uuid(), 'Aquafil ECONYL', 'benchmark_brand', 'IT', 'EU', 'https://www.aquafil.com',
-   'Recycled nylon signaling'),
+  (gen_random_uuid(), 'UNIFI REPREVE', 'supplier', 'US', 'GLOBAL', 'https://unifi.com',
+   'Recycled polyester supplier (was benchmark_brand in design)'),
+  (gen_random_uuid(), 'Aquafil ECONYL', 'supplier', 'IT', 'EU', 'https://www.aquafil.com',
+   'Recycled nylon supplier (was benchmark_brand in design)'),
   (gen_random_uuid(), 'Toray', 'supplier', 'JP', 'GLOBAL', 'https://www.toray.com',
    'Japan technical fiber');
 
 -- TR Benchmark Competitors (7 entities)
 INSERT INTO entities (id, name, entity_type, country, geography, website, notes) VALUES
-  (gen_random_uuid(), 'YeÅŸim Tekstil', 'competitor', 'TR', 'TR', 'https://www.yesim.com',
+  (gen_random_uuid(), 'Yeşim Tekstil', 'competitor_tr', 'TR', 'TR', 'https://www.yesim.com',
    'TR knit leader'),
-  (gen_random_uuid(), 'Bossa', 'competitor', 'TR', 'TR', 'https://www.bossa.com.tr',
+  (gen_random_uuid(), 'Bossa', 'competitor_tr', 'TR', 'TR', 'https://www.bossa.com.tr',
    'TR denim/woven legacy'),
-  (gen_random_uuid(), 'Söktaş', 'competitor', 'TR', 'TR', 'https://www.soktas.com',
+  (gen_random_uuid(), 'Söktaş', 'competitor_tr', 'TR', 'TR', 'https://www.soktas.com',
    'TR shirting benchmark'),
-  (gen_random_uuid(), 'Kıvanç Tekstil', 'competitor', 'TR', 'TR', NULL,
-   'TR woven export'),
-  (gen_random_uuid(), 'Limonteks', 'competitor', 'TR', 'TR', NULL,
-   'TR technical fabric'),
-  (gen_random_uuid(), 'Hassan Tekstil', 'competitor', 'TR', 'TR', NULL,
-   'TR vertical integration'),
-  (gen_random_uuid(), 'Polyteks', 'competitor', 'TR', 'TR', NULL,
-   'TR yarn export');
+  (gen_random_uuid(), 'Kıvanç Tekstil', 'competitor_tr', 'TR', 'TR', 'https://www.kivancgroup.com',
+   'TR woven exporter'),
+  (gen_random_uuid(), 'Limonteks', 'competitor_tr', 'TR', 'TR', 'https://www.limonteks.com',
+   'TR woven exporter'),
+  (gen_random_uuid(), 'Hassan Tekstil', 'competitor_tr', 'TR', 'TR', 'https://www.hassantekstil.com',
+   'TR knit exporter'),
+  (gen_random_uuid(), 'Polyteks', 'competitor_tr', 'TR', 'TR', 'https://www.polyteks.com',
+   'TR yarn / fiber');
 
 -- International Technical Benchmark (4 entities)
 INSERT INTO entities (id, name, entity_type, country, geography, website, notes) VALUES
-  (gen_random_uuid(), 'W.L. Gore', 'benchmark_brand', 'US', 'GLOBAL', 'https://www.gore-tex.com',
-   'Premium membrane peer'),
-  (gen_random_uuid(), 'INVISTA Cordura', 'benchmark_brand', 'US', 'GLOBAL', 'https://www.cordura.com',
-   'Technical nylon benchmark, military market'),
-  (gen_random_uuid(), 'DuPont Nomex', 'benchmark_brand', 'US', 'GLOBAL', 'https://www.dupont.com/nomex.html',
-   'Flame-resistant benchmark');
--- Sympatex already in 32-list, no need to re-add
+  (gen_random_uuid(), 'W.L. Gore', 'competitor_intl', 'US', 'GLOBAL', 'https://www.gore.com',
+   'Membrane / laminate benchmark'),
+  (gen_random_uuid(), 'INVISTA Cordura', 'competitor_intl', 'US', 'GLOBAL', 'https://www.cordura.com',
+   'High-tenacity nylon'),
+  (gen_random_uuid(), 'DuPont Nomex', 'competitor_intl', 'US', 'GLOBAL', 'https://www.dupont.com/brands/nomex.html',
+   'FR aramid benchmark'),
+  (gen_random_uuid(), 'Sympatex', 'competitor_intl', 'DE', 'EU', 'https://www.sympatex.com',
+   'Recyclable membrane');
 
 -- Associations / Regulators (4 entities)
 INSERT INTO entities (id, name, entity_type, country, geography, website, notes) VALUES
   (gen_random_uuid(), 'İHKİB', 'association', 'TR', 'TR', 'https://www.ihkib.org.tr',
-   'TR garment export narrative'),
+   'Istanbul Apparel Exporters Association'),
   (gen_random_uuid(), 'EURATEX', 'association', 'BE', 'EU', 'https://euratex.eu',
-   'EU textile lobby & policy'),
+   'European Apparel and Textile Confederation'),
   (gen_random_uuid(), 'ECHA', 'regulator', 'FI', 'EU', 'https://echa.europa.eu',
-   'EU chemical restrictions - critical for technical/military line'),
+   'European Chemicals Agency (REACH)'),
   (gen_random_uuid(), 'TGSD', 'association', 'TR', 'TR', 'https://www.tgsd.org.tr',
-   'TR clothing manufacturers - labor/production');
-
--- Verify
--- SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type ORDER BY 2 DESC;
--- Expected: competitor=39 (32 existing + 7 new), supplier=6, benchmark_brand=6,
---           association=3, regulator=1, total=55
+   'Turkish Clothing Manufacturers Association');
 
 COMMIT;
+
+-- Verification queries (run after apply):
+-- SELECT COUNT(*) FROM entities;  -- Should be 32 (existing) + 23 (new) = 55
+-- SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type ORDER BY 2 DESC;
+-- SELECT name, entity_type, country FROM entities WHERE entity_type IN ('supplier','association','regulator') ORDER BY entity_type, name;
