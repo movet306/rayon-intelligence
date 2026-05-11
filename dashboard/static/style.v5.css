@@ -1,4 +1,4 @@
-/* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Reset & Base ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -25,12 +25,12 @@ html, body {
   height: 100%;
 }
 
-/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
 #sidebar {
   position: fixed;
   left: 0; top: 0; bottom: 0;
@@ -111,7 +111,7 @@ html, body {
 }
 .sidebar-footer .refresh-btn:hover { opacity: 0.8; }
 
-/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Header ────────────────────────────────────────────────────────────────── */
 #header {
   position: fixed;
   left: var(--sidebar-w);
@@ -171,7 +171,7 @@ html, body {
   margin-top: 2px;
 }
 
-/* â”€â”€ Main content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Main content ──────────────────────────────────────────────────────────── */
 #main {
   margin-left: var(--sidebar-w);
   margin-top: var(--header-h);
@@ -189,7 +189,7 @@ html, body {
   margin-bottom: 20px;
 }
 
-/* â”€â”€ Filter bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Filter bar ────────────────────────────────────────────────────────────── */
 .filter-bar {
   display: flex;
   gap: 10px;
@@ -219,7 +219,7 @@ html, body {
   color: var(--muted);
 }
 
-/* â”€â”€ Signal cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Signal cards ──────────────────────────────────────────────────────────── */
 #signals-list { display: flex; flex-direction: column; gap: 8px; }
 
 .signal-card {
@@ -304,7 +304,7 @@ html, body {
   color: var(--orange);
 }
 
-/* â”€â”€ Price Intelligence section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Price Intelligence section ────────────────────────────────────────────── */
 .price-signals-bar {
   display: flex;
   flex-wrap: wrap;
@@ -464,7 +464,7 @@ html, body {
   white-space: nowrap;
 }
 
-/* â”€â”€ Early Warning Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Early Warning Bar ──────────────────────────────────────────────────────── */
 .early-warning-section { margin-bottom: 16px; }
 .ew-loading { font-size: 12px; color: var(--muted); font-style: italic; padding: 10px 14px; }
 .no-signals-muted {
@@ -522,7 +522,7 @@ html, body {
   margin-top: 2px;
 }
 
-/* â”€â”€ Chain Flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Chain Flow ─────────────────────────────────────────────────────────────── */
 .chain-flow-wrap {
   display: flex;
   align-items: flex-start;
@@ -575,7 +575,7 @@ html, body {
   white-space: nowrap;
 }
 
-/* â”€â”€ Tier Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Tier Badges ────────────────────────────────────────────────────────────── */
 .tier-badge {
   display: inline-block;
   font-size: 10px;
@@ -590,7 +590,7 @@ html, body {
 .tier-D { background: rgba(240,136,62,0.2);   color: #f0883e; }
 .tier-E { background: rgba(139,148,158,0.15); color: #8b949e; }
 
-/* â”€â”€ Turkey Lag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Turkey Lag ─────────────────────────────────────────────────────────────── */
 .turkey-lag-row {
   display: flex;
   gap: 20px;
@@ -613,7 +613,7 @@ html, body {
   font-weight: 600;
 }
 
-/* â”€â”€ Cotton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Cotton ─────────────────────────────────────────────────────────────────── */
 .cotton-series-info {
   display: flex;
   justify-content: space-around;
@@ -645,7 +645,7 @@ html, body {
 
 .data-table tr.row-tier-e td { opacity: 0.4; font-style: italic; }
 .data-table tr.row-tier-e:hover td { opacity: 0.55; }
-/* â”€â”€ Export section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Export section ────────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -704,7 +704,7 @@ html, body {
 }
 .hs-selector select:focus { border-color: var(--blue); }
 
-/* â”€â”€ Internal Data sub-nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Internal Data sub-nav ─────────────────────────────────────────────────── */
 .sub-nav {
   display: flex;
   gap: 4px;
@@ -729,7 +729,7 @@ html, body {
 .sub-section { display: none; }
 .sub-section.active { display: block; }
 
-/* â”€â”€ Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Tables ────────────────────────────────────────────────────────────────── */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -769,7 +769,7 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 
-/* â”€â”€ Internal metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Internal metrics ──────────────────────────────────────────────────────── */
 .metric-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -777,7 +777,7 @@ html, body {
   margin-bottom: 22px;
 }
 
-/* â”€â”€ Loading / error states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Loading / error states ────────────────────────────────────────────────── */
 .loading {
   color: var(--muted);
   text-align: center;
@@ -796,7 +796,7 @@ html, body {
   font-size: 13px;
 }
 
-/* â”€â”€ Market Signals v2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Market Signals v2 ─────────────────────────────────────────────────────── */
 .signals-panel {
   background: var(--card);
   border: 1px solid var(--border);
@@ -976,7 +976,7 @@ html, body {
 }
 .archive-link:hover { color: var(--blue); }
 
-/* â”€â”€ Yarn Intelligence â€” base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Yarn Intelligence — base ──────────────────────────────────────────────── */
 .yarn-pressure-grid {
   display: flex;
   gap: 12px;
@@ -1023,7 +1023,7 @@ html, body {
   padding: 0 4px;
 }
 
-/* â”€â”€ Phase A â€” Beta pill, amber scope note, coverage strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Phase A — Beta pill, amber scope note, coverage strip ─────────────────── */
 .phase-pill {
   display: inline-block;
   vertical-align: middle;
@@ -1128,7 +1128,7 @@ html, body {
 .cov-chip-small.cov-chip-placeholder     { background: rgba(210,153,34,0.15);  color: #d29922; border-color: rgba(210,153,34,0.35); }
 .cov-chip-small.cov-chip-not-covered     { background: rgba(139,148,158,0.12); color: #8b949e; border-color: rgba(139,148,158,0.3); }
 
-/* â”€â”€ Grouped yarn table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Grouped yarn table ────────────────────────────────────────────────────── */
 .yarn-grouped-table td { vertical-align: middle; }
 .yarn-grouped-table .muted { color: var(--muted); }
 
@@ -1197,7 +1197,7 @@ html, body {
   padding-left: 12px;
 }
 
-/* â”€â”€ Phase A 1.5 â€” Insight strip, quality legend, metadata chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Phase A 1.5 — Insight strip, quality legend, metadata chips ───────────── */
 .yarn-insights-strip {
   background: linear-gradient(90deg, rgba(88,166,255,0.04), rgba(88,166,255,0.01));
   border: 1px solid var(--border);
@@ -1273,7 +1273,7 @@ html, body {
 .spec-meta-chip.chip-alias       { color: var(--purple); border-color: rgba(188,140,255,0.25); background: rgba(188,140,255,0.08); }
 .spec-meta-chip.chip-placeholder { color: #d29922;       border-color: rgba(210,153,34,0.4);   background: rgba(210,153,34,0.12); }
 
-/* â”€â”€ Pressure pills â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Pressure pills ────────────────────────────────────────────────────────── */
 .pressure-pill {
   display: inline-block;
   font-size: 11px;
@@ -1290,7 +1290,7 @@ html, body {
 .pressure-watch    { background: rgba(188,140,255,0.15); color: #a371f7; }
 
 
-/* â”€â”€ Operations Intelligence (M2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Operations Intelligence (M2) ─────────────────────────────────────────── */
 
 .ops-period-header {
   font-size: 13px;
@@ -1326,7 +1326,7 @@ html, body {
   letter-spacing: 0.3px;
 }
 
-/* â”€â”€ Contra anomaly alert card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Contra anomaly alert card ─────────────────────────────────────────────── */
 
 .ops-alert {
   margin-top: 24px;
@@ -1400,7 +1400,7 @@ html, body {
   margin-top: 4px;
 }
 
-/* â”€â”€ Tables (suppliers / customers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Tables (suppliers / customers) ────────────────────────────────────────── */
 
 .ops-table {
   width: 100%;
@@ -1446,7 +1446,7 @@ html, body {
 }
 .ops-note em { color: #f0883e; font-style: normal; }
 
-/* â”€â”€ M2.0.1 header overflow fix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── M2.0.1 header overflow fix ───────────────────────────────────────────
  * The top-right info cards (HIGH IMPACT / COST PRESSURE / RISK SIGNALS /
  * POLYESTER FDY) were clipping at the right edge. Constrain to viewport.
  */
@@ -1459,7 +1459,7 @@ html, body {
   padding-right: 16px;
 }
 
-/* â”€â”€ M2.0.1 status strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── M2.0.1 status strip ──────────────────────────────────────────────── */
 .ops-status-strip {
   display: flex !important;
   flex-wrap: wrap;
@@ -1519,7 +1519,7 @@ html, body {
   font-weight: 600;
 }
 
-/* â”€â”€ M2.0.1 stat-context-hint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── M2.0.1 stat-context-hint ─────────────────────────────────────────── */
 .stat-context-hint {
   font-size: 10px;
   color: #8b949e;
@@ -1530,7 +1530,7 @@ html, body {
   line-height: 1.4;
 }
 
-/* â”€â”€ M2.0.1 header overflow v2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── M2.0.1 header overflow v2 ────────────────────────────────────────────
  * Real selectors this time. The header uses #header > .kpi-strip > .kpi-card
  * with min-width: 140px and padding: 8px 16px on each card. With four cards
  * plus the title and 28px container padding, the strip overflows on viewports
@@ -1554,7 +1554,7 @@ html, body {
   flex-wrap: nowrap;
 }
 .kpi-card {
-  min-width: 0;          /* was 140px â€” let cards shrink if needed */
+  min-width: 0;          /* was 140px — let cards shrink if needed */
   padding: 6px 12px;     /* was 8px 16px */
   white-space: nowrap;
 }
@@ -1638,7 +1638,7 @@ html, body {
   min-width: 80px;
 }
 
-/* â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Layout ─────────────────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -1646,7 +1646,7 @@ html, body {
   min-height: 600px;
 }
 
-/* â”€â”€ List pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── List pane ──────────────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-list-pane {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1714,7 +1714,7 @@ html, body {
   color: var(--muted);
 }
 
-/* â”€â”€ Detail pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Detail pane ────────────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-detail-pane {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1781,7 +1781,7 @@ html, body {
 }
 #sub-ops-counterparty .ce-meta-row span { color: var(--muted); }
 
-/* â”€â”€ Summary stat grid (24m TL/USD/EUR/Rows/Share/Last) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Summary stat grid (24m TL/USD/EUR/Rows/Share/Last) ─────────────────── */
 #sub-ops-counterparty .ce-summary-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -1807,7 +1807,7 @@ html, body {
   margin-top: 2px;
 }
 
-/* â”€â”€ Section blocks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Section blocks ─────────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-block {
   margin-bottom: 18px;
 }
@@ -1825,7 +1825,7 @@ html, body {
   gap: 16px;
 }
 
-/* â”€â”€ Tables (the previously unreadable parts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Tables (the previously unreadable parts) ───────────────────────────── */
 #sub-ops-counterparty .ce-table {
   width: 100%;
   font-size: 12px;
@@ -1861,7 +1861,7 @@ html, body {
   font-style: italic;
 }
 
-/* â”€â”€ Quality strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Quality strip ──────────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-quality-strip {
   display: flex;
   gap: 24px;
@@ -1874,7 +1874,7 @@ html, body {
 }
 #sub-ops-counterparty .ce-q-label { color: var(--muted); }
 
-/* â”€â”€ Monthly trend chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Monthly trend chart ────────────────────────────────────────────────── */
 #sub-ops-counterparty .ce-chart {
   background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
@@ -1902,14 +1902,14 @@ html, body {
   font-family: -apple-system, sans-serif;
 }
 
-/* â”€â”€ Mode badge (M2.1 v1.1, dark theme) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Mode badge (M2.1 v1.1, dark theme) ─────────────────────────────────── */
 #sub-ops-counterparty .ce-badge-mode {
   background: rgba(88,166,255,0.12);
   color: var(--blue);
   border: 1px solid rgba(88,166,255,0.30);
 }
 
-/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1200px) {
   #sub-ops-counterparty .ce-row-2col { grid-template-columns: 1fr; }
   #sub-ops-counterparty .ce-summary-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1980,19 +1980,19 @@ html, body {
 .mover-up   { color: #2f9e44; }
 .mover-down { color: #e03131; }
 
-/* === Revenue KPI strip (M2.3.2) â€” 4-card context === */
+/* === Revenue KPI strip (M2.3.2) — 4-card context === */
 /* Procurement uses .proc-kpi-context (3 cards). Revenue uses 4 cards.        */
-/* Last card (Top 3 Î”) gets more room because it has two-line content.        */
+/* Last card (Top 3 Δ) gets more room because it has two-line content.        */
 .proc-kpi-context-4 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1.6fr;
   gap: 12px;
 }
 
-/* === Cost suppliers â€” bucket spread (M2.4.1) === */
+/* === Cost suppliers — bucket spread (M2.4.1) === */
 /* Compact format inside a single table cell:                                  */
-/*   "utilities Â· 100%"           â€” primary only                               */
-/*   "outsourced Â· 67% | factory_overhead Â· 22%"  â€” primary + secondary        */
+/*   "utilities · 100%"           — primary only                               */
+/*   "outsourced · 67% | factory_overhead · 22%"  — primary + secondary        */
 .ops-cost-suppliers .bucket-cell {
   font-size: 12.5px;
   white-space: nowrap;
@@ -2004,9 +2004,9 @@ html, body {
   margin-left: 4px;
 }
 
-/* === Cost KPI strip (M2.4.2) â€” 3-card context === */
+/* === Cost KPI strip (M2.4.2) — 3-card context === */
 /* Cost has 3 context cards (no avg-monthly + 4-card layout like Revenue).    */
-/* Last card (Cost/revenue Î”) gets more room because it has two-line content. */
+/* Last card (Cost/revenue Δ) gets more room because it has two-line content. */
 .proc-kpi-context-3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1.6fr;
@@ -2132,9 +2132,9 @@ html, body {
 .kpi-sparkline {
   opacity: 0.85;
 }
-.kpi-sparkline-up   { color: #51cf66; }   /* rising trend  â€” green  */
-.kpi-sparkline-down { color: #ff6b6b; }   /* falling trend â€” red    */
-.kpi-sparkline-flat { color: #868e96; }   /* stable        â€” muted  */
+.kpi-sparkline-up   { color: #51cf66; }   /* rising trend  — green  */
+.kpi-sparkline-down { color: #ff6b6b; }   /* falling trend — red    */
+.kpi-sparkline-flat { color: #868e96; }   /* stable        — muted  */
 
 /* === Section health badges (M2.5.3) === */
 /* Each .ops-section-header gets: colored dot + label + chevron, with     */
@@ -2200,7 +2200,7 @@ html, body {
   margin: 0;
 }
 
-/* â”€â”€ PI-1.3: Action / Watch / All section tiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.3: Action / Watch / All section tiers ───────────────────────────── */
 .ew-section {
   margin-bottom: 18px;
 }
@@ -2249,7 +2249,7 @@ html, body {
   font-style: italic;
 }
 
-/* â”€â”€ PI-1.5b v2: grouped-card polyester chain topology â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.5b v2: grouped-card polyester chain topology ───────────────────── */
 .chain-grouped {
   display: flex;
   flex-direction: column;
@@ -2309,7 +2309,7 @@ html, body {
   color: var(--muted, #8a92a3);
 }
 
-/* â”€â”€ PI-1.5b polish: PTA narrow, FDY muted, arrow stronger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.5b polish: PTA narrow, FDY muted, arrow stronger ────────────────── */
 
 /* (1) PTA card narrowed and centered. Still a single full-width container
        so the layout grid stays the same, but the inner card is constrained. */
@@ -2344,7 +2344,7 @@ html, body {
   padding: 0 2px;
 }
 
-/* â”€â”€ PI-1.5b: chain group labels white for readability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.5b: chain group labels white for readability ───────────────────── */
 .chain-group-label {
   color: var(--text, #e6e9ef);
 }
@@ -2353,9 +2353,9 @@ html, body {
   opacity: 0.7;  /* still slightly de-emphasized vs. main branches */
 }
 
-/* â”€â”€ PI-1.5b: full white text on labels and node names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.5b: full white text on labels and node names ────────────────────── */
 .chain-group-parallel .chain-group-label {
-  /* override the earlier opacity:0.7 â€” user wants it just white */
+  /* override the earlier opacity:0.7 — user wants it just white */
   opacity: 1;
 }
 .chain-node-name {
@@ -2363,7 +2363,7 @@ html, body {
   opacity: 1;
 }
 
-/* â”€â”€ PI-1.6: cotton sub-chart split â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.6: cotton sub-chart split ───────────────────────────────────────── */
 .cotton-subchart {
   display: flex;
   flex-direction: column;
@@ -2384,7 +2384,7 @@ html, body {
   min-height: 180px;
 }
 
-/* â”€â”€ PI-1.6: cotton labels white â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.6: cotton labels white ──────────────────────────────────────────── */
 .cotton-series-label {
   color: var(--text, #e6e9ef);
   opacity: 1;
@@ -2398,7 +2398,7 @@ html, body {
   opacity: 0.85;
 }
 
-/* â”€â”€ PI-1.7 followup: chart-panel chart fills available height â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.7 followup: chart-panel chart fills available height ────────────── */
 /* When two chart-panels sit side by side and one has dense content (e.g. the
    cotton panel with two stacked sub-charts) and the other has just one chart
    (e.g. the nylon panel), the lighter panel ends up looking half-empty. Make
@@ -2412,7 +2412,7 @@ html, body {
   min-height: 280px;
 }
 
-/* â”€â”€ PI-1.8a: family grouping + sortable summary table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-1.8a: family grouping + sortable summary table ────────────────────── */
 .summary-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -2470,7 +2470,7 @@ html, body {
 .fam-badge-nylon     { color: #c7a3ff; background: rgba(163, 113, 247, 0.14); }
 .fam-badge-viscose   { color: #7ee787; background: rgba(86, 211, 100, 0.12); }
 
-/* â”€â”€ PI-2a: type badges (Direct / Benchmark / Proxy / Estimate) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-2a: type badges (Direct / Benchmark / Proxy / Estimate) ───────────── */
 .type-badge {
   display: inline-block;
   font-size: 10px;
@@ -2502,7 +2502,7 @@ html, body {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-/* â”€â”€ PI-2b: type filter chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── PI-2b: type filter chips ─────────────────────────────────────────────── */
 .type-chip-bar {
   display: flex;
   gap: 6px;

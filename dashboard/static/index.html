@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<!-- â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
 <aside id="sidebar">
   <div class="sidebar-logo">
     <img class="logo-mark-img" src="rayon-logo.png" alt="Rayon">
@@ -20,90 +20,90 @@
   <nav class="sidebar-nav">
     <div class="nav-label">Analytics</div>
     <div class="nav-item active" data-section="signals">
-      <span class="nav-icon">ğŸ“¡</span> Market Signals
+      <span class="nav-icon">📡</span> Market Signals
     </div>
     <div class="nav-item" data-section="prices">
-      <span class="nav-icon">ğŸ’¹</span> Raw Material Price Intelligence
+      <span class="nav-icon">💹</span> Raw Material Price Intelligence
     </div>
     <div class="nav-item" data-section="yarn">
-      <span class="nav-icon">ğŸ§µ</span> Yarn Intelligence
+      <span class="nav-icon">🧵</span> Yarn Intelligence
     </div>
     <div class="nav-item" data-section="exports">
-      <span class="nav-icon">ğŸŒ</span> Export Intelligence
+      <span class="nav-icon">🌍</span> Export Intelligence
     </div>
     <div class="nav-item" data-section="internal">
-      <span class="nav-icon">ğŸ­</span> Operations Intelligence
+      <span class="nav-icon">🏭</span> Operations Intelligence
     </div>
   </nav>
 
   <div class="sidebar-footer">
-    <div id="last-refresh">Loadingâ€¦</div>
+    <div id="last-refresh">Loading…</div>
     <div class="refresh-btn" id="refresh-btn">
-      <span>â†º</span> Refresh data
+      <span>↺</span> Refresh data
     </div>
   </div>
 </aside>
 
-<!-- â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── Header ───────────────────────────────────────────────────────────────── -->
 <header id="header">
   <div class="header-title">Rayon Intelligence Platform</div>
   <div class="kpi-strip">
     <div class="kpi-card">
       <div class="kpi-label">High Impact (7d)</div>
-      <div class="kpi-value" id="kpi-high-impact">â€”</div>
+      <div class="kpi-value" id="kpi-high-impact">—</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Cost Pressure (30d)</div>
-      <div class="kpi-value" id="kpi-cost-pressure">â€”</div>
+      <div class="kpi-value" id="kpi-cost-pressure">—</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Risk Signals (30d)</div>
-      <div class="kpi-value" id="kpi-risk">â€”</div>
+      <div class="kpi-value" id="kpi-risk">—</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Polyester FDY</div>
-      <div class="kpi-value" id="kpi-polyester">â€”</div>
-      <div class="kpi-sub">USD / ton Â· China spot</div>
+      <div class="kpi-value" id="kpi-polyester">—</div>
+      <div class="kpi-sub">USD / ton · China spot</div>
       <div class="kpi-change" id="kpi-polyester-change"></div>
     </div>
   </div>
 </header>
 
-<!-- â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── Main ─────────────────────────────────────────────────────────────────── -->
 <main id="main">
 
   <!-- 1. Market Signals -->
   <section id="section-signals" class="section active">
     <div class="section-title">Market Signals</div>
 
-    <!-- Panel A: Critical Signals (impact â‰¥ 80, last 7 days) -->
+    <!-- Panel A: Critical Signals (impact ≥ 80, last 7 days) -->
     <div class="signals-panel panel-critical">
       <div class="panel-header">
         <span class="panel-title">Critical Signals</span>
-        <span class="panel-label-dim">impact â‰¥ 80 Â· last 7 days</span>
+        <span class="panel-label-dim">impact ≥ 80 · last 7 days</span>
       </div>
-      <div id="critical-list"><div class="loading">Loadingâ€¦</div></div>
+      <div id="critical-list"><div class="loading">Loading…</div></div>
     </div>
 
     <!-- Panel B: Top Themes (hidden until populated) -->
     <div class="signals-panel panel-themes" id="panel-themes" style="display:none">
       <div class="panel-header">
         <span class="panel-title">Top Themes</span>
-        <span class="panel-label-dim theme-clear-link" id="theme-clear" style="display:none">Ã— Clear filter</span>
+        <span class="panel-label-dim theme-clear-link" id="theme-clear" style="display:none">× Clear filter</span>
       </div>
       <div id="theme-chips" class="theme-chips-row"></div>
     </div>
 
-    <!-- Panel C: Intelligence Feed (impact â‰¥ 60, last 30 days) -->
+    <!-- Panel C: Intelligence Feed (impact ≥ 60, last 30 days) -->
     <div class="signals-panel">
       <div class="panel-header">
         <span class="panel-title">Intelligence Feed</span>
-        <span class="panel-label-dim" id="feed-subtitle">impact â‰¥ 50 Â· last 30 days</span>
+        <span class="panel-label-dim" id="feed-subtitle">impact ≥ 50 · last 30 days</span>
         <span class="signal-count" id="signal-count"></span>
       </div>
-      <div id="signals-list"><div class="loading">Loading signalsâ€¦</div></div>
+      <div id="signals-list"><div class="loading">Loading signals…</div></div>
       <div class="feed-archive-row" id="feed-archive-row">
-        <span class="archive-link" id="archive-toggle">Showing signals with impact â‰¥ 50 Â· View all â†’</span>
+        <span class="archive-link" id="archive-toggle">Showing signals with impact ≥ 50 · View all →</span>
       </div>
     </div>
   </section>
@@ -116,30 +116,30 @@
     <div class="kpi-strip" id="kpi-strip-price" style="margin-bottom:16px">
       <div class="kpi-card">
         <div class="kpi-label">Action Now (7d)</div>
-        <div class="kpi-value" id="kpi-pi-action">â€”</div>
-        <div class="kpi-sub">high severity Â· Rayon-relevant</div>
+        <div class="kpi-value" id="kpi-pi-action">—</div>
+        <div class="kpi-sub">high severity · Rayon-relevant</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Cost Pressure Up (7d)</div>
-        <div class="kpi-value" id="kpi-pi-cost-up">â€”</div>
+        <div class="kpi-value" id="kpi-pi-cost-up">—</div>
         <div class="kpi-sub">upstream / mismatch / delayed</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Cost Pressure Down (7d)</div>
-        <div class="kpi-value" id="kpi-pi-cost-down">â€”</div>
+        <div class="kpi-value" id="kpi-pi-cost-down">—</div>
         <div class="kpi-sub">negotiation opportunity</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Polyester FDY Benchmark</div>
-        <div class="kpi-value" id="kpi-pi-fdy">â€”</div>
-        <div class="kpi-sub">USD / ton Â· China spot</div>
+        <div class="kpi-value" id="kpi-pi-fdy">—</div>
+        <div class="kpi-sub">USD / ton · China spot</div>
         <div class="kpi-change" id="kpi-pi-fdy-change"></div>
       </div>
     </div>
 
     <!-- A. Early Warning Bar -->
     <div id="early-warning-bar" class="early-warning-section">
-      <div class="ew-loading">Erken uyarÄ± sinyalleri yÃ¼kleniyorâ€¦</div>
+      <div class="ew-loading">Erken uyarı sinyalleri yükleniyor…</div>
     </div>
 
     <!-- Currency toggle -->
@@ -196,7 +196,7 @@
     <!-- D. Summary table (collapsible) -->
     <div class="table-wrap price-summary-wrap">
       <div class="table-title price-table-toggle-header" id="price-table-toggle">
-        All Materials â€” Summary <span id="price-table-arrow">â–¼</span>
+        All Materials — Summary <span id="price-table-arrow">▼</span>
       </div>
       <div id="price-summary-table"></div>
     </div>
@@ -206,7 +206,7 @@
   <section id="section-yarn" class="section">
     <div class="section-title">
       Yarn Intelligence
-      <span class="phase-pill">BETA Â· PHASE D</span>
+      <span class="phase-pill">BETA · PHASE D</span>
     </div>
 
     <div id="yarn-scope-note" class="scope-note scope-note-amber">
@@ -222,13 +222,13 @@
     <div id="yarn-insights-strip" class="yarn-insights-strip"></div>
 
     <div id="yarn-table-container">
-      <div class="table-title">Yarn Watchlist â€” Grouped by Price Driver</div>
+      <div class="table-title">Yarn Watchlist — Grouped by Price Driver</div>
       <div class="yarn-quality-legend">
         Quality tier:
-        <span class="tier-badge tier-A">A</span> 60+ days of price history, â‰¤3d since last update Â·
-        <span class="tier-badge tier-B">B</span> 30+ days, â‰¤5d Â·
-        <span class="tier-badge tier-C">C</span> 14+ days, â‰¤7d Â·
-        <span class="tier-badge tier-D">D</span> 7+ days, â‰¤10d Â·
+        <span class="tier-badge tier-A">A</span> 60+ days of price history, ≤3d since last update ·
+        <span class="tier-badge tier-B">B</span> 30+ days, ≤5d ·
+        <span class="tier-badge tier-C">C</span> 14+ days, ≤7d ·
+        <span class="tier-badge tier-D">D</span> 7+ days, ≤10d ·
         <span class="tier-badge tier-E">E</span> insufficient or stale
       </div>
       <div class="table-wrap">
@@ -263,13 +263,13 @@
     <div class="hs-selector">
       <label>HS Code</label>
       <select id="hs-select">
-        <option value="5407">HS 5407 â€” Woven synthetic filament</option>
-        <option value="5512">HS 5512 â€” Woven â‰¥85% synth. staple</option>
-        <option value="5515">HS 5515 â€” Other woven synth. staple</option>
-        <option value="6006">HS 6006 â€” Technical knit</option>
-        <option value="6001">HS 6001 â€” Pile/velour knit</option>
-        <option value="5402">HS 5402 â€” Filament yarn</option>
-        <option value="5509">HS 5509 â€” Staple yarn</option>
+        <option value="5407">HS 5407 — Woven synthetic filament</option>
+        <option value="5512">HS 5512 — Woven ≥85% synth. staple</option>
+        <option value="5515">HS 5515 — Other woven synth. staple</option>
+        <option value="6006">HS 6006 — Technical knit</option>
+        <option value="6001">HS 6001 — Pile/velour knit</option>
+        <option value="5402">HS 5402 — Filament yarn</option>
+        <option value="5509">HS 5509 — Staple yarn</option>
       </select>
     </div>
 
@@ -279,7 +279,7 @@
         <div class="chart-wrap" id="chart-destinations"></div>
       </div>
       <div class="chart-panel">
-        <div class="chart-panel-title">Monthly Trend â€” HS 5407 + HS 6006</div>
+        <div class="chart-panel-title">Monthly Trend — HS 5407 + HS 6006</div>
         <div class="chart-wrap" id="chart-trend"></div>
       </div>
     </div>
@@ -289,11 +289,11 @@
   <section id="section-internal" class="section">
     <div class="section-title">Operations Intelligence</div>
     <div class="sub-nav">
-      <div class="sub-nav-btn active" data-sub="ops-overview">ğŸ“Š Overview</div>
-      <div class="sub-nav-btn" data-sub="ops-procurement">ğŸ›’ Procurement</div>
-      <div class="sub-nav-btn" data-sub="ops-cost">ğŸ­ Cost Structure</div>
-      <div class="sub-nav-btn" data-sub="ops-revenue">ğŸ’° Revenue Reality</div>
-      <div class="sub-nav-btn" data-sub="ops-counterparty">ğŸ‘¥ Counterparty</div>
+      <div class="sub-nav-btn active" data-sub="ops-overview">📊 Overview</div>
+      <div class="sub-nav-btn" data-sub="ops-procurement">🛒 Procurement</div>
+      <div class="sub-nav-btn" data-sub="ops-cost">🏭 Cost Structure</div>
+      <div class="sub-nav-btn" data-sub="ops-revenue">💰 Revenue Reality</div>
+      <div class="sub-nav-btn" data-sub="ops-counterparty">👥 Counterparty</div>
     </div>
 
     <!-- Overview: KPI grid + contra alert card -->
@@ -380,16 +380,16 @@
 <div id="sub-ops-counterparty" class="sub-section">
   <header class="section-header">
     <h2>Counterparty Explorer</h2>
-    <p class="section-sub">Suppliers &amp; Customers Â· canonical view by tax id, with name-grouping fallback</p>
+    <p class="section-sub">Suppliers &amp; Customers · canonical view by tax id, with name-grouping fallback</p>
   </header>
 
   <div class="ce-toolbar">
     <div class="ce-mode-toggle">
-      <button class="ce-mode-btn ce-mode-active" data-ce-mode="purchase">ALIÅ (Suppliers)</button>
-      <button class="ce-mode-btn" data-ce-mode="sales">SATIÅ (Customers)</button>
+      <button class="ce-mode-btn ce-mode-active" data-ce-mode="purchase">ALIŞ (Suppliers)</button>
+      <button class="ce-mode-btn" data-ce-mode="sales">SATIŞ (Customers)</button>
     </div>
     <div class="ce-search-wrap">
-      <input id="ce-search" type="text" placeholder="Search name or tax idâ€¦" autocomplete="off" />
+      <input id="ce-search" type="text" placeholder="Search name or tax id…" autocomplete="off" />
       <span id="ce-search-status"></span>
     </div>
   </div>
@@ -397,7 +397,7 @@
   <div class="ce-layout">
     <aside class="ce-list-pane">
       <div class="ce-list-header">
-        <span id="ce-list-count">â€”</span>
+        <span id="ce-list-count">—</span>
         <span class="ce-list-hint">sorted by 24-month TL</span>
       </div>
       <ul id="ce-list" class="ce-list"></ul>
@@ -410,19 +410,19 @@
       <div id="ce-detail" style="display:none;">
         <header class="ce-detail-header">
           <div class="ce-detail-name-block">
-            <h3 id="ce-detail-name">â€”</h3>
+            <h3 id="ce-detail-name">—</h3>
             <div id="ce-detail-badges" class="ce-badges"></div>
           </div>
           <div class="ce-detail-meta" id="ce-detail-meta"></div>
         </header>
 
         <section class="ce-summary-grid">
-          <div class="ce-stat"><div class="ce-stat-label">24m TL</div><div class="ce-stat-value" id="ce-stat-tl">â€”</div></div>
-          <div class="ce-stat"><div class="ce-stat-label">24m USD</div><div class="ce-stat-value" id="ce-stat-usd">â€”</div></div>
-          <div class="ce-stat"><div class="ce-stat-label">24m EUR</div><div class="ce-stat-value" id="ce-stat-eur">â€”</div></div>
-          <div class="ce-stat"><div class="ce-stat-label">Rows</div><div class="ce-stat-value" id="ce-stat-rows">â€”</div></div>
-          <div class="ce-stat"><div class="ce-stat-label">Share of side</div><div class="ce-stat-value" id="ce-stat-share">â€”</div></div>
-          <div class="ce-stat"><div class="ce-stat-label">Last invoice</div><div class="ce-stat-value" id="ce-stat-last">â€”</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">24m TL</div><div class="ce-stat-value" id="ce-stat-tl">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">24m USD</div><div class="ce-stat-value" id="ce-stat-usd">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">24m EUR</div><div class="ce-stat-value" id="ce-stat-eur">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Rows</div><div class="ce-stat-value" id="ce-stat-rows">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Share of side</div><div class="ce-stat-value" id="ce-stat-share">—</div></div>
+          <div class="ce-stat"><div class="ce-stat-label">Last invoice</div><div class="ce-stat-value" id="ce-stat-last">—</div></div>
         </section>
 
         <section class="ce-block">

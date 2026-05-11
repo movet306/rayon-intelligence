@@ -1,5 +1,5 @@
 """
-dashboard/server.py Ã¢â‚¬â€ Rayon Intelligence FastAPI backend
+dashboard/server.py — Rayon Intelligence FastAPI backend
 
 Run:
     uvicorn dashboard.server:app --port 8000 --reload
@@ -24,7 +24,7 @@ load_dotenv()
 DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
 STATIC_DIR = Path(__file__).parent / "static"
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Live CNY/USD rate with 1-hour in-process cache Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── Live CNY/USD rate with 1-hour in-process cache ───────────────────────────
 _rate_cache: dict = {"rate": None, "date": None, "fetched_at": None}
 _RATE_FALLBACK = float(os.getenv("RMB_USD_RATE", "0.138"))
 
@@ -48,7 +48,7 @@ def get_rmb_usd_rate() -> tuple[float, str | None]:
         _rate_cache.update({"rate": rate, "date": date_str, "fetched_at": now})
         return rate, date_str
     except Exception as exc:
-        log.warning("Could not fetch live CNY/USD rate (%s) Ã¢â‚¬â€ using fallback %.4f", exc, _RATE_FALLBACK)
+        log.warning("Could not fetch live CNY/USD rate (%s) — using fallback %.4f", exc, _RATE_FALLBACK)
         _rate_cache.update({"rate": _RATE_FALLBACK, "date": None, "fetched_at": now})
         return _RATE_FALLBACK, None
 
@@ -58,14 +58,14 @@ MATERIAL_LABELS = {
     "polyester_fdy":          "Polyester FDY",
     "polyester_poy":          "Polyester POY",
     "polyester_dty":          "Polyester DTY",
-    "polyester_yarn":         "Polyester Ã„Â°plik",
+    "polyester_yarn":         "Polyester İplik",
     "pta":                    "PTA",
     "cotton_lint":            "Pamuk (Ham)",
-    "cotton_yarn":            "Pamuk Ã„Â°pliÃ„Å¸i",
+    "cotton_yarn":            "Pamuk İpliği",
     "polyamide_fdy":          "Naylon FDY (PA6)",
     "pa6_chip":               "PA6 Chip",
     "pa66_chip":              "PA66 Chip",
-    "rayon_yarn":             "Rayon Ã„Â°pliÃ„Å¸i",
+    "rayon_yarn":             "Rayon İpliği",
     "adipic_acid":            "Adipik Asit",
 }
 
@@ -170,7 +170,7 @@ def with_shared_conn(fn):
     """Decorator: borrow one pooled connection for the whole endpoint.
 
     Use on endpoints that issue many sequential queries (e.g. counterparty_detail
-    with 11 queries). The body is unchanged Ã¢â‚¬â€ _rows() automatically reuses the
+    with 11 queries). The body is unchanged — _rows() automatically reuses the
     bound connection via thread-local.
     """
     @wraps(fn)
@@ -184,7 +184,7 @@ def with_shared_conn(fn):
 
 
 def _rows(sql: str, params=None) -> list[dict]:
-    # M2.2.6c Ã¢â‚¬â€ if an endpoint has bound a shared connection via
+    # M2.2.6c — if an endpoint has bound a shared connection via
     # _begin_shared_conn() (typically through the @with_shared_conn decorator),
     # reuse it for this query. This avoids pool getconn/putconn round-trip
     # per call (~200ms each against Railway US-West).
@@ -206,7 +206,7 @@ def _one(sql: str, params=None):
     return rows[0] if rows else {}
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/stats Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/stats ─────────────────────────────────────────────────────────────────
 
 @app.get("/api/stats")
 def stats():
@@ -275,7 +275,7 @@ def stats():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/signals Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/signals ───────────────────────────────────────────────────────────────
 
 @app.get("/api/signals")
 def signals(
@@ -309,7 +309,7 @@ def signals(
         conditions.append("ms.action_tag = %s")
         params.append(action)
 
-    # Exclude signals already shown in the Critical panel (impactÃ¢â€°Â¥80 within last 7 days)
+    # Exclude signals already shown in the Critical panel (impact≥80 within last 7 days)
     if exclude_critical:
         conditions.append(
             "(ms.impact_score < 80 OR ms.detected_at < NOW() - INTERVAL '7 days')"
@@ -346,7 +346,7 @@ def signals(
     return _rows(sql, params)
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/signal_stats Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/signal_stats ──────────────────────────────────────────────────────────
 
 @app.get("/api/signal_stats")
 def signal_stats():
@@ -412,7 +412,7 @@ def signal_stats():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/prices Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/prices ────────────────────────────────────────────────────────────────
 
 @app.get("/api/prices")
 def prices():
@@ -505,13 +505,13 @@ def prices():
     return grouped
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/price_intelligence_signals Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/price_intelligence_signals ───────────────────────────────────────────
 
 @app.get("/api/price_intelligence_signals")
 def price_intelligence_signals_endpoint():
     """
     Return active price signals from price_intelligence_signals (Etap 1D output).
-    Ordered by severity (criticalÃ¢â€ â€™highÃ¢â€ â€™mediumÃ¢â€ â€™low), then signal_date DESC.
+    Ordered by severity (critical→high→medium→low), then signal_date DESC.
     """
     return _rows("""
         SELECT
@@ -543,17 +543,17 @@ def price_intelligence_signals_endpoint():
     """)
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/price_signals Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/price_signals ─────────────────────────────────────────────────────────
 
 @app.get("/api/price_signals")
 def price_signals_auto():
     """
     Compute auto-signals from the latest price_metrics_daily row per material.
     Rules:
-      - change_7d > +3%  Ã¢â€ â€™ rise warning
-      - change_7d < -3%  Ã¢â€ â€™ drop warning
-      - volatility_7d > 2Ãƒâ€” average Ã¢â€ â€™ volatility info
-      - polyamide_fdy/polyester_fdy spread change > Ã‚Â±5% vs 30d ago Ã¢â€ â€™ spread info
+      - change_7d > +3%  → rise warning
+      - change_7d < -3%  → drop warning
+      - volatility_7d > 2× average → volatility info
+      - polyamide_fdy/polyester_fdy spread change > ±5% vs 30d ago → spread info
     Skips materials with < 7 data points (insufficient series).
     """
     # Latest row per daily material with confidence metadata
@@ -596,18 +596,18 @@ def price_signals_auto():
         if c7 > 3:
             signals.append({
                 "material": mat, "type": "rise", "severity": "warning",
-                "text": f"{label} 7 gÃƒÂ¼nde +{c7:.1f}% yÃƒÂ¼kseldi",
+                "text": f"{label} 7 günde +{c7:.1f}% yükseldi",
             })
         elif c7 < -3:
             signals.append({
                 "material": mat, "type": "drop", "severity": "warning",
-                "text": f"{label} 7 gÃƒÂ¼nde {c7:.1f}% geriledi",
+                "text": f"{label} 7 günde {c7:.1f}% geriledi",
             })
 
         if vol is not None and avg_vol and avg_vol > 0 and vol > 2 * avg_vol:
             signals.append({
                 "material": mat, "type": "volatility", "severity": "info",
-                "text": f"{label} yÃƒÂ¼ksek volatilite (7G ÃÆ’={vol:.1f})",
+                "text": f"{label} yüksek volatilite (7G σ={vol:.1f})",
             })
 
     # Spread signal: polyamide_fdy / polyester_fdy ratio vs 30d ago
@@ -627,11 +627,11 @@ def price_signals_auto():
             ratio_30d  = pa_30d / poly_30d
             spread_chg = (ratio_now - ratio_30d) / ratio_30d * 100
             if abs(spread_chg) > 5:
-                direction = "geniÃ…Å¸ledi" if spread_chg > 0 else "daraldÃ„Â±"
+                direction = "genişledi" if spread_chg > 0 else "daraldı"
                 signals.append({
                     "material": "polyamide_fdy/polyester_fdy",
                     "type": "spread", "severity": "info",
-                    "text": (f"Naylon/Polyester FDY fiyat makasÃ„Â± {direction} "
+                    "text": (f"Naylon/Polyester FDY fiyat makası {direction} "
                              f"({spread_chg:+.1f}%)"),
                 })
 
@@ -642,7 +642,7 @@ def price_signals_auto():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/exports Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/exports ───────────────────────────────────────────────────────────────
 
 @app.get("/api/exports")
 def exports(
@@ -713,7 +713,7 @@ def exports(
     return {"kpi": kpi, "top_destinations": top_dest, "trend": trend}
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/lescon Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/lescon ────────────────────────────────────────────────────────────────
 
 @app.get("/api/lescon")
 def lescon(months: int = Query(24, ge=1, le=120)):
@@ -785,7 +785,7 @@ def lescon(months: int = Query(24, ge=1, le=120)):
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/yarn_master Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/yarn_master ───────────────────────────────────────────────────────────
 
 @app.get("/api/yarn_master")
 def get_yarn_master():
@@ -826,7 +826,7 @@ def get_yarn_master():
     """)
     return {
         "yarns":        rows,
-        "scope":        "Phase 1 Ã¢â‚¬â€ synthetic yarn driver mapping only",
+        "scope":        "Phase 1 — synthetic yarn driver mapping only",
         "coverage":     "polyester FDY/DTY + PA6/PA6.6",
         "not_covered":  ["cotton", "viscose", "blend", "elastane"],
         "safe_for":     ["driver_mapping", "exposure_grouping", "watchlist"],
@@ -834,7 +834,7 @@ def get_yarn_master():
     }
 
 
-# ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ /api/yarn_pressure ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+# ── /api/yarn_pressure ─────────────────────────────────────────────────────────
 
 @app.get("/api/yarn_pressure")
 def get_yarn_pressure():
@@ -884,7 +884,7 @@ def get_yarn_pressure():
     """)
     yarns_with_quotes = {r["yarn_id"] for r in quote_rows}
 
-    # Main query ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all yarns, including placeholders and non-eligible specs.
+    # Main query — all yarns, including placeholders and non-eligible specs.
     # Phase C: includes yarn-level pricing from fact_yarn_price_pressure.
     rows = _rows("""
         SELECT
@@ -1033,11 +1033,11 @@ def get_yarn_pressure():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Serve static files (must be last) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── Serve static files (must be last) ─────────────────────────────────────────
 
-# Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+# ════════════════════════════════════════════════════════════════════════════
 # OPERATIONS INTELLIGENCE ENDPOINTS (M2)
-# Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+# ════════════════════════════════════════════════════════════════════════════
 #
 # Six endpoints powering the "Operations Intelligence" dashboard tab.
 # All endpoints read from gold views created in migration 010 v2:
@@ -1052,12 +1052,12 @@ def get_yarn_pressure():
 #   - TL is primary; USD/EUR are secondary (per-currency, never mixed)
 #   - Months filter applied at SQL layer (NOT frontend slicing)
 #   - Default range = 24 months; query param `?months=N` overrides
-#   - No caching (MVP Ã¢â‚¬â€ correctness first)
+#   - No caching (MVP — correctness first)
 #   - Yarn resale exclusion is enforced inside views, not here
-# Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+# ════════════════════════════════════════════════════════════════════════════
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/kpi-latest-month Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/kpi-latest-month ─────────────────────────────────────────
 # Returns 12 KPI cards (4 per panel) for the latest complete month + YoY.
 # Frontend-friendly normalized shape: one flat list, panel + display_order
 # sufficient for grouping. No nested structure to unpack.
@@ -1065,7 +1065,7 @@ def get_yarn_pressure():
 @app.get("/api/internal/overview-signals")
 def internal_overview_signals():
     """
-    M2.5.1 Ã¢â‚¬â€ Overview Phase 1 top-signals strip.
+    M2.5.1 — Overview Phase 1 top-signals strip.
     Returns 4 fixed slots: customer_concentration, procurement_concentration,
     contra_revenue, margin_trend. Severity is rule-based (see migration 026).
     """
@@ -1106,7 +1106,7 @@ def internal_kpi_latest_month():
         ORDER BY panel, display_order
     """)
 
-    # Reference month Ã¢â‚¬â€ latest complete month from each side
+    # Reference month — latest complete month from each side
     purchase_latest = rows[0]["purchase_latest_month"] if rows else None
     sales_latest    = rows[0]["sales_latest_month"]    if rows else None
 
@@ -1120,7 +1120,7 @@ def internal_kpi_latest_month():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/procurement-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/procurement-trend ────────────────────────────────────────
 # Panel 1 main chart. Monthly procurement spend per raw-material bucket.
 
 @app.get("/api/internal/procurement-trend")
@@ -1160,7 +1160,7 @@ def internal_procurement_trend(
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/cost-structure-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/cost-structure-trend ─────────────────────────────────────
 # Panel 2 main chart. Monthly production-cost structure.
 # Note: logistics_distribution is provisional (M2.1 will split inbound/outbound).
 
@@ -1204,7 +1204,7 @@ def internal_cost_structure_trend(
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/revenue-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/revenue-trend ────────────────────────────────────────────
 # Panel 3 main chart. Monthly gross & net core revenue.
 # Yarn resale is EXCLUDED at the view level via subtype filter.
 
@@ -1241,14 +1241,14 @@ def internal_revenue_trend(
         "notes": {
             "yarn_resale":   "Excluded from core revenue (Rayon is fabric producer, not yarn trader). "
                              "Tracked separately as `yarn_resale_tl` for transparency.",
-            "net_revenue":   "Net = Gross - SATIÃ…Â-side returns/discounts - ALIÃ…Â-side contra. TL only "
+            "net_revenue":   "Net = Gross - SATIŞ-side returns/discounts - ALIŞ-side contra. TL only "
                              "(mixed-source contra not safe to aggregate in FX).",
         },
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/procurement-kpis Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.2.2 Ã¢â‚¬â€ Procurement Phase 1 KPI strip.
+# ── /api/internal/procurement-kpis ─────────────────────────────────────────
+# M2.2.2 — Procurement Phase 1 KPI strip.
 # Returns 6 metrics (3 anchor + 3 context) over the 12m rolling window,
 # plus window metadata (latest complete month, total 12m TL).
 @app.get("/api/internal/procurement-kpis")
@@ -1273,8 +1273,8 @@ def internal_procurement_kpis():
     return rows[0]
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/procurement-concentration-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.2.4 Ã¢â‚¬â€ Procurement Phase 1 Chart 3: top 1 / top 3 / top 10 supplier share
+# ── /api/internal/procurement-concentration-trend ──────────────────────────
+# M2.2.4 — Procurement Phase 1 Chart 3: top 1 / top 3 / top 10 supplier share
 # month-by-month over the trailing 24-month window. Source: v_procurement_concentration_trend.
 @app.get("/api/internal/procurement-concentration-trend")
 def internal_procurement_concentration_trend():
@@ -1297,8 +1297,8 @@ def internal_procurement_concentration_trend():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/procurement-currency-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.2.5 Ã¢â‚¬â€ Procurement Phase 1 Chart 4: TL-equivalent spend by invoice
+# ── /api/internal/procurement-currency-trend ───────────────────────────────
+# M2.2.5 — Procurement Phase 1 Chart 4: TL-equivalent spend by invoice
 # currency (TRY/USD/EUR/OTHER) over 24m. Source: v_monthly_procurement_by_currency.
 # Note: amount_tl is the invoice-date TL equivalent stored by Nebim
 # (net_tutar_y), NOT a re-conversion at today's FX rate.
@@ -1322,7 +1322,7 @@ def internal_procurement_currency_trend():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/top-suppliers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/top-suppliers ────────────────────────────────────────────
 # Panel 1 list. Top N suppliers by spend in cost-relevant buckets (last 12 months).
 
 @app.get("/api/internal/top-suppliers")
@@ -1361,11 +1361,11 @@ def internal_top_suppliers(
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/revenue-kpis Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.3.2 Ã¢â‚¬â€ Revenue Phase 1 KPI strip.
+# ── /api/internal/revenue-kpis ─────────────────────────────────────────────
+# M2.3.2 — Revenue Phase 1 KPI strip.
 # Returns 6+ metrics over the 12m rolling window.
-# core_total_12m_tl is provided for frontend-side avg-monthly calc (ÃƒÂ· 12).
-# KPI 6 = Top 3 customer share Ãâ€ (pp). Positive = concentration rising.
+# core_total_12m_tl is provided for frontend-side avg-monthly calc (÷ 12).
+# KPI 6 = Top 3 customer share Δ (pp). Positive = concentration rising.
 @app.get("/api/internal/revenue-kpis")
 def internal_revenue_kpis():
     rows = _rows("""
@@ -1388,8 +1388,8 @@ def internal_revenue_kpis():
     return rows[0]
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/customer-concentration-trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.3.3 Ã¢â‚¬â€ Revenue Phase 1: top 1 / top 3 / top 10 customer share month by
+# ── /api/internal/customer-concentration-trend ─────────────────────────────
+# M2.3.3 — Revenue Phase 1: top 1 / top 3 / top 10 customer share month by
 # month over the trailing 24-month window. Mirror of procurement-concentration.
 @app.get("/api/internal/customer-concentration-trend")
 def internal_customer_concentration_trend():
@@ -1412,10 +1412,10 @@ def internal_customer_concentration_trend():
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/cost-kpis Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.4.2 Ã¢â‚¬â€ Cost Structure Phase 1 KPI strip.
+# ── /api/internal/cost-kpis ────────────────────────────────────────────────
+# M2.4.2 — Cost Structure Phase 1 KPI strip.
 # Returns 6 metrics over the 12m rolling window + 3m vs 3m margin trend.
-# KPI 6 = cost/revenue ratio Ãâ€ (pp). Positive = margin compression.
+# KPI 6 = cost/revenue ratio Δ (pp). Positive = margin compression.
 @app.get("/api/internal/cost-kpis")
 def internal_cost_kpis():
     rows = _rows("""
@@ -1441,12 +1441,12 @@ def internal_cost_kpis():
     return rows[0]
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/top-cost-suppliers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.4.1 Ã¢â‚¬â€ Cost Structure Phase 1: top suppliers in cost-bucket scope
+# ── /api/internal/top-cost-suppliers ───────────────────────────────────────
+# M2.4.1 — Cost Structure Phase 1: top suppliers in cost-bucket scope
 # (utilities/maintenance/packaging/factory_overhead/outsourced_processing/
 # logistics_distribution). 12m rolling. Includes bucket spread (top + secondary).
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/cost-movers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# M2.4.4 Ã¢â‚¬â€ Cost Structure Phase 1 Movers strip.
+# ── /api/internal/cost-movers ──────────────────────────────────────────────
+# M2.4.4 — Cost Structure Phase 1 Movers strip.
 # Returns up to 3 slots (biggest_increase, biggest_decrease, highest_volatility).
 # Each slot may be absent if threshold not met (frontend renders empty state).
 @app.get("/api/internal/cost-movers")
@@ -1519,7 +1519,7 @@ def internal_top_cost_suppliers(
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/top-customers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/top-customers ────────────────────────────────────────────
 # Panel 3 list. Top N customers by core-revenue spend (last 12 months).
 # Yarn resale customers excluded at view level.
 
@@ -1561,7 +1561,7 @@ def internal_top_customers(
     }
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/internal/contra-anomaly Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/internal/contra-anomaly ───────────────────────────────────────────
 # Single-row alert card. Surfaces contra revenue as a separate anomaly signal
 # (median-based context, top counterparty concentration, severity flag) instead
 # of an unreliable YoY % from a low-base prior month.
@@ -1759,12 +1759,12 @@ def counterparty_detail(
 
     # Reconstruct the WHERE clause used by the view to filter rows for this counterparty
     if h["is_verified"]:
-        # vergi_numarasi stored as-is (e.g. 'REDACTED_TAX_ID.0') Ã¢â‚¬â€ direct equality
+        # vergi_numarasi stored as-is (e.g. 'REDACTED_TAX_ID.0') — direct equality
         # matches the index idx_fact_purch_vn_date / idx_fact_sales_vn_date.
         cp_filter = "vergi_numarasi = %s"
         cp_param = h["vergi_numarasi"]
     else:
-        # Unverified: tax id missing/zero Ã¢â‚¬â€ match by raw display name
+        # Unverified: tax id missing/zero — match by raw display name
         # Index idx_fact_purch_cariname_date / idx_fact_sales_cariname_date.
         cp_filter = """(vergi_numarasi IS NULL OR vergi_numarasi IN ('', '0', '0.0'))
                        AND cari_hesap_aciklamasi = %s"""
@@ -1774,7 +1774,7 @@ def counterparty_detail(
     horizon_row = _rows(f"SELECT MAX(fatura_tarihi) AS m FROM {fact_table}", [])
     horizon = horizon_row[0]["m"] if horizon_row else None
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Summary Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Summary ─────────────────────────────────────────────────────────────
     summary = _rows(
         f"""
         SELECT
@@ -1815,7 +1815,7 @@ def counterparty_detail(
         if side_total else 0
     )
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Monthly trend Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Monthly trend ───────────────────────────────────────────────────────
     monthly = _rows(
         f"""
         SELECT DATE_TRUNC('month', fatura_tarihi)::date AS month,
@@ -1829,7 +1829,7 @@ def counterparty_detail(
         [cp_param, horizon],
     )
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Bucket split Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Bucket split ────────────────────────────────────────────────────────
     buckets = _rows(
         f"""
         SELECT business_bucket AS bucket,
@@ -1853,7 +1853,7 @@ def counterparty_detail(
         for b in buckets
     ]
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Subtype split Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Subtype split ───────────────────────────────────────────────────────
     subtypes = _rows(
         f"""
         SELECT subtype, SUM(net_tutar_y)::float AS amount_tl, COUNT(*)::int AS rows
@@ -1867,7 +1867,7 @@ def counterparty_detail(
         [cp_param, horizon],
     )
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Currency split Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Currency split ──────────────────────────────────────────────────────
     currencies = _rows(
         f"""
         SELECT COALESCE(para_birimi_d, '<unknown>') AS ccy,
@@ -1881,7 +1881,7 @@ def counterparty_detail(
         [cp_param, horizon],
     )
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Top accounts Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Top accounts ────────────────────────────────────────────────────────
     accounts = _rows(
         f"""
         SELECT hesap_kodu, hesap_aciklamasi,
@@ -1897,7 +1897,7 @@ def counterparty_detail(
         [cp_param, horizon],
     )
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Classification quality Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Classification quality ──────────────────────────────────────────────
     quality = _rows(
         f"""
         SELECT
@@ -1912,7 +1912,7 @@ def counterparty_detail(
         [cp_param, horizon],
     )[0]
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Recent rows Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # ── Recent rows ─────────────────────────────────────────────────────────
     recent = _rows(
         f"""
         SELECT fatura_tarihi, hesap_kodu, business_bucket AS bucket,
@@ -1986,7 +1986,7 @@ def counterparty_detail(
 # === END COUNTERPARTY EXPLORER (M2.1) ===
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ /api/price_intelligence_stats Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# ── /api/price_intelligence_stats ──────────────────────────────────────────────
 
 @app.get("/api/price_intelligence_stats")
 def price_intelligence_stats():
@@ -1996,12 +1996,12 @@ def price_intelligence_stats():
     Backed by price_intelligence_signals (chain mismatch / cost pressure / etc.),
     NOT by market_signals (news). Avoids the conceptual mismatch where the
     global header strip showed 'HIGH IMPACT 0' while the price feed showed
-    YÃƒÅ“KSEK signals.
+    YÜKSEK signals.
 
     Action Now uses a permissive Rayon-relevance filter that auto-activates
     once dim_material is populated in PI-2.
     """
-    # 1. Action Now Ã¢â‚¬â€ high severity, last 7d, Rayon-relevant (or unscored)
+    # 1. Action Now — high severity, last 7d, Rayon-relevant (or unscored)
     action_now = _one(
         """
         SELECT COUNT(DISTINCT (
@@ -2019,7 +2019,7 @@ def price_intelligence_stats():
         """,
     ).get("n", 0)
 
-    # 2. Cost Pressure Up Ã¢â‚¬â€ distinct (chain, material) clusters, last 7d
+    # 2. Cost Pressure Up — distinct (chain, material) clusters, last 7d
     cost_up = _one(
         """
         SELECT COUNT(DISTINCT (chain, COALESCE(material_slug, '')))::int AS n
@@ -2031,7 +2031,7 @@ def price_intelligence_stats():
         """,
     ).get("n", 0)
 
-    # 3. Cost Pressure Down Ã¢â‚¬â€ distinct (chain, material) clusters, last 7d
+    # 3. Cost Pressure Down — distinct (chain, material) clusters, last 7d
     cost_down = _one(
         """
         SELECT COUNT(DISTINCT (chain, COALESCE(material_slug, '')))::int AS n
@@ -2042,7 +2042,7 @@ def price_intelligence_stats():
         """,
     ).get("n", 0)
 
-    # 4. Polyester FDY benchmark Ã¢â‚¬â€ latest USD spot
+    # 4. Polyester FDY benchmark — latest USD spot
     poly = _one(
         """
         SELECT price_usd::float    AS price_usd,
