@@ -388,9 +388,10 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
              source_table, source_id, source_url, company_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
-             material_form, theme, affected_products, rayon_relevance)
+             material_form, theme, affected_products, rayon_relevance,
+             signal_priority_profile)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s)
+                %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             analysis["signal_type"],
@@ -413,6 +414,7 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
             analysis.get("theme"),
             analysis.get("affected_products"),
             analysis.get("rayon_relevance"),
+            analysis.get("signal_priority_profile") or "OTHER",
         ),
     )
 
@@ -434,9 +436,10 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
              source_table, source_id, source_url, company_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
-             material_form, theme, affected_products, rayon_relevance)
+             material_form, theme, affected_products, rayon_relevance,
+             signal_priority_profile)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s)
+                %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             "competitor_mention",
@@ -459,6 +462,7 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
             analysis.get("theme"),
             analysis.get("affected_products"),
             analysis.get("rayon_relevance"),
+            analysis.get("signal_priority_profile") or "OTHER",
         ),
     )
 
@@ -595,9 +599,15 @@ def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, in
     at = analysis.get("action_tag")
     analysis["action_tag"] = at if at in VALID_ACTION_TAGS else None
 
-    # signal_category
+    # signal_category (P0-B: legacy mapping + OTHER fallback, no more null)
     sc = analysis.get("signal_category")
-    analysis["signal_category"] = sc if sc in VALID_SIGNAL_CATS else None
+    if sc in LEGACY_SIGNAL_CAT_MAP:
+        sc = LEGACY_SIGNAL_CAT_MAP[sc]
+    analysis["signal_category"] = sc if sc in VALID_SIGNAL_CATS else "OTHER"
+
+    # signal_priority_profile (P0-B new field, ChatGPT gap #1)
+    spp = analysis.get("signal_priority_profile")
+    analysis["signal_priority_profile"] = spp if spp in VALID_PRIORITY_PROFILES else "OTHER"
 
     # material_form: free text, just strip
     mf = (analysis.get("material_form") or "").strip()
@@ -636,10 +646,10 @@ def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, in
     if analysis["impact_score"] > 60 and analysis["time_horizon"] is None:
         analysis["time_horizon"] = "mid"
 
-    # F4: no signal_category but relevance above threshold → infer
-    if analysis["signal_category"] is None and analysis["relevance_score"] > 0.4:
+    # F4: refine signal_category when OTHER but relevance is meaningful (P0-B: new enums)
+    if analysis["signal_category"] == "OTHER" and analysis["relevance_score"] > 0.4:
         analysis["signal_category"] = (
-            "COST_IMPACT" if analysis["price_signal"] is not None else "DEMAND_SHIFT"
+            "RAW_MATERIAL" if analysis["price_signal"] is not None else "MARKET_DEMAND"
         )
 
     return analysis, tokens_in, tokens_out, cost
