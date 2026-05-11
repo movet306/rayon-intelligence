@@ -250,6 +250,15 @@ html, body {
   margin-bottom: 8px;
 }
 
+.signal-meta-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .badge {
   display: inline-block;
   font-size: 10px;
@@ -273,16 +282,12 @@ html, body {
 .badge-sev-info    { background: rgba(88,166,255,0.15); color: var(--blue); }
 
 .signal-dt {
-  margin-left: auto;
   font-family: 'SF Mono', Consolas, 'Courier New', monospace;
   font-size: 11px;
   color: var(--muted);
   white-space: nowrap;
-  min-width: 130px;
   text-align: right;
-  flex-shrink: 0;
   display: inline-block;
-  letter-spacing: 0;
 }
 .signal-source { font-size: 11px; color: var(--muted); }
 .signal-link-icon { font-size: 11px; color: var(--blue); margin-left: 6px; opacity: 0.7; }

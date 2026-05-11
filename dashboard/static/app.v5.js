@@ -459,8 +459,10 @@ function renderSignalCard(r) {
     <div class="signal-card"${urlAttr} style="border-left-color: ${borderColor}">
       <div class="signal-meta">
         ${catHtml}${actionHtml}${horizonHtml}${matHtml}
-        <span class="signal-dt">${esc(r.detected_at || '')}</span>
-        ${linkIcon}${impact}
+        <div class="signal-meta-right">
+          <span class="signal-dt">${esc(r.detected_at || '')}</span>
+          ${linkIcon}${impact}
+        </div>
       </div>
       <div class="signal-title">${esc(r.title || '')}</div>
       <div class="signal-body">${esc(r.summary || '')}</div>
