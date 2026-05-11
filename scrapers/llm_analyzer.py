@@ -60,9 +60,21 @@ VALID_SIGNAL_TYPES = {
 VALID_SEVERITIES      = {"info", "warning", "alert"}
 VALID_TIME_HORIZONS   = {"short", "mid", "long"}
 VALID_ACTION_TAGS     = {"MONITOR", "RISK", "OPPORTUNITY"}
-VALID_SIGNAL_CATS     = {"COST_IMPACT", "DEMAND_SHIFT", "SUPPLY_RISK", "COMPETITOR_MOVE", "REGULATORY"}
+VALID_SIGNAL_CATS     = {
+    "REGULATORY", "TRADE_POLICY", "RAW_MATERIAL", "TECHNOLOGY",
+    "MARKET_DEMAND", "COMPETITOR_MOVE", "SUPPLY_CHAIN",
+    "SUSTAINABILITY", "OTHER",
+}
+# Legacy enum mapping (P0-B transition support)
+LEGACY_SIGNAL_CAT_MAP = {
+    "COST_IMPACT":  "RAW_MATERIAL",
+    "DEMAND_SHIFT": "MARKET_DEMAND",
+    "SUPPLY_RISK":  "SUPPLY_CHAIN",
+}
+# ChatGPT gap #1 (P0-B): primary priority dimension
+VALID_PRIORITY_PROFILES = {"COST", "DEMAND", "REGULATION", "SUSTAINABILITY", "EXPORT", "OTHER"}
 VALID_RAYON_REL       = {"direct", "indirect", "none"}
-VALID_AFFECTED        = {"woven", "knit", "technical", "laminated"}
+VALID_AFFECTED        = {"woven", "knit", "technical", "laminated", "OTHER"}
 
 # Generic Turkish phrases that indicate a vague/low-quality summary
 GENERIC_TR_PHRASES = [
@@ -135,15 +147,16 @@ def build_system_prompt(competitor_names: list[str]) -> str:
         ══ D. MANDATORY JSON OUTPUT (return ONLY this object, no markdown) ══
         {{
           "relevance_score":    <float 0.0–1.0>,
-          "signal_category":    <"COST_IMPACT"|"DEMAND_SHIFT"|"SUPPLY_RISK"|"COMPETITOR_MOVE"|"REGULATORY"|null>,
+          "signal_category":    <"REGULATORY"|"TRADE_POLICY"|"RAW_MATERIAL"|"TECHNOLOGY"|"MARKET_DEMAND"|"COMPETITOR_MOVE"|"SUPPLY_CHAIN"|"SUSTAINABILITY"|"OTHER">,
           "signal_type":        <"price_move"|"price_signal"|"capacity_change"|"new_market"|"trend"|"regulation"|"competitor_mention"|"other">,
           "severity":           <"info"|"warning"|"alert">,
           "impact_score":       <integer 0–100, see rubric below>,
           "time_horizon":       <"short"|"mid"|"long"|null>,
           "action_tag":         <"MONITOR"|"RISK"|"OPPORTUNITY"|null>,
-          "material_form":      <specific form from hierarchy above, e.g. "FDY", "PSF", "Nylon FDY"|null if no material data>,
-          "affected_products":  <array from ["woven","knit","technical","laminated"], empty array if unclear>,
+          "material_form":      <specific form from hierarchy above, e.g. "FDY", "PSF", "Nylon FDY"; use "OTHER" if no material data>,
+          "affected_products":  <array from ["woven","knit","technical","laminated","OTHER"], use ["OTHER"] if unclear (never empty)>,
           "theme":              <short label, e.g. "Polyester Cost Pressure", "US Trade Risk", "Nylon Supply Squeeze"|null>,
+            "signal_priority_profile": <"COST"|"DEMAND"|"REGULATION"|"SUSTAINABILITY"|"EXPORT"|"OTHER">,
           "rayon_relevance":    <"direct"|"indirect"|"none">,
           "summary_tr":         <ONE specific Turkish sentence — MUST name the material form, direction, and magnitude or geography>,
           "competitors_mentioned": <list of exact company names from article that appear in the tracked list; [] if none>,
@@ -155,7 +168,19 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           }} or null
         }}
 
-        ══ NEW: SCORING DISTRIBUTION RULE ══
+        ══ REQUIRED FIELDS (MUST always be populated, never null) ══
+          - signal_category: pick the closest match; use "OTHER" only if truly none fit
+          - material_form: pick specific form (e.g. "FDY", "PSF") or "OTHER" if no material context
+          - affected_products: at least ["OTHER"] if no business line is clearly affected
+          - signal_priority_profile: pick the primary priority dimension; "OTHER" only if truly none fit
+
+          Legacy signal_category mapping (for context — DO NOT use these in output):
+            COST_IMPACT     -> use "RAW_MATERIAL" or "SUPPLY_CHAIN"
+            DEMAND_SHIFT    -> use "MARKET_DEMAND"
+            SUPPLY_RISK     -> use "SUPPLY_CHAIN"
+            (COMPETITOR_MOVE, REGULATORY remain the same)
+
+          ══ NEW: SCORING DISTRIBUTION RULE ══
         Use the FULL 0.0-1.0 range for relevance_score with granularity. Do NOT cluster
         scores at round numbers (0.1, 0.2, 0.4, 0.6). Use nuanced intermediate values
         such as 0.15, 0.22, 0.28, 0.35, 0.43, 0.52, 0.67, 0.74, 0.83, etc.
