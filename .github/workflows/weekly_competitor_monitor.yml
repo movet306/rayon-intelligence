@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DATABASE_URL:       ${{ secrets.DATABASE_URL }}
+      DATABASE_URL:       ${{ secrets.RAYON_DATABASE_URL }}
       COMTRADE_API_KEY:   ${{ secrets.COMTRADE_API_KEY }}
 
     steps:
