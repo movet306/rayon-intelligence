@@ -444,7 +444,7 @@ function renderSignalCard(r) {
   const urlAttr = hasUrl ? ` data-url="${esc(r.source_url)}"` : '';
   const linkIcon = hasUrl ? `<span class="signal-link-icon">↗</span>` : '';
   const impact  = r.impact_score != null
-    ? `<span class="impact-score-sm">${r.impact_score}</span>` : '';
+    ? `<span class="impact-score-sm ${r.impact_score >= 70 ? 'impact-high' : r.impact_score >= 40 ? 'impact-mid' : 'impact-low'}">${r.impact_score}</span>` : '';
   const catHtml = r.signal_category
     ? `<span class="cat-badge cat-${r.signal_category}">${r.signal_category.replace(/_/g,' ')}</span>` : '';
   const actionHtml = r.action_tag

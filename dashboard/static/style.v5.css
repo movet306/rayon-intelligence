@@ -897,6 +897,10 @@ html, body {
   border-radius: 4px;
 }
 
+.impact-score-sm.impact-low  { color: var(--muted); }
+.impact-score-sm.impact-mid  { color: var(--orange); font-weight: 800; }
+.impact-score-sm.impact-high { color: var(--red); font-weight: 800; }
+
 .cat-badge {
   display: inline-block;
   font-size: 10px;
