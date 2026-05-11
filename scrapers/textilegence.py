@@ -34,6 +34,10 @@ import sys
 import time
 from datetime import datetime, timezone
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _date_utils import parse_published_at, parse_wp_date  # noqa: E402
+
 import psycopg2
 import requests
 from bs4 import BeautifulSoup
@@ -92,16 +96,19 @@ def get_connection():
     return psycopg2.connect(url, connect_timeout=10)
 
 
-def insert_news_item(cur, url: str, title: str, body_raw: str | None) -> bool:
+def insert_news_item(
+    cur, url: str, title: str, body_raw: str | None,
+    published_at: datetime | None = None,
+) -> bool:
     """Insert one article. Returns True if inserted, False if duplicate."""
     cur.execute(
         """
-        INSERT INTO news_items (url, source, title, body_raw, language, scraped_at)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO news_items (url, source, title, body_raw, language, scraped_at, published_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (url_hash) DO NOTHING
         RETURNING id
         """,
-        (url, SOURCE, title, body_raw, "en", datetime.now(timezone.utc)),
+        (url, SOURCE, title, body_raw, "en", datetime.now(timezone.utc), published_at),
     )
     return cur.fetchone() is not None
 
@@ -238,7 +245,12 @@ def extract_article(post: dict) -> dict | None:
     content_html = post.get("content", {}).get("rendered", "")
     body_raw = html_to_text(content_html) if content_html else None
 
-    return {"url": url, "title": title, "body_raw": body_raw}
+    return {
+        "url": url,
+        "title": title,
+        "body_raw": body_raw,
+        "published_at": parse_wp_date(post.get("date")),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +380,8 @@ def scrape(pages: int = 1) -> dict:
                 with conn:
                     with conn.cursor() as cur:
                         was_inserted = insert_news_item(
-                            cur, article["url"], article["title"], article["body_raw"]
+                            cur, article["url"], article["title"], article["body_raw"],
+                            published_at=article.get("published_at"),
                         )
                 if was_inserted:
                     inserted += 1

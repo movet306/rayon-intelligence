@@ -24,6 +24,10 @@ import sys
 import time
 from datetime import datetime, timezone
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _date_utils import parse_published_at, parse_wp_date  # noqa: E402
+
 import psycopg2
 import psycopg2.extras
 import requests
@@ -99,16 +103,19 @@ def get_connection():
     return psycopg2.connect(url, connect_timeout=10)
 
 
-def insert_news_item(cur, url: str, title: str, body_raw: str | None) -> bool:
+def insert_news_item(
+    cur, url: str, title: str, body_raw: str | None,
+    published_at: datetime | None = None,
+) -> bool:
     """Insert one article. Returns True if inserted, False if duplicate."""
     cur.execute(
         """
-        INSERT INTO news_items (url, source, title, body_raw, language, scraped_at)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO news_items (url, source, title, body_raw, language, scraped_at, published_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (url_hash) DO NOTHING
         RETURNING id
         """,
-        (url, SOURCE, title, body_raw, "en", datetime.now(timezone.utc)),
+        (url, SOURCE, title, body_raw, "en", datetime.now(timezone.utc), published_at),
     )
     return cur.fetchone() is not None
 
@@ -178,7 +185,7 @@ def fetch_section(session: requests.Session, url: str) -> BeautifulSoup | None:
         return None
 
 
-def fetch_article_body(session: requests.Session, url: str) -> str | None:
+def fetch_article_body(session: requests.Session, url: str) -> tuple[str | None, datetime | None]:
     """
     Fetch an article detail page and extract the main body text.
     Returns cleaned text (capped at BODY_MAX_CHARS) or None on failure.
@@ -193,9 +200,12 @@ def fetch_article_body(session: requests.Session, url: str) -> str | None:
             return None
     except requests.RequestException as e:
         log.warning("  Body fetch failed for %s: %s", url, e)
-        return None
+        return None, None
 
     soup = BeautifulSoup(resp.text, "html.parser")
+
+    # Parse published_at BEFORE stripping boilerplate (JSON-LD lives in <script>)
+    published_at = parse_published_at(soup, url=url)
 
     # Strip boilerplate containers before extracting text
     for tag in soup.find_all(["nav", "header", "footer", "script", "style", "aside", "form"]):
@@ -208,10 +218,10 @@ def fetch_article_body(session: requests.Session, url: str) -> str | None:
             # Collapse runs of blank lines
             text = re.sub(r"\n{3,}", "\n\n", text).strip()
             if len(text) > 200:
-                return text[:BODY_MAX_CHARS]
+                return text[:BODY_MAX_CHARS], published_at
 
     log.debug("  No body selector matched for %s", url)
-    return None
+    return None, published_at
 
 
 def extract_articles(soup: BeautifulSoup) -> list[dict]:
@@ -368,7 +378,7 @@ def scrape(pages: int = 1) -> dict:
                 time.sleep(ARTICLE_DELAY)
 
             log.info("  Fetching body (%d/%d): %.70s", i + 1, len(articles), article["url"])
-            body_raw = fetch_article_body(session, article["url"])
+            body_raw, published_at = fetch_article_body(session, article["url"])
             if body_raw:
                 log.debug("    Got %d chars of body text", len(body_raw))
             else:
@@ -378,7 +388,8 @@ def scrape(pages: int = 1) -> dict:
                 with conn:
                     with conn.cursor() as cur:
                         was_inserted = insert_news_item(
-                            cur, article["url"], article["title"], body_raw
+                            cur, article["url"], article["title"], body_raw,
+                            published_at=published_at,
                         )
 
                 if was_inserted:
