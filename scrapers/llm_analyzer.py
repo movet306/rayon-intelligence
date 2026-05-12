@@ -76,6 +76,22 @@ VALID_PRIORITY_PROFILES = {"COST", "DEMAND", "REGULATION", "SUSTAINABILITY", "EX
 VALID_RAYON_REL       = {"direct", "indirect", "none"}
 VALID_AFFECTED        = {"woven", "knit", "technical", "laminated", "OTHER"}
 
+# P1: Exposure layer constants (aligned with Mig 011 CHECK constraints)
+VALID_BUSINESS_LINES = {"woven", "knit", "technical", "coated", "OTHER"}
+VALID_MATERIAL_FAMILIES = {
+    "polyester", "nylon", "viscose", "modal", "cotton",
+    "FR", "membrane", "mixed", "OTHER"
+}
+VALID_COMMERCIAL_EXPOSURE = {
+    "INPUT_COST", "OUTPUT_DEMAND", "EXPORT_TRADE",
+    "REGULATORY_COMPLIANCE", "COMPETITIVE_POSITION",
+    "TECH_INNOVATION", "OTHER"
+}
+VALID_ENTITY_ROLES = {
+    "subject", "competitor", "supplier", "customer",
+    "regulator", "partner", "other"
+}
+
 # Generic Turkish phrases that indicate a vague/low-quality summary
 GENERIC_TR_PHRASES = [
     "piyasası artıyor", "piyasası düşüyor", "sektör büyüyor",
@@ -157,6 +173,12 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           "affected_products":  <array from ["woven","knit","technical","laminated","OTHER"], use ["OTHER"] if unclear (never empty)>,
           "theme":              <short label, e.g. "Polyester Cost Pressure", "US Trade Risk", "Nylon Supply Squeeze"|null>,
             "signal_priority_profile": <"COST"|"DEMAND"|"REGULATION"|"SUSTAINABILITY"|"EXPORT"|"OTHER">,
+  "rayon_why_it_matters":    <ONE specific Turkish sentence explaining the concrete impact on Rayon\'s business. NEVER null. If no clear impact, use "Etki belirsiz, izlemeye değer.">,
+  "affected_business_line":  <ARRAY from ["woven","knit","technical","coated","OTHER"]; use ["OTHER"] if unclear; multi-value allowed when relevant>,
+  "affected_material_family": <ARRAY from ["polyester","nylon","viscose","modal","cotton","FR","membrane","mixed","OTHER"]; multi-value allowed>,
+  "commercial_exposure_type": <ONE of: "INPUT_COST"|"OUTPUT_DEMAND"|"EXPORT_TRADE"|"REGULATORY_COMPLIANCE"|"COMPETITIVE_POSITION"|"TECH_INNOVATION"|"OTHER">,
+  "entity_name":             <Name of the primary entity mentioned (company, association, regulator, geography). NEVER null. Use "(unspecified)" if none>,
+  "entity_role":             <ONE of: "subject"|"competitor"|"supplier"|"customer"|"regulator"|"partner"|"other">,
           "rayon_relevance":    <"direct"|"indirect"|"none">,
           "summary_tr":         <ONE specific Turkish sentence — MUST name the material form, direction, and magnitude or geography>,
           "competitors_mentioned": <list of exact company names from article that appear in the tracked list; [] if none>,
@@ -173,6 +195,12 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           - material_form: pick specific form (e.g. "FDY", "PSF") or "OTHER" if no material context
           - affected_products: at least ["OTHER"] if no business line is clearly affected
           - signal_priority_profile: pick the primary priority dimension; "OTHER" only if truly none fit
+- rayon_why_it_matters: NEVER null. Use "Etki belirsiz, izlemeye değer." if unclear.
+- affected_business_line: at least ["OTHER"]. Multi-value when relevant.
+- affected_material_family: at least ["OTHER"]. Multi-value when relevant.
+- commercial_exposure_type: pick closest match (e.g. trade tariff -> EXPORT_TRADE, polyester cost -> INPUT_COST).
+- entity_name: use "(unspecified)" if no clear entity in article.
+- entity_role: pick closest role from the list above.
 
           Legacy signal_category mapping (for context — DO NOT use these in output):
             COST_IMPACT     -> use "RAW_MATERIAL" or "SUPPLY_CHAIN"
@@ -346,7 +374,7 @@ def update_news_item(cur, item_id: str, analysis: dict, entity_id: str | None,
         UPDATE news_items
         SET    relevance_score = %s,
                body_summary    = %s,
-               entity_id      = %s,
+               company_id     = %s,
                llm_model       = %s,
                llm_tokens_in   = %s,
                llm_tokens_out  = %s,
@@ -389,9 +417,13 @@ def insert_market_signal(cur, item: dict, analysis: dict, entity_id: str | None,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
              material_form, theme, affected_products, rayon_relevance,
-             signal_priority_profile)
+             signal_priority_profile,
+             rayon_why_it_matters, affected_business_line,
+             affected_material_family, commercial_exposure_type,
+             entity_name, entity_role)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s)
         """,
         (
             analysis["signal_type"],
@@ -415,6 +447,12 @@ def insert_market_signal(cur, item: dict, analysis: dict, entity_id: str | None,
             analysis.get("affected_products"),
             analysis.get("rayon_relevance"),
             analysis.get("signal_priority_profile") or "OTHER",
+            analysis["rayon_why_it_matters"],
+            psycopg2.extras.Json(analysis["affected_business_line"]),
+            psycopg2.extras.Json(analysis["affected_material_family"]),
+            analysis["commercial_exposure_type"],
+            analysis["entity_name"],
+            analysis["entity_role"],
         ),
     )
 
@@ -437,9 +475,13 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
              material_form, theme, affected_products, rayon_relevance,
-             signal_priority_profile)
+             signal_priority_profile,
+             rayon_why_it_matters, affected_business_line,
+             affected_material_family, commercial_exposure_type,
+             entity_name, entity_role)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s)
         """,
         (
             "competitor_mention",
@@ -463,6 +505,12 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
             analysis.get("affected_products"),
             analysis.get("rayon_relevance"),
             analysis.get("signal_priority_profile") or "OTHER",
+            analysis["rayon_why_it_matters"],
+            psycopg2.extras.Json(analysis["affected_business_line"]),
+            psycopg2.extras.Json(analysis["affected_material_family"]),
+            analysis["commercial_exposure_type"],
+            analysis["entity_name"],
+            analysis["entity_role"],
         ),
     )
 
@@ -608,6 +656,35 @@ def call_openai(client, system_prompt: str, user_message: str) -> tuple[dict, in
     # signal_priority_profile (P0-B new field, ChatGPT gap #1)
     spp = analysis.get("signal_priority_profile")
     analysis["signal_priority_profile"] = spp if spp in VALID_PRIORITY_PROFILES else "OTHER"
+
+    # P1 exposure layer validation (Mig 011 fields)
+    rwim = analysis.get("rayon_why_it_matters")
+    if not rwim or not isinstance(rwim, str) or len(rwim.strip()) < 5:
+        analysis["rayon_why_it_matters"] = "Etki belirsiz, izlemeye değer."
+
+    abl = analysis.get("affected_business_line")
+    if not isinstance(abl, list) or not abl:
+        analysis["affected_business_line"] = ["OTHER"]
+    else:
+        abl_clean = [v for v in abl if v in VALID_BUSINESS_LINES]
+        analysis["affected_business_line"] = abl_clean if abl_clean else ["OTHER"]
+
+    amf = analysis.get("affected_material_family")
+    if not isinstance(amf, list) or not amf:
+        analysis["affected_material_family"] = ["OTHER"]
+    else:
+        amf_clean = [v for v in amf if v in VALID_MATERIAL_FAMILIES]
+        analysis["affected_material_family"] = amf_clean if amf_clean else ["OTHER"]
+
+    ce = analysis.get("commercial_exposure_type")
+    analysis["commercial_exposure_type"] = ce if ce in VALID_COMMERCIAL_EXPOSURE else "OTHER"
+
+    en = analysis.get("entity_name")
+    if not en or not isinstance(en, str) or not en.strip():
+        analysis["entity_name"] = "(unspecified)"
+
+    er = analysis.get("entity_role")
+    analysis["entity_role"] = er if er in VALID_ENTITY_ROLES else "other"
 
     # material_form: free text, just strip
     mf = (analysis.get("material_form") or "").strip()
