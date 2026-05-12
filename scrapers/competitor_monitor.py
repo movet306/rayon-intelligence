@@ -143,7 +143,7 @@ def get_companies(cur) -> list[dict]:
     cur.execute(
         """
         SELECT id, name, website
-        FROM companies
+        FROM entities
         WHERE website IS NOT NULL
         ORDER BY name
         """
@@ -151,36 +151,36 @@ def get_companies(cur) -> list[dict]:
     return cur.fetchall()
 
 
-def get_latest_snapshot(cur, company_id: str) -> dict | None:
+def get_latest_snapshot(cur, entity_id: str) -> dict | None:
     cur.execute(
         """
         SELECT id, content_hash, checked_at
         FROM competitor_snapshots
-        WHERE company_id = %s
+        WHERE entity_id = %s
         ORDER BY checked_at DESC
         LIMIT 1
         """,
-        (company_id,),
+        (entity_id,),
     )
     return cur.fetchone()
 
 
-def insert_snapshot(cur, company_id: str, url: str, content_hash: str, summary: str):
+def insert_snapshot(cur, entity_id: str, url: str, content_hash: str, summary: str):
     cur.execute(
         """
         INSERT INTO competitor_snapshots
-            (company_id, url, content_hash, content_summary, checked_at)
+            (entity_id, url, content_hash, content_summary, checked_at)
         VALUES (%s, %s, %s, %s, %s)
         """,
-        (company_id, url, content_hash, summary, datetime.now(timezone.utc)),
+        (entity_id, url, content_hash, summary, datetime.now(timezone.utc)),
     )
 
 
-def insert_market_signal(cur, company_id: str, company_name: str, url: str, summary: str):
+def insert_market_signal(cur, entity_id: str, company_name: str, url: str, summary: str):
     cur.execute(
         """
         INSERT INTO market_signals
-            (signal_type, severity, title, body, source_table, company_id, detected_at, tags)
+            (signal_type, severity, title, body, source_table, entity_id, detected_at, tags)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
@@ -193,7 +193,7 @@ def insert_market_signal(cur, company_id: str, company_name: str, url: str, summ
                 f"Homepage content hash changed for {company_name} ({url})."
             ),
             "competitor_snapshots",
-            company_id,
+            entity_id,
             datetime.now(timezone.utc),
             ["website_change", "competitor"],
         ),
@@ -229,7 +229,7 @@ def record_failure(conn, url: str | None, error_message: str, error_detail: str,
 
 def monitor(request_timeout: int = 15) -> dict:
     """
-    Check all companies with a website. Returns a summary dict.
+    Check all entities with a website. Returns a summary dict.
     """
     baselines = changed = unchanged = failed = 0
 
@@ -240,16 +240,16 @@ def monitor(request_timeout: int = 15) -> dict:
         return {"baselines": 0, "changed": 0, "unchanged": 0, "failed": -1, "error": str(e)}
 
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        companies = get_companies(cur)
+        entities = get_companies(cur)
 
-    log.info("Checking %d companies", len(companies))
+    log.info("Checking %d entities", len(entities))
 
-    for idx, company in enumerate(companies, start=1):
-        company_id = str(company["id"])
+    for idx, company in enumerate(entities, start=1):
+        entity_id = str(company["id"])
         name = company["name"]
         url = normalise_url(company["website"])
 
-        log.info("[%d/%d] %s — %s", idx, len(companies), name, url)
+        log.info("[%d/%d] %s — %s", idx, len(entities), name, url)
 
         # --- Fetch page ---
         resp = fetch_page(url, request_timeout)
@@ -259,8 +259,8 @@ def monitor(request_timeout: int = 15) -> dict:
                 conn,
                 url=url,
                 error_message=f"Failed to fetch homepage for {name}",
-                error_detail=f"company_id={company_id}",
-                payload={"company_id": company_id, "name": name, "url": url},
+                error_detail=f"entity_id={entity_id}",
+                payload={"entity_id": entity_id, "name": name, "url": url},
             )
             continue
 
@@ -277,7 +277,7 @@ def monitor(request_timeout: int = 15) -> dict:
                 url=url,
                 error_message=f"Content processing error: {e}",
                 error_detail=repr(e),
-                payload={"company_id": company_id, "name": name, "url": url},
+                payload={"entity_id": entity_id, "name": name, "url": url},
             )
             continue
 
@@ -285,11 +285,11 @@ def monitor(request_timeout: int = 15) -> dict:
         try:
             with conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    previous = get_latest_snapshot(cur, company_id)
+                    previous = get_latest_snapshot(cur, entity_id)
 
                     if previous is None:
                         # First check — store baseline, no signal
-                        insert_snapshot(cur, company_id, url, content_hash, summary)
+                        insert_snapshot(cur, entity_id, url, content_hash, summary)
                         baselines += 1
                         log.info("  BASELINE stored")
 
@@ -308,8 +308,8 @@ def monitor(request_timeout: int = 15) -> dict:
 
                     else:
                         # Content changed — new snapshot + market signal
-                        insert_snapshot(cur, company_id, url, content_hash, summary)
-                        insert_market_signal(cur, company_id, name, url, summary)
+                        insert_snapshot(cur, entity_id, url, content_hash, summary)
+                        insert_market_signal(cur, entity_id, name, url, summary)
                         changed += 1
                         log.info("  CHANGED — signal written")
                         if summary:
@@ -323,7 +323,7 @@ def monitor(request_timeout: int = 15) -> dict:
                 url=url,
                 error_message=str(e),
                 error_detail=repr(e),
-                payload={"company_id": company_id, "name": name, "url": url},
+                payload={"entity_id": entity_id, "name": name, "url": url},
             )
         except Exception as e:
             failed += 1
@@ -333,10 +333,10 @@ def monitor(request_timeout: int = 15) -> dict:
                 url=url,
                 error_message=str(e),
                 error_detail=repr(e),
-                payload={"company_id": company_id, "name": name, "url": url},
+                payload={"entity_id": entity_id, "name": name, "url": url},
             )
 
-        if idx < len(companies):
+        if idx < len(entities):
             time.sleep(BETWEEN_REQUESTS_DELAY)
 
     conn.close()

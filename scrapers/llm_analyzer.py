@@ -9,7 +9,7 @@ Specific intelligence extracted:
   - price_signal        : articles with specific price data (USD/kg or direction)
   - standard types      : price_move, capacity_change, new_market, trend, regulation, other
 
-The system prompt is built dynamically at startup from the companies table so the
+The system prompt is built dynamically at startup from the entities table so the
 LLM always works with the current competitor list.
 
 Usage:
@@ -100,7 +100,7 @@ def build_system_prompt(competitor_names: list[str]) -> str:
     Build the v2 LLM system prompt injecting the current competitor list.
     Enforces material-form-level reasoning, structured taxonomy, and
     Rayon-specific relevance scoring.
-    Called once at startup after fetching companies from DB.
+    Called once at startup after fetching entities from DB.
     """
     names_block = "\n".join(f"  • {n}" for n in sorted(competitor_names))
 
@@ -114,7 +114,7 @@ def build_system_prompt(competitor_names: list[str]) -> str:
           • Laminated/coated technical fabrics
         Yarn inputs: polyester filament (FDY/POY/DTY), nylon FDY, PSF staple, PP, FR-modified fibres.
         Export markets: Eastern Europe, Caucasus, Russia, Ukraine, Middle East.
-        Customers: garment manufacturers, tender companies, wholesalers.
+        Customers: garment manufacturers, tender entities, wholesalers.
 
         ══ B. MATERIAL HIERARCHY (reason at Level 2 minimum — material FORM, never just fiber family) ══
 
@@ -141,7 +141,7 @@ def build_system_prompt(competitor_names: list[str]) -> str:
         (e.g. "FDY", "PSF", "Nylon FDY", "DTY") — never just "polyester" or "nylon" alone.
 
         ══ C. TRACKED COMPETITOR COMPANIES ══
-        Flag ANY article that explicitly names one or more of these companies:
+        Flag ANY article that explicitly names one or more of these entities:
         {names_block}
 
         ══ D. MANDATORY JSON OUTPUT (return ONLY this object, no markdown) ══
@@ -315,11 +315,11 @@ def fetch_unanalyzed(cur, limit: int) -> list[dict]:
 
 def fetch_companies(cur) -> list[dict]:
     """Return all competitor company names + ids for matching and prompt injection."""
-    cur.execute("SELECT id, name, category FROM companies ORDER BY name")
+    cur.execute("SELECT id, name, category FROM entities ORDER BY name")
     return [{"id": str(row[0]), "name": row[1], "category": row[2]} for row in cur.fetchall()]
 
 
-def match_companies(names_from_llm: list[str], companies: list[dict]) -> list[dict]:
+def match_entities(names_from_llm: list[str], entities: list[dict]) -> list[dict]:
     """
     For each LLM-returned name, find a matching tracked company.
     Uses case-insensitive substring match in both directions.
@@ -330,7 +330,7 @@ def match_companies(names_from_llm: list[str], companies: list[dict]) -> list[di
         if not llm_name:
             continue
         needle = llm_name.strip().lower()
-        for c in companies:
+        for c in entities:
             haystack = c["name"].lower()
             if needle in haystack or haystack in needle:
                 if c["id"] not in matched:
@@ -339,14 +339,14 @@ def match_companies(names_from_llm: list[str], companies: list[dict]) -> list[di
     return list(matched.values())
 
 
-def update_news_item(cur, item_id: str, analysis: dict, company_id: str | None,
+def update_news_item(cur, item_id: str, analysis: dict, entity_id: str | None,
                      tokens_in: int, tokens_out: int, cost: float):
     cur.execute(
         """
         UPDATE news_items
         SET    relevance_score = %s,
                body_summary    = %s,
-               company_id      = %s,
+               entity_id      = %s,
                llm_model       = %s,
                llm_tokens_in   = %s,
                llm_tokens_out  = %s,
@@ -356,7 +356,7 @@ def update_news_item(cur, item_id: str, analysis: dict, company_id: str | None,
         (
             analysis["relevance_score"],
             analysis["summary_tr"],
-            company_id,
+            entity_id,
             LLM_MODEL,
             tokens_in,
             tokens_out,
@@ -366,7 +366,7 @@ def update_news_item(cur, item_id: str, analysis: dict, company_id: str | None,
     )
 
 
-def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None,
+def insert_market_signal(cur, item: dict, analysis: dict, entity_id: str | None,
                          tokens_in: int, tokens_out: int, cost: float):
     """Insert the primary (non-competitor-mention) market signal."""
     body = analysis["summary_tr"] or ""
@@ -385,7 +385,7 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
         """
         INSERT INTO market_signals
             (signal_type, severity, title, body,
-             source_table, source_id, source_url, company_id,
+             source_table, source_id, source_url, entity_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
              material_form, theme, affected_products, rayon_relevance,
@@ -401,7 +401,7 @@ def insert_market_signal(cur, item: dict, analysis: dict, company_id: str | None
             "news_items",
             item["id"],
             item.get("url"),
-            company_id,
+            entity_id,
             LLM_MODEL,
             tokens_in,
             tokens_out,
@@ -433,7 +433,7 @@ def insert_competitor_signal(cur, item: dict, company: dict, analysis: dict,
         """
         INSERT INTO market_signals
             (signal_type, severity, title, body,
-             source_table, source_id, source_url, company_id,
+             source_table, source_id, source_url, entity_id,
              llm_model, llm_tokens_in, llm_tokens_out, llm_cost_usd,
              impact_score, time_horizon, action_tag, signal_category,
              material_form, theme, affected_products, rayon_relevance,
@@ -680,16 +680,16 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
 
     with conn.cursor() as cur:
         items     = fetch_unanalyzed(cur, limit)
-        companies = fetch_companies(cur)
+        entities = fetch_companies(cur)
 
-    competitor_names = [c["name"] for c in companies]
+    competitor_names = [c["name"] for c in entities]
     system_prompt = build_system_prompt(competitor_names)
 
     log.info(
-        "Fetched %d unanalyzed articles; %d companies in prompt (%d competitors)",
+        "Fetched %d unanalyzed articles; %d entities in prompt (%d competitors)",
         len(items),
-        len(companies),
-        sum(1 for c in companies if c.get("category") == "competitor"),
+        len(entities),
+        sum(1 for c in entities if c.get("category") == "competitor"),
     )
 
     for item in items:
@@ -713,7 +713,7 @@ def analyze(limit: int = DEFAULT_BATCH_LIMIT, dry_run: bool = False,
             continue
 
         total_cost += cost
-        matched = match_companies(analysis["competitors_mentioned"], companies)
+        matched = match_entities(analysis["competitors_mentioned"], entities)
         first_company_id = matched[0]["id"] if matched else None
 
         # Build a readable log line

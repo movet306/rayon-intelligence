@@ -1,7 +1,7 @@
 """
 scrapers/texhibition_scraper.py
 Scrapes the exhibitor directory from texhibitionist.com and stores results
-in the fair_exhibitors table.  Then cross-references against the companies
+in the fair_exhibitors table.  Then cross-references against the entities
 table to emit market_signals with signal_type='fair_participation'.
 
 The site uses Laravel/Livewire and serves static HTML with pagination via
@@ -165,7 +165,7 @@ def record_failure(conn, url: str | None, error_message: str, error_detail: str,
 
 def find_matching_company(conn, exhibitor_name: str) -> tuple[str, str] | None:
     """
-    Return (company_id, company_name) if any row in companies matches
+    Return (entity_id, company_name) if any row in entities matches
     the exhibitor name via case-insensitive substring or equality.
     Returns None if no match.
     """
@@ -173,7 +173,7 @@ def find_matching_company(conn, exhibitor_name: str) -> tuple[str, str] | None:
         cur.execute(
             """
             SELECT id, name
-            FROM   companies
+            FROM   entities
             WHERE  lower(name) = lower(%(n)s)
                OR  lower(%(n)s) LIKE '%%' || lower(name) || '%%'
                OR  lower(name)  LIKE '%%' || lower(%(n)s) || '%%'
@@ -186,7 +186,7 @@ def find_matching_company(conn, exhibitor_name: str) -> tuple[str, str] | None:
 
 
 def emit_fair_participation_signal(
-    conn, company_id: str, company_name: str,
+    conn, entity_id: str, company_name: str,
     exhibitor_id: str, fair_name: str, fair_year: int, booth: str | None
 ):
     """Insert a market_signal for a company found exhibiting at the fair."""
@@ -200,11 +200,11 @@ def emit_fair_participation_signal(
             """
             SELECT id FROM market_signals
             WHERE  signal_type = 'fair_participation'
-              AND  company_id  = %s
+              AND  entity_id  = %s
               AND  tags @> %s::text[]
             LIMIT 1
             """,
-            (company_id, tags),
+            (entity_id, tags),
         )
         if cur.fetchone():
             return False   # already exists
@@ -214,10 +214,10 @@ def emit_fair_participation_signal(
             cur.execute(
                 """
                 INSERT INTO market_signals
-                    (signal_type, severity, title, body, company_id, tags)
+                    (signal_type, severity, title, body, entity_id, tags)
                 VALUES ('fair_participation', 'info', %s, %s, %s, %s)
                 """,
-                (title, body, company_id, tags),
+                (title, body, entity_id, tags),
             )
     log.info("  [SIGNAL] %s — %s %d %s", company_name, fair_name, fair_year, booth or "")
     return True
@@ -454,12 +454,12 @@ def scrape(
                 updated += 1
             log.debug("  [%s] %s (%s)", action, ex["name"], ex.get("booth", ""))
 
-            # Cross-reference with companies table
+            # Cross-reference with entities table
             match = find_matching_company(conn, ex["name"])
             if match:
-                company_id, company_name = match
+                entity_id, company_name = match
                 emitted = emit_fair_participation_signal(
-                    conn, company_id, company_name,
+                    conn, entity_id, company_name,
                     exhibitor_id, fair_name, fair_year, ex.get("booth"),
                 )
                 if emitted:

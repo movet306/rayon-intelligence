@@ -83,7 +83,7 @@ def fetch_unnotified_signals(cur, hours: int) -> list[dict]:
             ms.detected_at,
             c.name AS company_name
         FROM  market_signals ms
-        LEFT  JOIN companies c ON c.id = ms.company_id
+        LEFT  JOIN entities c ON c.id = ms.entity_id
         WHERE ms.notified_at IS NULL
           AND ms.detected_at >= NOW() - (%s || ' hours')::INTERVAL
         ORDER BY

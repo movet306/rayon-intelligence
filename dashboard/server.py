@@ -218,7 +218,7 @@ def stats():
     ).get("n", 0)
 
     competitor_count = _one(
-        "SELECT COUNT(*)::int AS n FROM companies WHERE category = 'competitor'",
+        "SELECT COUNT(*)::int AS n FROM entities WHERE category = 'competitor'",
     ).get("n", 0)
 
     latest_poly = _one(
@@ -335,7 +335,7 @@ def signals(
                    ms.rayon_relevance,
                    c.name AS company_name
             FROM market_signals ms
-            LEFT JOIN companies c ON ms.company_id = c.id
+            LEFT JOIN entities c ON ms.entity_id = c.id
             WHERE {where}
             ORDER BY COALESCE(ms.source_id::text, ms.id::text),
                      ms.impact_score DESC NULLS LAST, ms.detected_at DESC
