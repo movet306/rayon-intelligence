@@ -60,3 +60,8 @@ kpi_usage.txt
 # Pre-migration DB backup snapshots (large, local-only)
 backups/
 
+
+# Phase F1 additions
+data/tender_bulletins/*.zip
+data/tender_bulletins/*.pdf
+data/ekap_state.json
