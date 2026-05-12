@@ -274,6 +274,7 @@ function lazyLoad(section) {
   if (section === 'yarn')     loadYarnIntelligence();
   if (section === 'exports')  loadExports();
   if (section === 'internal') loadInternal();
+  if (section === 'tender')   loadTenderIntelligence();
 }
 
 async function loadStats() {

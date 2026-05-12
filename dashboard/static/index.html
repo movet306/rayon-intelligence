@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rayon Intelligence Platform</title>
-  <link rel="stylesheet" href="style.v5.css?v=1778497241">
+  <link rel="stylesheet" href="style.v5.css?v=1778618082">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js?v=1778497241" defer></script>
+  <script src="app.v5.js?v=1778618082" defer></script>
 </head>
 <body>
 
@@ -27,6 +27,9 @@
     </div>
     <div class="nav-item" data-section="yarn">
       <span class="nav-icon">🧵</span> Yarn Intelligence
+    </div>
+    <div class="nav-item" data-section="tender">
+      <span class="nav-icon">📋</span> Tender Intelligence
     </div>
     <div class="nav-item" data-section="exports">
       <span class="nav-icon">🌍</span> Export Intelligence
@@ -462,7 +465,54 @@
           <table class="ce-table" id="ce-recent-table"><thead><tr><th>Date</th><th>Account</th><th>Bucket</th><th class="num">TL</th><th>Ccy</th></tr></thead><tbody></tbody></table>
         </section>
       </div>
-    </main>
+    
+  <!-- 6. Tender Intelligence -->
+  <section id="section-tender" class="section">
+    <div class="section-title">Tender Intelligence
+      <span class="section-subtitle">EKAP daily bulletin — actionable tenders</span>
+    </div>
+
+    <div class="tender-stat-strip">
+      <div class="tender-stat-card"><div class="tender-stat-label">Actionable</div><div class="tender-stat-value" id="tender-stat-total">—</div></div>
+      <div class="tender-stat-card"><div class="tender-stat-label">High Priority</div><div class="tender-stat-value" id="tender-stat-high">—</div></div>
+      <div class="tender-stat-card"><div class="tender-stat-label">Medium</div><div class="tender-stat-value" id="tender-stat-medium">—</div></div>
+      <div class="tender-stat-card tender-stat-urgent"><div class="tender-stat-label">Urgent (≤5d)</div><div class="tender-stat-value" id="tender-stat-urgent">—</div></div>
+    </div>
+
+    <div class="tender-filter-bar">
+      <label class="tender-filter-label">Relevance:</label>
+      <select id="tender-filter-level" class="tender-filter-select">
+        <option value="HIGH,MEDIUM" selected>HIGH + MEDIUM</option>
+        <option value="HIGH">HIGH only</option>
+        <option value="MEDIUM">MEDIUM only</option>
+      </select>
+      <label class="tender-filter-checkbox">
+        <input type="checkbox" id="tender-filter-open" checked>
+        <span>Only open (deadline in future)</span>
+      </label>
+      <span class="tender-filter-hint">Sorted by deadline ascending · most urgent first</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table tender-table">
+        <thead>
+          <tr>
+            <th style="width:90px">Level</th>
+            <th style="width:70px">Score</th>
+            <th>Title / Institution</th>
+            <th style="width:130px">EKAP ID</th>
+            <th style="width:140px">Deadline</th>
+            <th>Matched keywords</th>
+          </tr>
+        </thead>
+        <tbody id="tender-tbody">
+          <tr><td colspan="6" class="loading">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
   </div>
 </div>
 <!-- === END COUNTERPARTY EXPLORER (M2.1) === -->

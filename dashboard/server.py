@@ -2065,3 +2065,58 @@ def price_intelligence_stats():
 
 
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+
+
+
+# ── /api/tenders ──────────────────────────────────────────────────────────────
+@app.get("/api/tenders")
+def tenders(
+    level: str = Query("HIGH,MEDIUM"),
+    only_open: bool = Query(True),
+    limit: int = Query(200),
+):
+    """List actionable tenders ordered by deadline ascending."""
+    levels = [l.strip().upper() for l in level.split(",") if l.strip()]
+    where_parts = ["t.relevance_level = ANY(%s)"]
+    params = [levels]
+    if only_open:
+        where_parts.append("t.tender_status = 'open'")
+        where_parts.append("t.deadline_at > NOW()")
+    where_sql = " AND ".join(where_parts)
+    sql = (
+        "SELECT t.id::text AS id, t.ekap_id, t.title, t.institution, "
+        "t.procurement_type, t.tender_status, t.relevance_level, t.relevance_score, "
+        "t.matched_keywords, t.deadline_at, t.published_at, t.discovered_at, "
+        "t.source_url, "
+        "EXTRACT(EPOCH FROM (t.deadline_at - NOW()))/86400.0 AS days_until_deadline "
+        "FROM tenders t WHERE " + where_sql + " "
+        "ORDER BY t.deadline_at ASC NULLS LAST LIMIT %s"
+    )
+    rows = _rows(sql, params + [limit])
+    high_count   = sum(1 for r in rows if r["relevance_level"] == "HIGH")
+    medium_count = sum(1 for r in rows if r["relevance_level"] == "MEDIUM")
+    urgent_count = sum(
+        1 for r in rows
+        if r.get("days_until_deadline") is not None
+        and float(r["days_until_deadline"]) <= 5
+    )
+    for r in rows:
+        for k in ("deadline_at", "published_at", "discovered_at"):
+            v = r.get(k)
+            if v is not None:
+                r[k] = v.isoformat()
+        d = r.get("days_until_deadline")
+        if d is not None:
+            r["days_until_deadline"] = round(float(d), 1)
+            r["is_urgent"] = float(d) <= 5
+            r["is_today"]  = float(d) <= 1
+        else:
+            r["is_urgent"] = False
+            r["is_today"]  = False
+    return JSONResponse({
+        "tenders":      rows,
+        "total":        len(rows),
+        "high_count":   high_count,
+        "medium_count": medium_count,
+        "urgent_count": urgent_count,
+    })
