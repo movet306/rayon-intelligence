@@ -4126,3 +4126,75 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(_togglePriceIntelKpiStrip, 100);
 });
 
+
+
+
+// ── Tender Intelligence ───────────────────────────────────────────────────────
+async function loadTenderIntelligence() {
+  const tbody    = document.getElementById('tender-tbody');
+  const levelSel = document.getElementById('tender-filter-level');
+  const openChk  = document.getElementById('tender-filter-open');
+  if (!tbody) return;
+
+  async function fetchAndRender() {
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading…</td></tr>';
+    const level = levelSel ? levelSel.value : 'HIGH,MEDIUM';
+    const onlyOpen = openChk ? openChk.checked : true;
+    try {
+      const data = await api('/api/tenders?level=' + encodeURIComponent(level) + '&only_open=' + onlyOpen + '&limit=200');
+      setText('tender-stat-total',  data.total ?? 0);
+      setText('tender-stat-high',   data.high_count ?? 0);
+      setText('tender-stat-medium', data.medium_count ?? 0);
+      setText('tender-stat-urgent', data.urgent_count ?? 0);
+      const rows = data.tenders || [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">No tenders match the current filter.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(_renderTenderRow).join('');
+    } catch (e) {
+      console.error('tenders error', e);
+      tbody.innerHTML = '<tr><td colspan="6" class="loading">Error loading tenders.</td></tr>';
+    }
+  }
+  if (levelSel && !levelSel._wired) { levelSel._wired = true; levelSel.addEventListener('change', fetchAndRender); }
+  if (openChk  && !openChk._wired)  { openChk._wired  = true; openChk.addEventListener('change', fetchAndRender); }
+  await fetchAndRender();
+}
+
+function _renderTenderRow(r) {
+  const level = r.relevance_level || '';
+  const levelCls = level === 'HIGH' ? 'relevance-chip-high' : 'relevance-chip-medium';
+  const score = r.relevance_score ?? '';
+  const title = esc(r.title || '');
+  const inst  = esc(r.institution || '');
+  const ekap  = esc(r.ekap_id || '');
+  const days = r.days_until_deadline;
+  let deadlineHtml = '<span class="tender-deadline-na">—</span>';
+  if (r.deadline_at) {
+    const dt = new Date(r.deadline_at);
+    const dateStr = dt.toLocaleDateString('tr-TR', {day:'2-digit', month:'short'});
+    const timeStr = dt.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+    let badgeCls = 'tender-deadline-badge';
+    let badgeText = '';
+    if (r.is_today)       { badgeCls += ' urgent today'; badgeText = 'TODAY'; }
+    else if (r.is_urgent) { badgeCls += ' urgent';        badgeText = days != null ? Math.round(days) + 'd' : 'URGENT'; }
+    else if (days != null) badgeText = Math.round(days) + 'd';
+    deadlineHtml = '<div class="' + badgeCls + '"><div class="tender-deadline-date">' + dateStr + ' ' + timeStr + '</div><div class="tender-deadline-days">' + badgeText + '</div></div>';
+  }
+  const kws = Array.isArray(r.matched_keywords) ? r.matched_keywords : [];
+  const kwHtml = kws.map(k => '<span class="keyword-chip">' + esc(k) + '</span>').join('');
+  const ekapUrl = 'https://ekap.kik.gov.tr/EKAP/Vatandas/IhaleArama.aspx';
+  const ekapLink = r.ekap_id
+    ? '<a class="tender-ekap-link" href="' + ekapUrl + '" target="_blank" rel="noopener" title="Open EKAP search page">' + ekap + ' ↗</a>'
+    : ekap;
+  const rowCls = 'tender-row' + (r.is_urgent ? ' urgent' : '');
+  return '<tr class="' + rowCls + '">' +
+    '<td><span class="relevance-chip ' + levelCls + '">' + level + '</span></td>' +
+    '<td class="tender-score">' + score + '</td>' +
+    '<td><div class="tender-title">' + title + '</div><div class="tender-inst">' + inst + '</div></td>' +
+    '<td>' + ekapLink + '</td>' +
+    '<td>' + deadlineHtml + '</td>' +
+    '<td>' + kwHtml + '</td>' +
+    '</tr>';
+}
