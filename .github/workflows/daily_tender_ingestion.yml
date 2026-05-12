@@ -45,7 +45,7 @@ jobs:
 
       - name: Run daily tender ingestion
         env:
-          DATABASE_URL: ${{ secrets.RAYON_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.RAYON_INTEL_DATABASE_URL }}
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.date }}" ]; then
@@ -59,7 +59,7 @@ jobs:
       - name: Show today's ingestion log
         if: always()
         env:
-          DATABASE_URL: ${{ secrets.RAYON_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.RAYON_INTEL_DATABASE_URL }}
         run: |
           python -c "
           import os, psycopg2
