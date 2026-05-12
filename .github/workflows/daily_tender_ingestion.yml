@@ -1,0 +1,83 @@
+name: Daily EKAP Tender Ingestion
+
+on:
+  # 11:00 UTC = 14:00 Istanbul (EKAP publishes bulletins between 09:00-12:00 IST)
+  schedule:
+    - cron: '0 11 * * *'
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Bulletin date YYYY-MM-DD (default: today)'
+        required: false
+        type: string
+      types:
+        description: 'Procurement types (default: MAL)'
+        required: false
+        type: string
+        default: 'MAL'
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install psycopg2-binary pdfplumber playwright requests
+
+      - name: Install Playwright Chromium
+        run: |
+          playwright install --with-deps chromium
+
+      - name: Create data directory
+        run: mkdir -p data/tender_bulletins
+
+      - name: Run daily tender ingestion
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            ARGS="$ARGS --date ${{ github.event.inputs.date }}"
+          fi
+          if [ -n "${{ github.event.inputs.types }}" ]; then
+            ARGS="$ARGS --types ${{ github.event.inputs.types }}"
+          fi
+          python -m scripts.daily_tender_ingestion $ARGS
+
+      - name: Show today's ingestion log
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python -c "
+          import os, psycopg2
+          from datetime import date
+          conn = psycopg2.connect(os.environ['DATABASE_URL'])
+          cur = conn.cursor()
+          target = '${{ github.event.inputs.date }}' or date.today().isoformat()
+          cur.execute('''
+              SELECT procurement_type, status, tender_count, file_size_bytes, duration_seconds, error_message
+              FROM bulletin_ingestion_log
+              WHERE bulletin_date = %s AND source = 'ekap'
+              ORDER BY procurement_type
+          ''', (target,))
+          print(f'=== Ingestion log for {target} ===')
+          for r in cur.fetchall():
+              print(f'  {r[0]:5s} {r[1]:18s} tenders={r[2]} size={(r[3] or 0)//1024}KB dur={r[4] or 0}s')
+              if r[5]:
+                  print(f'    Error: {r[5][:200]}')
+          cur.execute('SELECT COUNT(*) FROM tenders WHERE relevance_level IN (%s, %s) AND tender_status = %s AND deadline_at > NOW()', ('HIGH', 'MEDIUM', 'open'))
+          print(f'Total actionable tenders in DB: {cur.fetchone()[0]}')
+          "
