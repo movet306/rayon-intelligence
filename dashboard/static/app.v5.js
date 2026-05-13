@@ -456,10 +456,24 @@ function renderSignalCard(r) {
     ? `<span class="signal-mat-sm">· ${esc(r.material_form)}</span>` : '';
   const company = r.company_name
     ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
+  // P1 Step 8: Mig 011 fields
+  const entityHtml = r.entity_name
+    ? `<span class="entity-tag">${esc(r.entity_name)}${r.entity_role ? ' · ' + esc(r.entity_role) : ''}</span>` : '';
+  const expHtml = r.commercial_exposure_type
+    ? `<span class="exp-badge">${r.commercial_exposure_type.replace(/_/g, ' ')}</span>` : '';
+  const _toList = v => Array.isArray(v) ? v.filter(x => x && x !== 'OTHER') : [];
+  const bizLines = _toList(r.affected_business_line);
+  const matFams = _toList(r.affected_material_family);
+  const bizHtml = bizLines.length
+    ? `<span class="biz-line">▣ ${bizLines.map(esc).join(', ')}</span>` : '';
+  const famHtml = matFams.length
+    ? `<span class="mat-fam">◇ ${matFams.map(esc).join(', ')}</span>` : '';
+  const whyHtml = r.rayon_why_it_matters
+    ? `<div class="signal-why"><span class="why-label">Rayon için:</span> ${esc(r.rayon_why_it_matters)}</div>` : '';
   return `
     <div class="signal-card"${urlAttr} style="border-left-color: ${borderColor}">
       <div class="signal-meta">
-        ${catHtml}${actionHtml}${horizonHtml}${matHtml}
+        ${catHtml}${actionHtml}${horizonHtml}${matHtml}${expHtml}${bizHtml}${famHtml}
         <div class="signal-meta-right">
           <span class="signal-dt">${esc(r.detected_at || '')}</span>
           ${linkIcon}${impact}
@@ -467,6 +481,8 @@ function renderSignalCard(r) {
       </div>
       <div class="signal-title">${esc(r.title || '')}</div>
       <div class="signal-body">${esc(r.summary || '')}</div>
+      ${whyHtml}
+      ${entityHtml ? '<div class="signal-entity">' + entityHtml + '</div>' : ''}
       ${company}
     </div>`;
 }
