@@ -4184,7 +4184,7 @@ function _renderTenderRow(r) {
   }
   const kws = Array.isArray(r.matched_keywords) ? r.matched_keywords : [];
   const kwHtml = kws.map(k => '<span class="keyword-chip">' + esc(k) + '</span>').join('');
-  const ekapUrl = 'https://ekap.kik.gov.tr/EKAP/Vatandas/IhaleArama.aspx';
+  const ekapUrl = r.ekap_id ? 'https://ekapv2.kik.gov.tr/ekap/search/' + r.ekap_id.replace('/', '_') : '';
   const ekapLink = r.ekap_id
     ? '<a class="tender-ekap-link" href="' + ekapUrl + '" target="_blank" rel="noopener" title="Open EKAP search page">' + ekap + ' ↗</a>'
     : ekap;
@@ -4192,7 +4192,7 @@ function _renderTenderRow(r) {
   return '<tr class="' + rowCls + '">' +
     '<td><span class="relevance-chip ' + levelCls + '">' + level + '</span></td>' +
     '<td class="tender-score">' + score + '</td>' +
-    '<td><div class="tender-title">' + title + '</div><div class="tender-inst">' + inst + '</div></td>' +
+    '<td><div class="tender-title">' + (ekapUrl ? '<a class="tender-title-link" href="' + ekapUrl + '" target="_blank" rel="noopener">' + title + '</a>' : title) + '</div><div class="tender-inst">' + inst + '</div></td>' +
     '<td>' + ekapLink + '</td>' +
     '<td>' + deadlineHtml + '</td>' +
     '<td>' + kwHtml + '</td>' +

@@ -65,3 +65,7 @@ backups/
 data/tender_bulletins/*.zip
 data/tender_bulletins/*.pdf
 data/ekap_state.json
+
+# Phase F1 reconnaissance screenshots
+ekap_step*.png
+

@@ -19,7 +19,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-load_dotenv()
+load_dotenv(override=True)  # override existing empty env vars from .env
 
 DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
 STATIC_DIR = Path(__file__).parent / "static"
@@ -2064,10 +2064,6 @@ def price_intelligence_stats():
     }
 
 
-app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
-
-
-
 # ── /api/tenders ──────────────────────────────────────────────────────────────
 @app.get("/api/tenders")
 def tenders(
@@ -2120,3 +2116,6 @@ def tenders(
         "medium_count": medium_count,
         "urgent_count": urgent_count,
     })
+
+
+app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

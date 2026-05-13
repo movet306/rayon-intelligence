@@ -306,6 +306,9 @@ def upsert_tender(cur, tender, assessment):
 
 
 def emit_market_signal(cur, tender_id, tender, assessment):
+    # DISABLED 2026-05-13: tenders displayed in dedicated Tender Intelligence tab,
+    # no longer duplicated to market_signals. Re-enable by removing the next line.
+    return False
     if assessment["relevance_level"] not in ("HIGH", "MEDIUM"):
         return False
 
