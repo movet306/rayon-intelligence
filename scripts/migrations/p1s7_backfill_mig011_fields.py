@@ -37,6 +37,13 @@ _ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+# Load .env file (RAYON_DATABASE_URL, OPENAI_API_KEY)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass  # python-dotenv optional
+
 import psycopg2
 import psycopg2.extras
 
