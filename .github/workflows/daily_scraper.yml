@@ -2,7 +2,7 @@ name: Daily Scraper
 
 on:
   schedule:
-    - cron: "0 8 * * *"   # 08:00 UTC = 11:00 Istanbul (UTC+3)
+    - cron: "23 7 * * *"   # 07:23 UTC = 10:23 Istanbul (off-hour to reduce queue delay)
   workflow_dispatch:        # allow manual trigger from GitHub UI
 
 jobs:
