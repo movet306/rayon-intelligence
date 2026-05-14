@@ -609,7 +609,7 @@ def main():
     signal_date = date.fromisoformat(args.date) if args.date else date.today()
     log.info("Signal date: %s", signal_date)
 
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    conn = psycopg2.connect(os.environ["RAYON_DATABASE_URL"])
 
     # ── Load data ──────────────────────────────────────────────────────────
     log.info("Loading price_metrics_daily (latest per material)...")

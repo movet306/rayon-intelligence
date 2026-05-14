@@ -128,7 +128,7 @@ CHAIN_SPREADS = [
 # ---------------------------------------------------------------------------
 
 def get_connection():
-    return psycopg2.connect(os.environ["DATABASE_URL"])
+    return psycopg2.connect(os.environ["RAYON_DATABASE_URL"])
 
 
 def _fetch(conn, sql, params=None):

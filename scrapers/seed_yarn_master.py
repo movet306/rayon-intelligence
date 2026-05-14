@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_URL = os.environ.get(
-    "DATABASE_URL",
+    "RAYON_DATABASE_URL",
     "postgresql://postgres:REDACTED_DB_PASSWORD@mainline.proxy.rlwy.net:56047/railway",
 )
 

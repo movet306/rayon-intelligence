@@ -147,9 +147,9 @@ def get_rmb_usd_rate() -> float:
 # ---------------------------------------------------------------------------
 
 def get_connection():
-    url = os.environ.get("DATABASE_URL")
+    url = os.environ.get("RAYON_DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL environment variable is not set")
+        raise RuntimeError("RAYON_DATABASE_URL environment variable is not set")
     return psycopg2.connect(url, connect_timeout=10)
 
 

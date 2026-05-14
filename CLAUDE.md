@@ -1,51 +1,45 @@
-# CLAUDE.md
+# Project Conventions — Read First
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> Read this at the start of every session before writing code or running commands.
+> Updated whenever a recurring confusion is discovered.
 
-## Project Overview
+## Repository: Rayon Intelligence Platform
 
-Rayon Intelligence Platform — market intelligence and competitor analysis for Rayon Tekstil Sanayi ve Dış Tic. Ltd. Şti., a Turkish B2B fabric manufacturer with two business units:
-- **Knit fabrics**: fully integrated (yarn → finished fabric)
-- **Woven fabrics**: import greige from Far East + dyeing/coating/lamination finishing
+Family textile manufacturing company analytics + market intelligence platform: scrapers, FastAPI dashboard, PostgreSQL on Railway, GitHub Actions cron, OpenAI LLM analysis.
 
-Export markets: Eastern Europe, Middle East, Caucasus, Russia, Ukraine.
-Customers: garment manufacturers, tender companies, wholesalers.
+## Three databases — see `docs/DATABASE_CONVENTIONS.md` for full reference
 
-## System Architecture
+| Env var | DB | Use |
+|---|---|---|
+| `RAYON_DATABASE_URL` | **Ana DB** | Default for any new scraper/builder |
+| `RAYON_INTEL_DATABASE_URL` | **Tender DB** | Tender (ihale) data only |
+| `DATABASE_URL` | ⛔ **DEPRECATED** | Never use, never re-introduce |
 
-**Phase 1 — Market Intelligence** (active)
-**Phase 2 — Price Intelligence** (planned)
+### Hard rules
 
-**Stack:**
-- Orchestration: n8n (hosted on Railway)
-- Database: PostgreSQL (hosted on Railway)
-- Scraping: Python + BeautifulSoup
-- AI: OpenAI API (token cost tracked per call)
-- Storage: Cloudflare R2
-- Dashboard: Streamlit
-- Output: Telegram bot + email reports
+- Never confuse the three.
+- Never map the same GitHub Secret to two env names.
+- Never fallback between them.
+- New scrapers default to `RAYON_DATABASE_URL`. Workflow env block must expose `RAYON_DATABASE_URL: ${{ secrets.RAYON_DATABASE_URL }}`.
 
-## Database Design Principles
+## File layout
 
-- Deduplication enforced at PostgreSQL level only via `url_hash UNIQUE` constraint — not in n8n
-- Each source has its own independent pipeline
-- Every pipeline has error handling; failed records go to `failed_jobs` table, never silently dropped
-- LLM token costs tracked per call in the database
-- Phase 1 feeds entirely from external sources — no internal company data
+- `scrapers/` — Data ingestion scripts (one per source)
+- `dashboard/` — FastAPI server + static frontend
+- `schema/` — Postgres DDL migrations
+- `scripts/migrations/` — Python data migrations
+- `docs/` — Architecture, roadmaps, conventions (read these BEFORE designing a new feature)
+- `.github/workflows/daily_scraper.yml` — Daily cron orchestration
 
-## Core Schema Tables
+## Environment
 
-- `companies` — tracked competitor/market entities
-- `news_items` — scraped news articles and press items
-- `trade_flows` — import/export trade data
-- `market_signals` — processed intelligence signals
-- `failed_jobs` — dead letter queue for all pipeline errors
+- Python 3.12.7 (Anaconda), conda env `rayon-dashboard`
+- Dashboard: `uvicorn dashboard.server:app --port 8000`
+- Local DB connection: load via `python-dotenv` from `.env`
+- Static cache buster: `v5` for js/css, `v6` general invalidation
 
-## Repository Structure
+## When in doubt
 
-```
-schema/          # PostgreSQL DDL scripts
-scrapers/        # Python scraper modules (one per source)
-n8n/             # n8n workflow JSON exports
-dashboard/       # Streamlit app
-```
+- Check `docs/` for an existing convention before guessing.
+- Read the pattern from a similar scraper before writing a new one.
+- If a convention question recurs, write it down in `docs/` or here.

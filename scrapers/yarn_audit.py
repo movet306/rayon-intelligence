@@ -24,7 +24,7 @@ from _yarn_parse_lib import build_code_map
 
 load_dotenv()
 DB_URL = os.environ.get(
-    "DATABASE_URL",
+    "RAYON_DATABASE_URL",
     "postgresql://postgres:REDACTED_DB_PASSWORD@mainline.proxy.rlwy.net:56047/railway",
 )
 
