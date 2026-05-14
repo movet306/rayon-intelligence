@@ -69,7 +69,7 @@ REQUEST_DELAY   = 1.5          # seconds between API calls
 REQUEST_TIMEOUT = 30
 
 # HS codes relevant to Rayon Tekstil
-HS_CODES = ["5407", "6006", "5512", "5515", "6001", "5402", "5509"]
+HS_CODES = ["5407", "6006", "5512", "5515", "6001", "5402", "5509", "5510", "5903"]
 
 HS_DESCRIPTIONS = {
     "5407": "Woven fabrics of synthetic filament yarn",
@@ -79,6 +79,8 @@ HS_DESCRIPTIONS = {
     "6001": "Pile fabrics, knitted or crocheted",
     "5402": "Synthetic filament yarn (not retail)",
     "5509": "Yarn of synthetic staple fibers (not retail)",
+    "5510": "Yarn of artificial staple fibers (viscose/modal/lyocell)",
+    "5903": "Textile fabrics impregnated, coated, covered or laminated with plastics",
 }
 
 # UN M49 numeric code → ISO 3166-1 alpha-2
@@ -195,7 +197,14 @@ def get_connection():
     url = os.environ.get("RAYON_DATABASE_URL")
     if not url:
         raise RuntimeError("RAYON_DATABASE_URL environment variable is not set")
-    return psycopg2.connect(url, connect_timeout=10)
+    return psycopg2.connect(
+        url,
+        connect_timeout=10,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+    )
 
 
 def ensure_hs_description_column(conn):
@@ -509,6 +518,14 @@ def scrape(months: int = 12, dry_run: bool = False) -> dict:
 
     # Iterate: outer = HS code, inner = period (so we can pause between codes)
     for hs_code in HS_CODES:
+        # Refresh DB connection at start of each HS (prevent idle timeout in long backfills)
+        try:
+            conn.close()
+        except Exception:
+            pass
+        conn = get_connection()
+        log.info("  DB connection refreshed for HS %s", hs_code)
+
         for i, period in enumerate(periods):
             if i > 0:
                 time.sleep(REQUEST_DELAY)
