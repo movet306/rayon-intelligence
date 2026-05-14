@@ -319,6 +319,8 @@ let _feedRawData    = null;
 let _feedMinImpact  = 50;
 let _feedViewAll    = false;
 let _feedThemeFilter = null;
+let _feedActionFilter = 'all';   // P3 C1
+let _feedEntityFilter = null;    // P3 C1
 
 function loadSignalsPanels() {
   _loadCriticalSignals();
@@ -365,9 +367,25 @@ async function _loadFeedSignals() {
 
 function _renderFeed() {
   const list = document.getElementById('signals-list');
-  const data = _feedThemeFilter
-    ? (_feedRawData || []).filter(r => r.theme === _feedThemeFilter)
-    : (_feedRawData || []);
+  let data = _feedRawData || [];
+  if (_feedThemeFilter)  data = data.filter(r => r.theme === _feedThemeFilter);
+  if (_feedActionFilter === 'action') {
+    data = data.filter(r => r.action_tag === 'RISK' || r.action_tag === 'OPPORTUNITY');
+  } else if (_feedActionFilter === 'monitor') {
+    data = data.filter(r => r.action_tag === 'MONITOR');
+  }
+  if (_feedEntityFilter) data = data.filter(r => r.entity_name === _feedEntityFilter);
+
+  const entBanner = document.getElementById('entity-filter-banner');
+  if (entBanner) {
+    if (_feedEntityFilter) {
+      entBanner.style.display = 'flex';
+      const bt = entBanner.querySelector('.banner-text');
+      if (bt) bt.textContent = `\ud83d\udd0d ${_feedEntityFilter}`;
+    } else {
+      entBanner.style.display = 'none';
+    }
+  }
 
   setText('signal-count', `${data.length} signal${data.length !== 1 ? 's' : ''}`);
 
@@ -376,6 +394,7 @@ function _renderFeed() {
   } else {
     list.innerHTML = data.map(renderSignalCard).join('');
     _attachUrlHandlers(list);
+    _attachEntityHandlers(list);
   }
 
   const archiveRow    = document.getElementById('feed-archive-row');
@@ -458,7 +477,7 @@ function renderSignalCard(r) {
     ? `<div class="signal-company">⬡ ${esc(r.company_name)}</div>` : '';
   // P1 Step 8: Mig 011 fields
   const entityHtml = r.entity_name
-    ? `<span class="entity-tag">${esc(r.entity_name)}${r.entity_role ? ' · ' + esc(r.entity_role) : ''}</span>` : '';
+    ? `<span class="entity-tag clickable-entity" data-entity="${esc(r.entity_name)}">${esc(r.entity_name)}${r.entity_role ? ' · ' + esc(r.entity_role) : ''}</span>` : '';
   const expHtml = r.commercial_exposure_type
     ? `<span class="exp-badge">${r.commercial_exposure_type.replace(/_/g, ' ')}</span>` : '';
   const _toList = v => Array.isArray(v) ? v.filter(x => x && x !== 'OTHER') : [];
@@ -468,8 +487,7 @@ function renderSignalCard(r) {
     ? `<span class="biz-line">▣ ${bizLines.map(esc).join(', ')}</span>` : '';
   const famHtml = matFams.length
     ? `<span class="mat-fam">◇ ${matFams.map(esc).join(', ')}</span>` : '';
-  const whyHtml = r.rayon_why_it_matters
-    ? `<div class="signal-why"><span class="why-label">Rayon için:</span> ${esc(r.rayon_why_it_matters)}</div>` : '';
+  const whyHtml = '';  // P3 C1.1: removed per user request
   return `
     <div class="signal-card"${urlAttr} style="border-left-color: ${borderColor}">
       <div class="signal-meta">
@@ -498,7 +516,34 @@ function _attachUrlHandlers(container) {
   });
 }
 
+function _attachEntityHandlers(container) {
+  container.querySelectorAll('.clickable-entity').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const entity = el.dataset.entity;
+      _feedEntityFilter = (_feedEntityFilter === entity) ? null : entity;
+      _renderFeed();
+    });
+  });
+}
+
 function initSignalsSection() {
+  document.querySelectorAll('.feed-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.feed-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _feedActionFilter = btn.dataset.action || 'all';
+      _renderFeed();
+    });
+  });
+  const entClear = document.getElementById('entity-filter-clear');
+  if (entClear) {
+    entClear.addEventListener('click', () => {
+      _feedEntityFilter = null;
+      _renderFeed();
+    });
+  }
   const archiveToggle = document.getElementById('archive-toggle');
   if (archiveToggle) {
     archiveToggle.addEventListener('click', () => {

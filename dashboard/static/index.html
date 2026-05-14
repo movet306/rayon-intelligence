@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rayon Intelligence Platform</title>
-  <link rel="stylesheet" href="style.v5.css?v=1778679703,74613">
+  <link rel="stylesheet" href="style.v6.css?v=1778679703,74613">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v5.js?v=1778679703,69596" defer></script>
+  <script src="app.v6.js?v=1778679703,69596" defer></script>
 </head>
 <body>
 
@@ -103,6 +103,15 @@
         <span class="panel-title">Intelligence Feed</span>
         <span class="panel-label-dim" id="feed-subtitle">impact ≥ 50 · last 30 days</span>
         <span class="signal-count" id="signal-count"></span>
+      </div>
+      <div class="feed-tabs">
+        <button class="feed-tab active" data-action="all">Tümü</button>
+        <button class="feed-tab" data-action="action">&#9889; Action Required</button>
+        <button class="feed-tab" data-action="monitor">&#128225; Background Monitor</button>
+      </div>
+      <div class="entity-filter-banner" id="entity-filter-banner">
+        <span class="banner-text"></span>
+        <span class="banner-clear" id="entity-filter-clear">temizle</span>
       </div>
       <div id="signals-list"><div class="loading">Loading signals…</div></div>
       <div class="feed-archive-row" id="feed-archive-row">
