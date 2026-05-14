@@ -1602,13 +1602,13 @@ async function loadYarnIntelligence() {
             <span class="driver-badge">${esc(driverSlug)}</span>
             <span class="yarn-spec-count">${items.length} spec${items.length === 1 ? '' : 's'}</span>
           </td>
-          <td class="num">${fmtPrice(sample.driver_price_usd)}</td>
-          <td class="num">${fmtChange(sample.driver_change_7d)}</td>
+          <td class="num">${sample.driver_price_usd != null ? fmtPrice(sample.driver_price_usd) : (sample.yarn_driver_price_usd != null ? '$' + sample.yarn_driver_price_usd.toFixed(2) : '<span class="muted">—</span>')}</td>
+          <td class="num">${fmtChange(sample.driver_change_7d != null ? sample.driver_change_7d : sample.yarn_pressure_7d)}</td>
           <td class="num">${fmtMomentum(sample.driver_momentum)}</td>
-          <td class="num">${fmtPressure(sample.pressure_signal)}</td>
+          <td class="num">${fmtPressure(sample.pressure_signal === 'watch' && sample.yarn_pressure_signal && sample.yarn_pressure_signal !== 'no_data' ? sample.yarn_pressure_signal : sample.pressure_signal)}</td>
           <td class="num">${fmtLag(sample.lag_min_weeks, sample.lag_max_weeks)}</td>
           <td class="num">${fmtTier(sample.driver_data_quality)}</td>
-          <td class="num"></td>
+          <td class="num">${sample.yarn_estimated_index_usd_per_kg != null ? '$' + sample.yarn_estimated_index_usd_per_kg.toFixed(2) : '<span class="muted">—</span>'}</td>
         </tr>`;
       } else {
         html += `<tr class="yarn-driver-row yarn-driver-row-nodriver" data-group="${groupId}">

@@ -953,7 +953,23 @@ def get_yarn_pressure():
             FROM price_metrics_daily
             WHERE frequency = 'daily'
             ORDER BY material, metric_date DESC
-        ) pmd ON pmd.material = COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
+        ) pmd ON pmd.material = (
+            CASE COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
+                WHEN 'polyester_staple' THEN 'polyester_staple_fiber'
+                WHEN 'viscose_staple' THEN 'rayon_yarn'
+                WHEN 'cotton_staple' THEN 'cotton_yarn'
+                WHEN 'modal_staple' THEN 'rayon_yarn'
+                WHEN 'polyamide_staple' THEN 'polyamide_fdy'
+                WHEN 'recycled_polyester_staple' THEN 'polyester_staple_fiber'
+                WHEN 'pm_blend_staple' THEN 'polyester_staple_fiber'
+                WHEN 'pv_blend_staple' THEN 'polyester_staple_fiber'
+                WHEN 'cotton_blend_staple' THEN 'cotton_yarn'
+                WHEN 'recycled_blend_staple' THEN 'cotton_yarn'
+                WHEN 'three_component_staple' THEN 'polyester_staple_fiber'
+                WHEN 'corespun_staple' THEN 'cotton_yarn'
+                ELSE COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
+            END
+        )
         LEFT JOIN dim_material dm ON dm.slug = COALESCE(yd.primary_driver_slug, ym.primary_driver_slug)
         LEFT JOIN (
             SELECT yarn_id, COUNT(*) AS alias_count
