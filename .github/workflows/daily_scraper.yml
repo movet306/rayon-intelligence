@@ -44,6 +44,9 @@ jobs:
       - name: Run textilegence scraper
         run: python scrapers/textilegence.py --pages 5
 
+      - name: Run IHKIB scraper
+        run: python scrapers/ihkib.py --pages 1
+
       - name: Run price signals scraper
         run: python scrapers/price_signals.py --months 12
 
