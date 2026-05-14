@@ -50,6 +50,9 @@ jobs:
       - name: Run EURATEX scraper
         run: python scrapers/euratex.py --pages 1
 
+      - name: Run TIM scraper
+        run: python scrapers/tim.py --pages 1
+
       - name: Run price signals scraper
         run: python scrapers/price_signals.py --months 12
 
