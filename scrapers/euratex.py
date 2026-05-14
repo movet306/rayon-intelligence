@@ -44,10 +44,7 @@ log = logging.getLogger(SOURCE)
 
 
 def get_conn():
-    url = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL")
-    if not url:
-        raise RuntimeError("Neither RAYON_DATABASE_URL nor DATABASE_URL is set")
-    return psycopg2.connect(url)
+    return psycopg2.connect(os.environ["RAYON_DATABASE_URL"])
 
 
 def fetch(url: str) -> Optional[BeautifulSoup]:
