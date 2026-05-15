@@ -1884,6 +1884,11 @@ function renderExports(data, hs) {
       <div class="stat-label">Active Partners</div>
       <div class="stat-value">${kpi.active_partners != null ? kpi.active_partners : '—'}</div>
       <div class="stat-sub stat-neutral">distinct destinations</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Market Concentration</div>
+      <div class="stat-value">${kpi.hhi != null ? Math.round(kpi.hhi) : '—'}</div>
+      <div class="stat-sub">${kpi.concentration_category ? `<span class="conc-${kpi.concentration_category}">${kpi.concentration_category}</span>` : ''}${kpi.cr3_pct != null ? ` · CR3 ${kpi.cr3_pct.toFixed(1)}%` : ''}</div>
     </div>`;
 
   // --- Top destinations bar chart ---
@@ -1968,6 +1973,8 @@ function renderAllHsTable(rows) {
         <td class="num ${yoyClass}">${yoyStr}</td>
         <td class="num">${ukg}</td>
         <td class="num">${r.active_partners}</td>
+        <td class="num conc-${r.concentration_category || 'unknown'}">${r.hhi != null ? Math.round(r.hhi) : '—'}</td>
+        <td>${r.top_partner || '—'}${r.top_partner_share_pct != null ? ` <span class="muted-inline">${r.top_partner_share_pct.toFixed(1)}%</span>` : ''}</td>
       </tr>
     `;
   }).join('');
@@ -1981,6 +1988,8 @@ function renderAllHsTable(rows) {
           <th class="num">YoY</th>
           <th class="num">$/kg</th>
           <th class="num">Partners</th>
+          <th class="num">HHI</th>
+          <th>Top Partner</th>
         </tr>
       </thead>
       <tbody>${rowsHtml}</tbody>
