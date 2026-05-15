@@ -282,6 +282,8 @@
         <option value="6001">HS 6001 — Pile/velour knit</option>
         <option value="5402">HS 5402 — Filament yarn</option>
         <option value="5509">HS 5509 — Staple yarn</option>
+        <option value="5510">HS 5510 — Artificial staple yarn (viscose/modal)</option>
+        <option value="5903">HS 5903 — Coated / laminated</option>
       </select>
     </div>
 
@@ -291,9 +293,14 @@
         <div class="chart-wrap" id="chart-destinations"></div>
       </div>
       <div class="chart-panel">
-        <div class="chart-panel-title">Monthly Trend — HS 5407 + HS 6006</div>
+        <div class="chart-panel-title" id="trend-chart-title">Monthly Trend — HS 5407 (3M smoothed)</div>
         <div class="chart-wrap" id="chart-trend"></div>
       </div>
+    </div>
+
+    <div class="export-all-hs-wrap">
+      <div class="export-overview-title">All HS Codes Overview (latest month)</div>
+      <div id="export-all-hs-table"></div>
     </div>
   </section>
 

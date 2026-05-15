@@ -1844,21 +1844,36 @@ async function loadExports(hsCode) {
 
 function renderExports(data, hs) {
   const kpi = data.kpi || {};
-  const mom = kpi.mom_pct;
-  const momHtml = mom != null
-    ? `<span class="${mom >= 0 ? 'stat-up' : 'stat-down'}">${mom >= 0 ? '+' : ''}${mom}% MoM</span>`
-    : '<span class="stat-neutral">—</span>';
+
+  // --- KPI cards (5: HS export | YoY | $/kg | Top Dest | Active Partners) ---
+  const yoy = kpi.yoy_pct;
+  const yoyStr = yoy != null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(2) + '%' : '—';
+  const yoyClass = yoy == null ? 'stat-neutral' :
+                   (yoy >= 0 ? 'stat-up' : 'stat-down');
+
+  const bizTag = kpi.business_line
+    ? `<span class="business-tag ${kpi.business_line}">${kpi.business_line}</span>`
+    : '';
+  const tierTag = kpi.importance_tier
+    ? `<span class="tier-${kpi.importance_tier}">${kpi.importance_tier}</span>`
+    : '';
+  const noteAttr = kpi.relevance_note ? ` title="${esc(kpi.relevance_note)}"` : '';
 
   document.getElementById('export-kpis').innerHTML = `
-    <div class="stat-card">
-      <div class="stat-label">HS ${hs} Export (${kpi.latest_period || '—'})</div>
+    <div class="stat-card"${noteAttr}>
+      <div class="stat-label">HS ${hs} ${bizTag} ${tierTag}</div>
       <div class="stat-value">$${kpi.latest_value_mn != null ? kpi.latest_value_mn.toFixed(1) : '—'}M</div>
-      <div class="stat-sub">${momHtml}</div>
+      <div class="stat-sub stat-neutral">${kpi.latest_period || ''}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Month-on-Month</div>
-      <div class="stat-value">${mom != null ? (mom >= 0 ? '+' : '') + mom + '%' : '—'}</div>
-      <div class="stat-sub stat-neutral">${kpi.latest_period || ''}</div>
+      <div class="stat-label">Year-on-Year</div>
+      <div class="stat-value ${yoyClass}">${yoyStr}</div>
+      <div class="stat-sub stat-neutral">vs 12 months ago</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Implied $/kg</div>
+      <div class="stat-value">$${kpi.implied_usd_per_kg != null ? kpi.implied_usd_per_kg.toFixed(2) : '—'}</div>
+      <div class="stat-sub stat-neutral">latest month</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Top Destination</div>
@@ -1866,12 +1881,12 @@ function renderExports(data, hs) {
       <div class="stat-sub stat-neutral">${kpi.top_dest_mn != null ? '$' + kpi.top_dest_mn.toFixed(1) + 'M' : ''}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">HS 6006 Export</div>
-      <div class="stat-value">${(data.trend?.['6006']?.values?.slice(-1)[0] ?? null) != null
-        ? '$' + data.trend['6006'].values.slice(-1)[0].toFixed(1) + 'M' : '—'}</div>
-      <div class="stat-sub stat-neutral">latest month</div>
+      <div class="stat-label">Active Partners</div>
+      <div class="stat-value">${kpi.active_partners != null ? kpi.active_partners : '—'}</div>
+      <div class="stat-sub stat-neutral">distinct destinations</div>
     </div>`;
 
+  // --- Top destinations bar chart ---
   const dest = data.top_destinations || [];
   document.getElementById('dest-chart-title').textContent =
     `Top ${dest.length} Destinations — HS ${hs}`;
@@ -1896,32 +1911,93 @@ function renderExports(data, hs) {
     }, PLOTLY_CONFIG);
   }
 
-  const trend = data.trend || {};
-  const trendTraces = [
-    { hs: '5407', color: C.blue,   name: 'HS 5407 — Woven synthetic filament' },
-    { hs: '6006', color: C.orange, name: 'HS 6006 — Technical knit' },
-  ].map(({ hs: h, color, name }) => {
-    const d = trend[h];
-    if (!d) return null;
-    return {
-      x: d.periods, y: d.values,
-      name, type: 'scatter', mode: 'lines+markers',
-      line: { color, width: 2 },
-      marker: { size: 4, color },
-      hovertemplate: `${name}: $%{y:.1f}M<extra></extra>`,
-    };
-  }).filter(Boolean);
+  // --- Selected HS trend with 3M rolling line ---
+  document.getElementById('trend-chart-title').textContent =
+    `Monthly Trend — HS ${hs} (3M smoothed)`;
 
-  if (trendTraces.length) {
-    Plotly.newPlot('chart-trend', trendTraces, {
+  const sht = data.selected_hs_trend || {};
+  if (sht.periods && sht.periods.length) {
+    const traces = [
+      {
+        x: sht.periods, y: sht.values_mn,
+        name: 'Monthly', type: 'scatter', mode: 'markers',
+        marker: { size: 6, color: C.muted, opacity: 0.65 },
+        hovertemplate: '%{x}: $%{y:.1f}M<extra></extra>',
+      },
+      {
+        x: sht.periods, y: sht.rolling_3m_mn,
+        name: '3M rolling', type: 'scatter', mode: 'lines',
+        line: { color: C.blue, width: 3, shape: 'spline' },
+        hovertemplate: '%{x}: $%{y:.1f}M<extra></extra>',
+      }
+    ];
+    Plotly.newPlot('chart-trend', traces, {
       ...PLOTLY_BASE,
       height: 320,
       margin: { l: 48, r: 12, t: 12, b: 36 },
       xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30 },
       yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '$', ticksuffix: 'M', title: { text: 'USD million', font: { color: C.muted, size: 10 } } },
-      legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 } },
+      legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 }, orientation: 'h', y: -0.2 },
     }, PLOTLY_CONFIG);
   }
+
+  // --- All HS Codes Overview Table ---
+  renderAllHsTable(data.all_hs_summary || []);
+}
+
+function renderAllHsTable(rows) {
+  const container = document.getElementById('export-all-hs-table');
+  if (!container) return;
+  if (!rows || !rows.length) {
+    container.innerHTML = '<div class="empty-state">No data available</div>';
+    return;
+  }
+
+  const rowsHtml = rows.map(r => {
+    const yoy = r.yoy_pct;
+    const yoyClass = yoy == null ? '' :
+                     (yoy >= 0 ? 'yoy-positive' : 'yoy-negative');
+    const yoyStr = yoy != null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(2) + '%' : '—';
+    const ukg = r.implied_usd_per_kg != null ? '$' + r.implied_usd_per_kg.toFixed(2) : '—';
+    return `
+      <tr title="${esc(r.relevance_note || '')}" data-hs="${r.hs_code}" class="export-row">
+        <td class="hs-cell"><strong>${r.hs_code}</strong></td>
+        <td><span class="business-tag ${r.business_line}">${r.business_line}</span></td>
+        <td><span class="tier-${r.importance_tier}">${r.importance_tier}</span></td>
+        <td class="num">$${r.latest_value_mn.toFixed(2)}M</td>
+        <td class="num ${yoyClass}">${yoyStr}</td>
+        <td class="num">${ukg}</td>
+        <td class="num">${r.active_partners}</td>
+      </tr>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="export-overview-table">
+      <thead>
+        <tr>
+          <th>HS</th><th>Business</th><th>Tier</th>
+          <th class="num">Latest USD</th>
+          <th class="num">YoY</th>
+          <th class="num">$/kg</th>
+          <th class="num">Partners</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+
+  // Click row -> switch to that HS in dropdown + reload
+  container.querySelectorAll('.export-row').forEach(tr => {
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => {
+      const hs = tr.dataset.hs;
+      if (hs) {
+        document.getElementById('hs-select').value = hs;
+        loadExports(hs);
+      }
+    });
+  });
 }
 
 function initExportSelector() {

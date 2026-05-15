@@ -2867,3 +2867,128 @@ html, body {
   font-size: 11px;
 }
 .entity-filter-banner .banner-clear:hover { color: var(--text); }
+
+
+/* ============================================================================
+   Export Intelligence Section (Phase X1 Step 5c)
+   ============================================================================ */
+
+/* --- Business line tags (colored badges in KPI header + table cells) --- */
+.business-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.business-tag.knit       { background: rgba(45, 212, 191, 0.16); color: #5eead4; }
+.business-tag.woven      { background: rgba(167, 139, 250, 0.16); color: #c4b5fd; }
+.business-tag.yarn       { background: rgba(251, 146, 60, 0.16); color: #fdba74; }
+.business-tag.finishing  { background: rgba(52, 211, 153, 0.16); color: #6ee7b7; }
+
+/* --- Importance tier badges --- */
+.tier-primary,
+.tier-secondary,
+.tier-context {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.tier-primary {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.30);
+}
+.tier-secondary {
+  background: rgba(148, 163, 184, 0.10);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+.tier-context {
+  background: rgba(100, 116, 139, 0.08);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.18);
+}
+
+/* --- YoY color coding (table cells) --- */
+.yoy-positive { color: #34d399; font-weight: 600; }
+.yoy-negative { color: #f87171; font-weight: 600; }
+.yoy-neutral  { color: #94a3b8; }
+
+/* --- All HS Codes Overview wrapper --- */
+.export-all-hs-wrap {
+  margin-top: 28px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+
+.export-overview-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 14px;
+}
+
+/* --- Overview table styling --- */
+.export-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text, #c9d1d9);
+}
+
+.export-overview-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #30363d);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.export-overview-table thead th.num {
+  text-align: right;
+}
+
+.export-overview-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.45);
+  vertical-align: middle;
+}
+.export-overview-table tbody td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+.export-overview-table tbody td.hs-cell {
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  color: var(--text, #c9d1d9);
+}
+
+/* --- Row hover (clickable rows) --- */
+.export-overview-table tbody tr.export-row {
+  transition: background 0.15s;
+}
+.export-overview-table tbody tr.export-row:hover {
+  background: rgba(120, 150, 200, 0.06);
+}
+.export-overview-table tbody tr:last-child td {
+  border-bottom: none;
+}
