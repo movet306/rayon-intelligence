@@ -69,7 +69,7 @@ REQUEST_DELAY   = 1.5          # seconds between API calls
 REQUEST_TIMEOUT = 30
 
 # HS codes relevant to Rayon Tekstil
-HS_CODES = ["5407", "6006", "5512", "5515", "6001", "5402", "5509", "5510", "5903"]
+HS_CODES = ["5407", "6006", "5512", "5515", "6001", "5402", "5509", "5510", "5903", "5516"]
 
 HS_DESCRIPTIONS = {
     "5407": "Woven fabrics of synthetic filament yarn",
@@ -81,6 +81,7 @@ HS_DESCRIPTIONS = {
     "5509": "Yarn of synthetic staple fibers (not retail)",
     "5510": "Yarn of artificial staple fibers (viscose/modal/lyocell)",
     "5903": "Textile fabrics impregnated, coated, covered or laminated with plastics",
+    "5516": "Woven fabrics of artificial staple fibers (viscose/modal)",
 }
 
 # UN M49 numeric code → ISO 3166-1 alpha-2
