@@ -754,27 +754,52 @@ def exports(
         kpi["top_dest"]    = top_dest[0]["country"]
         kpi["top_dest_mn"] = top_dest[0]["value_mn"]
 
-    # All-HS latest-month summary (NEW, sorted by tier + hs_code)
+    # Concentration metrics for selected HS (Phase X2 Step 2.3)
+    conc_rows = _rows(
+        """SELECT hhi::float AS hhi,
+                  cr3_pct::float AS cr3_pct,
+                  top_partner_share_pct::float AS top_partner_share_pct,
+                  concentration_category
+           FROM mv_export_partner_concentration
+           WHERE hs_code = %s
+           ORDER BY period DESC LIMIT 1""",
+        [hs_code],
+    )
+    if conc_rows:
+        c = conc_rows[0]
+        kpi["hhi"]                    = c["hhi"]
+        kpi["cr3_pct"]                = c["cr3_pct"]
+        kpi["top_partner_share_pct"]  = c["top_partner_share_pct"]
+        kpi["concentration_category"] = c["concentration_category"]
+
+    # All-HS latest-month summary (Phase X1 Step 4, extended X2 Step 2.3)
     all_hs_summary = _rows(
-        """SELECT hs_code,
-                  business_line,
-                  material_family,
-                  importance_tier,
-                  to_char(period,'YYYY-MM') AS latest_period,
-                  (total_value_usd/1e6)::float AS latest_value_mn,
-                  yoy_pct_change::float AS yoy_pct,
-                  implied_usd_per_kg::float AS implied_usd_per_kg,
-                  active_partners,
-                  relevance_note
-           FROM mv_export_metrics_monthly
-           WHERE period = (SELECT MAX(period) FROM mv_export_metrics_monthly)
+        """SELECT m.hs_code,
+                  m.business_line,
+                  m.material_family,
+                  m.importance_tier,
+                  to_char(m.period,'YYYY-MM') AS latest_period,
+                  (m.total_value_usd/1e6)::float AS latest_value_mn,
+                  m.yoy_pct_change::float AS yoy_pct,
+                  m.implied_usd_per_kg::float AS implied_usd_per_kg,
+                  m.active_partners,
+                  m.relevance_note,
+                  c.hhi::float AS hhi,
+                  c.cr3_pct::float AS cr3_pct,
+                  c.top_partner,
+                  c.top_partner_share_pct::float AS top_partner_share_pct,
+                  c.concentration_category
+           FROM mv_export_metrics_monthly m
+           LEFT JOIN mv_export_partner_concentration c
+                  ON m.hs_code = c.hs_code AND m.period = c.period
+           WHERE m.period = (SELECT MAX(period) FROM mv_export_metrics_monthly)
            ORDER BY
-             CASE importance_tier
+             CASE m.importance_tier
                WHEN 'primary'   THEN 1
                WHEN 'secondary' THEN 2
                ELSE 3
              END,
-             hs_code""",
+             m.hs_code""",
     )
 
     return {
