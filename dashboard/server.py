@@ -656,11 +656,22 @@ def exports(
     hs_code: str = Query("5407"),
     months: int = Query(12, ge=1, le=60),
 ):
+    """Export Intelligence endpoint - reads pre-computed mv_export_metrics_monthly.
+
+    Response shape (backward compatible + extended in Phase X1 Step 4):
+      - kpi:               core metrics for the selected HS code (incl. yoy_pct,
+                            $/kg, business_line, tier, relevance_note)
+      - top_destinations:  top 10 partner countries for latest month
+                            (trade_flows direct - MV has no partner detail)
+      - trend:             legacy hardcoded 5407+6006 trend (back compat)
+      - selected_hs_trend: detailed trend for selected hs_code with 3M rolling
+      - all_hs_summary:    latest-month snapshot of all 9 mapped HS codes
+    """
     cutoff_period = (
         datetime.now() - timedelta(days=months * 30)
     ).strftime("%Y-%m-01")
 
-    # Top 10 destinations (latest month)
+    # Top 10 destinations (latest month, partner detail from trade_flows)
     top_dest = _rows(
         """SELECT partner_country AS country,
                   (SUM(value_usd)/1e6)::float AS value_mn
@@ -674,16 +685,14 @@ def exports(
         [hs_code, hs_code],
     )
 
-    # Monthly trend for HS 5407 + 6006
+    # Legacy trend for HS 5407 + 6006 (backward compat for current frontend)
     trend_rows = _rows(
         """SELECT hs_code,
                   to_char(period,'YYYY-MM') AS period,
-                  (SUM(value_usd)/1e6)::float AS value_mn
-           FROM trade_flows
-           WHERE hs_code IN ('5407','6006') AND flow_direction='export'
-             AND partner_country IS NOT NULL
+                  (total_value_usd/1e6)::float AS value_mn
+           FROM mv_export_metrics_monthly
+           WHERE hs_code IN ('5407','6006')
              AND period >= %s
-           GROUP BY hs_code, period
            ORDER BY period, hs_code""",
         [cutoff_period],
     )
@@ -694,30 +703,87 @@ def exports(
         trend[h]["periods"].append(r["period"])
         trend[h]["values"].append(r["value_mn"])
 
-    # KPI metrics
-    latest_two = _rows(
+    # Selected HS code trend with 3M rolling (NEW)
+    selected_trend_rows = _rows(
         """SELECT to_char(period,'YYYY-MM') AS period,
-                  (SUM(value_usd)/1e6)::float AS value_mn
-           FROM trade_flows
-           WHERE hs_code=%s AND flow_direction='export' AND partner_country IS NOT NULL
-           GROUP BY period ORDER BY period DESC LIMIT 2""",
+                  (total_value_usd/1e6)::float AS value_mn,
+                  (rolling_3m_usd/1e6)::float AS rolling_3m_mn
+           FROM mv_export_metrics_monthly
+           WHERE hs_code = %s AND period >= %s
+           ORDER BY period""",
+        [hs_code, cutoff_period],
+    )
+    selected_hs_trend = {
+        "periods":      [r["period"] for r in selected_trend_rows],
+        "values_mn":    [r["value_mn"] for r in selected_trend_rows],
+        "rolling_3m_mn":[r["rolling_3m_mn"] for r in selected_trend_rows],
+    }
+
+    # KPI metrics (extended with MV fields)
+    kpi_rows = _rows(
+        """SELECT to_char(period,'YYYY-MM') AS period,
+                  (total_value_usd/1e6)::float AS value_mn,
+                  active_partners,
+                  implied_usd_per_kg::float AS implied_usd_per_kg,
+                  yoy_pct_change::float AS yoy_pct,
+                  business_line, material_family, importance_tier, relevance_note
+           FROM mv_export_metrics_monthly
+           WHERE hs_code = %s
+           ORDER BY period DESC LIMIT 2""",
         [hs_code],
     )
     kpi: dict = {}
-    if latest_two:
-        kpi["latest_period"] = latest_two[0]["period"]
-        kpi["latest_value_mn"] = latest_two[0]["value_mn"]
-        if len(latest_two) > 1 and latest_two[1]["value_mn"]:
+    if kpi_rows:
+        latest = kpi_rows[0]
+        kpi["latest_period"]      = latest["period"]
+        kpi["latest_value_mn"]    = latest["value_mn"]
+        kpi["yoy_pct"]            = latest["yoy_pct"]
+        kpi["active_partners"]    = latest["active_partners"]
+        kpi["implied_usd_per_kg"] = latest["implied_usd_per_kg"]
+        kpi["business_line"]      = latest["business_line"]
+        kpi["material_family"]    = latest["material_family"]
+        kpi["importance_tier"]    = latest["importance_tier"]
+        kpi["relevance_note"]     = latest["relevance_note"]
+        # MoM from MV (preserved for backward compat)
+        if len(kpi_rows) > 1 and kpi_rows[1]["value_mn"]:
             kpi["mom_pct"] = round(
-                (latest_two[0]["value_mn"] - latest_two[1]["value_mn"])
-                / latest_two[1]["value_mn"] * 100,
-                1,
+                (latest["value_mn"] - kpi_rows[1]["value_mn"])
+                / kpi_rows[1]["value_mn"] * 100, 1
             )
     if top_dest:
-        kpi["top_dest"] = top_dest[0]["country"]
+        kpi["top_dest"]    = top_dest[0]["country"]
         kpi["top_dest_mn"] = top_dest[0]["value_mn"]
 
-    return {"kpi": kpi, "top_destinations": top_dest, "trend": trend}
+    # All-HS latest-month summary (NEW, sorted by tier + hs_code)
+    all_hs_summary = _rows(
+        """SELECT hs_code,
+                  business_line,
+                  material_family,
+                  importance_tier,
+                  to_char(period,'YYYY-MM') AS latest_period,
+                  (total_value_usd/1e6)::float AS latest_value_mn,
+                  yoy_pct_change::float AS yoy_pct,
+                  implied_usd_per_kg::float AS implied_usd_per_kg,
+                  active_partners,
+                  relevance_note
+           FROM mv_export_metrics_monthly
+           WHERE period = (SELECT MAX(period) FROM mv_export_metrics_monthly)
+           ORDER BY
+             CASE importance_tier
+               WHEN 'primary'   THEN 1
+               WHEN 'secondary' THEN 2
+               ELSE 3
+             END,
+             hs_code""",
+    )
+
+    return {
+        "kpi":               kpi,
+        "top_destinations":  top_dest,
+        "trend":             trend,
+        "selected_hs_trend": selected_hs_trend,
+        "all_hs_summary":    all_hs_summary,
+    }
 
 
 # ── /api/lescon ────────────────────────────────────────────────────────────────
