@@ -802,12 +802,74 @@ def exports(
              m.hs_code""",
     )
 
+    # Available countries for drilldown dropdown (Phase X2 Step 2.4c)
+    available_countries = _rows(
+        """SELECT DISTINCT partner_country FROM mv_export_country_metrics
+           WHERE hs_code = %s
+           ORDER BY partner_country""",
+        [hs_code],
+    )
+
     return {
-        "kpi":               kpi,
-        "top_destinations":  top_dest,
-        "trend":             trend,
-        "selected_hs_trend": selected_hs_trend,
-        "all_hs_summary":    all_hs_summary,
+        "kpi":                 kpi,
+        "top_destinations":    top_dest,
+        "trend":               trend,
+        "selected_hs_trend":   selected_hs_trend,
+        "all_hs_summary":      all_hs_summary,
+        "available_countries": [c["partner_country"] for c in available_countries],
+    }
+
+
+# ── /api/exports/drilldown ───────────────────────────────────────────────
+
+@app.get("/api/exports/drilldown")
+def exports_drilldown(
+    hs_code: str = Query(...),
+    country:  str = Query(...),
+    months:   int = Query(18, ge=1, le=60),
+):
+    """Country drilldown - trend for a single (hs_code, country) pair.
+
+    Source: mv_export_country_metrics (Phase X2 Step 2.4a). Returns trend
+    rows (period, value_mn, share %, 3M rolling, rank, $/kg, YoY %) and a
+    KPI snapshot for the latest period. Powers the X2.4 Country Drilldown
+    panel in the Export Intelligence tab.
+    """
+    cutoff = (datetime.now() - timedelta(days=months * 30)).strftime("%Y-%m-01")
+
+    trend = _rows(
+        """SELECT to_char(period,'YYYY-MM') AS period,
+                  (country_value_usd/1e6)::float AS value_mn,
+                  country_share_pct::float AS share_pct,
+                  (country_3m_rolling_usd/1e6)::float AS rolling_3m_mn,
+                  country_rank,
+                  country_implied_usd_per_kg::float AS usd_per_kg,
+                  country_yoy_pct::float AS yoy_pct
+           FROM mv_export_country_metrics
+           WHERE hs_code = %s AND partner_country = %s
+             AND period >= %s
+           ORDER BY period""",
+        [hs_code, country, cutoff],
+    )
+
+    kpi: dict = {}
+    if trend:
+        latest = trend[-1]
+        kpi = {
+            "latest_period":   latest["period"],
+            "latest_value_mn": latest["value_mn"],
+            "share_pct":       latest["share_pct"],
+            "rank":            latest["country_rank"],
+            "usd_per_kg":      latest["usd_per_kg"],
+            "yoy_pct":         latest["yoy_pct"],
+            "rolling_3m_mn":   latest["rolling_3m_mn"],
+        }
+
+    return {
+        "hs_code": hs_code,
+        "country": country,
+        "kpi":     kpi,
+        "trend":   trend,
     }
 
 

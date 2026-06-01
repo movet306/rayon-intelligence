@@ -3008,3 +3008,55 @@ html, body {
   font-size: 11px;
   margin-left: 4px;
 }
+
+
+/* ============================================================================
+   Country Drilldown panel (Phase X2 Step 2.4d)
+   ============================================================================ */
+
+.export-drilldown-wrap {
+  margin-top: 28px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+
+.drilldown-context {
+  color: var(--muted, #8b949e);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
+
+.drilldown-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 14px;
+}
+
+.drilldown-controls label {
+  color: var(--muted, #8b949e);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.drilldown-controls select {
+  background: var(--bg, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text, #c9d1d9);
+  font-size: 13px;
+  min-width: 240px;
+  cursor: pointer;
+}
+
+.drilldown-controls select:hover {
+  border-color: rgba(120, 150, 200, 0.4);
+}

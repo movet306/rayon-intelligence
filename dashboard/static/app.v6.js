@@ -1948,6 +1948,10 @@ function renderExports(data, hs) {
 
   // --- All HS Codes Overview Table ---
   renderAllHsTable(data.all_hs_summary || []);
+
+  // --- Country Drilldown setup (Phase X2 Step 2.4d) ---
+  const defaultCountry = kpi.top_dest || (data.available_countries || [])[0];
+  populateDrilldownCountries(data.available_countries || [], hs, defaultCountry);
 }
 
 function renderAllHsTable(rows) {
@@ -2009,10 +2013,125 @@ function renderAllHsTable(rows) {
   });
 }
 
+/* -- Country Drilldown (Phase X2 Step 2.4d) ----------------------------- */
+
+function populateDrilldownCountries(countries, hs, defaultCountry) {
+  const select = document.getElementById('drilldown-country-select');
+  if (!select || !countries.length) return;
+  select.innerHTML = countries.map(c =>
+    `<option value="${c}">${COUNTRY_NAMES[c] || c} (${c})</option>`
+  ).join('');
+  if (defaultCountry && countries.includes(defaultCountry)) {
+    select.value = defaultCountry;
+  }
+  loadDrilldown(hs, select.value);
+}
+
+async function loadDrilldown(hs, country) {
+  if (!hs || !country) return;
+  try {
+    const data = await api(`/api/exports/drilldown?hs_code=${hs}&country=${country}`);
+    renderDrilldown(data);
+  } catch (e) {
+    document.getElementById('drilldown-kpis').innerHTML =
+      `<div class="empty-state">Drilldown error: ${e.message}</div>`;
+  }
+}
+
+function renderDrilldown(data) {
+  const kpi = data.kpi || {};
+  const trend = data.trend || [];
+  const hs = data.hs_code;
+  const ctry = data.country;
+  const ctryName = COUNTRY_NAMES[ctry] || ctry;
+
+  document.getElementById('drilldown-context').textContent =
+    `— HS ${hs} → ${ctryName}`;
+  document.getElementById('drilldown-chart-title').textContent =
+    `Trend — HS ${hs} to ${ctryName} (value $M + share % dual axis)`;
+
+  const yoy = kpi.yoy_pct;
+  const yoyClass = yoy == null ? 'stat-neutral' : (yoy >= 0 ? 'stat-up' : 'stat-down');
+  const yoyStr = yoy != null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(1) + '%' : '—';
+
+  document.getElementById('drilldown-kpis').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Latest Value</div>
+      <div class="stat-value">$${kpi.latest_value_mn != null ? kpi.latest_value_mn.toFixed(2) : '—'}M</div>
+      <div class="stat-sub stat-neutral">${kpi.latest_period || ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Share in HS</div>
+      <div class="stat-value">${kpi.share_pct != null ? kpi.share_pct.toFixed(1) + '%' : '—'}</div>
+      <div class="stat-sub stat-neutral">rank #${kpi.rank != null ? kpi.rank : '—'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Implied $/kg</div>
+      <div class="stat-value">$${kpi.usd_per_kg != null ? kpi.usd_per_kg.toFixed(2) : '—'}</div>
+      <div class="stat-sub stat-neutral">latest month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">YoY</div>
+      <div class="stat-value ${yoyClass}">${yoyStr}</div>
+      <div class="stat-sub stat-neutral">vs 12 months ago</div>
+    </div>
+  `;
+
+  if (!trend.length) {
+    document.getElementById('chart-drilldown').innerHTML = '<div class="empty-state">No data</div>';
+    return;
+  }
+
+  const periods = trend.map(r => r.period);
+  const values  = trend.map(r => r.value_mn);
+  const shares  = trend.map(r => r.share_pct);
+
+  Plotly.newPlot('chart-drilldown', [
+    {
+      x: periods, y: values, name: 'Value $M',
+      type: 'scatter', mode: 'lines+markers',
+      line: { color: C.blue, width: 2.5, shape: 'spline' },
+      marker: { size: 6, color: C.blue },
+      yaxis: 'y',
+      hovertemplate: '%{x}: $%{y:.2f}M<extra></extra>',
+    },
+    {
+      x: periods, y: shares, name: 'Share %',
+      type: 'scatter', mode: 'lines',
+      line: { color: C.orange, width: 2, dash: 'dot' },
+      yaxis: 'y2',
+      hovertemplate: '%{x}: %{y:.1f}%<extra></extra>',
+    }
+  ], {
+    ...PLOTLY_BASE,
+    height: 340,
+    margin: { l: 55, r: 55, t: 12, b: 50 },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30 },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickprefix: '$', ticksuffix: 'M', title: { text: 'Value (USD M)', font: { color: C.blue, size: 10 } } },
+    yaxis2: {
+      ...PLOTLY_BASE.yaxis,
+      title: { text: 'Share %', font: { color: C.orange, size: 10 } },
+      overlaying: 'y',
+      side: 'right',
+      ticksuffix: '%',
+      showgrid: false,
+    },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: C.muted, size: 11 }, orientation: 'h', y: -0.18 },
+  }, PLOTLY_CONFIG);
+}
+
 function initExportSelector() {
   document.getElementById('hs-select').addEventListener('change', e => {
     loadExports(e.target.value);
   });
+  // Drilldown country selector (Phase X2 Step 2.4d)
+  const drilldownSelect = document.getElementById('drilldown-country-select');
+  if (drilldownSelect) {
+    drilldownSelect.addEventListener('change', e => {
+      const hs = document.getElementById('hs-select').value;
+      loadDrilldown(hs, e.target.value);
+    });
+  }
 }
 
 /* ── Internal Data ───────────────────────────────────────────────────────────── */
