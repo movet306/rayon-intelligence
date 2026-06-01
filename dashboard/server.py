@@ -12,6 +12,7 @@ from functools import wraps
 from pathlib import Path
 
 import psycopg2
+from typing import Optional
 from psycopg2.pool import ThreadedConnectionPool
 import requests
 from dotenv import load_dotenv
@@ -870,6 +871,109 @@ def exports_drilldown(
         "country": country,
         "kpi":     kpi,
         "trend":   trend,
+    }
+
+
+# ── /api/exports/winners_losers ────────────────────────────────────────
+
+@app.get("/api/exports/winners_losers")
+def exports_winners_losers(
+    months_window:    int   = Query(6,      ge=3, le=12),
+    top_n:            int   = Query(7,      ge=3, le=20),
+    min_baseline_usd: float = Query(300000, ge=0),
+    hs_code:          Optional[str] = Query(None),
+):
+    """Winners/Losers ranking - country momentum.
+
+    Scope:
+      - hs_code=None: aggregated across all Rayon-relevant HS (default)
+      - hs_code='5512': filter to a single HS for HS-specific momentum
+
+    Compares last N months vs prior N months aggregated by partner_country.
+    Filters out countries with prior baseline below min_baseline_usd.
+
+    Returns:
+      - winners: top_n countries with highest growth_pct (sorted DESC)
+      - losers:  top_n countries with lowest growth_pct (sorted ASC)
+      - meta:    period boundaries, baselines, scope, config
+    """
+    hs_filter = "AND hs_code = %s" if hs_code else ""
+
+    sql = f"""
+    WITH bounds AS (
+        SELECT MAX(period) AS max_p,
+               MAX(period) - (%s::int - 1) * INTERVAL '1 month' AS last_start,
+               MAX(period) - (2 * %s::int - 1) * INTERVAL '1 month' AS prior_start
+        FROM mv_export_country_metrics
+    ),
+    last_window AS (
+        SELECT partner_country, SUM(country_value_usd) AS last_usd
+        FROM mv_export_country_metrics, bounds
+        WHERE period >= last_start AND period <= max_p
+          {hs_filter}
+        GROUP BY partner_country
+    ),
+    prior_window AS (
+        SELECT partner_country, SUM(country_value_usd) AS prior_usd
+        FROM mv_export_country_metrics, bounds
+        WHERE period >= prior_start AND period < last_start
+          {hs_filter}
+        GROUP BY partner_country
+    )
+    SELECT
+        COALESCE(l.partner_country, p.partner_country) AS country,
+        COALESCE(l.last_usd,  0)::float AS last_usd,
+        COALESCE(p.prior_usd, 0)::float AS prior_usd,
+        (COALESCE(l.last_usd, 0) - COALESCE(p.prior_usd, 0))::float AS delta_usd,
+        CASE
+            WHEN p.prior_usd > 0
+            THEN ((COALESCE(l.last_usd, 0) - p.prior_usd) / p.prior_usd * 100)::float
+            ELSE NULL
+        END AS growth_pct
+    FROM last_window l
+    FULL OUTER JOIN prior_window p USING (partner_country)
+    WHERE p.prior_usd >= %s
+      AND COALESCE(l.partner_country, p.partner_country) IS NOT NULL
+    """
+
+    # Build params with optional hs_code injected into both CTEs
+    if hs_code:
+        base_params = [months_window, months_window, hs_code, hs_code, min_baseline_usd]
+    else:
+        base_params = [months_window, months_window, min_baseline_usd]
+
+    winners = _rows(
+        sql + " ORDER BY growth_pct DESC NULLS LAST LIMIT %s",
+        base_params + [top_n],
+    )
+
+    losers = _rows(
+        sql + " ORDER BY growth_pct ASC NULLS LAST LIMIT %s",
+        base_params + [top_n],
+    )
+
+    meta_rows = _rows(
+        """SELECT to_char(MAX(period), 'YYYY-MM') AS max_p,
+                  to_char(MAX(period) - (%s::int - 1) * INTERVAL '1 month', 'YYYY-MM') AS last_start,
+                  to_char(MAX(period) - (2 * %s::int - 1) * INTERVAL '1 month', 'YYYY-MM') AS prior_start
+           FROM mv_export_country_metrics""",
+        [months_window, months_window],
+    )
+    meta = meta_rows[0] if meta_rows else {}
+
+    return {
+        "winners": winners,
+        "losers":  losers,
+        "meta": {
+            "months_window":     months_window,
+            "top_n":              top_n,
+            "min_baseline_usd":   min_baseline_usd,
+            "hs_scope":           "selected" if hs_code else "all",
+            "hs_code":            hs_code,
+            "last_period_start":  meta.get("last_start"),
+            "last_period_end":    meta.get("max_p"),
+            "prior_period_start": meta.get("prior_start"),
+        },
     }
 
 

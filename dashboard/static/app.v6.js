@@ -2120,9 +2120,100 @@ function renderDrilldown(data) {
   }, PLOTLY_CONFIG);
 }
 
+/* -- Winners & Losers (Phase X2 Step 2.5b) ------------------------------ */
+
+function _wlFmtMoney(v) {
+  if (v == null) return '—';
+  if (Math.abs(v) >= 1e6) return `$${(v/1e6).toFixed(2)}M`;
+  if (Math.abs(v) >= 1e3) return `$${(v/1e3).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+function _wlFmtPct(p) {
+  if (p == null) return '—';
+  const s = p >= 0 ? '+' : '';
+  return `${s}${p.toFixed(1)}%`;
+}
+
+async function loadWinnersLosers(hsCode) {
+  // Scope-aware baseline: tighter for single-HS scope (smaller budgets)
+  const baseline = hsCode ? 25000 : 300000;
+  let url = `/api/exports/winners_losers?months_window=6&top_n=7&min_baseline_usd=${baseline}`;
+  if (hsCode) url += `&hs_code=${hsCode}`;
+  try {
+    const data = await api(url);
+    renderWinnersLosers(data);
+  } catch (e) {
+    const wEl = document.getElementById('wl-winners-table');
+    if (wEl) wEl.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+function renderWinnersLosers(data) {
+  const meta = data.meta || {};
+  const winners = data.winners || [];
+  const losers  = data.losers  || [];
+
+  const ctxEl = document.getElementById('wl-context');
+  if (ctxEl) {
+    const baseline = meta.min_baseline_usd ? `$${(meta.min_baseline_usd/1e3).toFixed(0)}K` : '';
+    const scopeText = (meta.hs_scope === 'selected' && meta.hs_code)
+      ? `HS ${meta.hs_code} only`
+      : 'all 10 Rayon-relevant HS';
+    ctxEl.textContent =
+      `— ${meta.last_period_start}..${meta.last_period_end} vs ${meta.prior_period_start} prior (${scopeText}, min baseline ${baseline})`;
+  }
+
+  function renderTable(rows, containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty-state">No data</div>';
+      return;
+    }
+    el.innerHTML = `
+      <table class="wl-table">
+        <thead><tr>
+          <th>Country</th>
+          <th class="num">Last 6M</th>
+          <th class="num">Prior 6M</th>
+          <th class="num">Δ USD</th>
+          <th class="num">Δ %</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const ctry = r.country;
+            const ctryName = COUNTRY_NAMES[ctry] || ctry;
+            const dUsd = r.delta_usd || 0;
+            const dCls = dUsd >= 0 ? 'wl-up' : 'wl-down';
+            const g = r.growth_pct;
+            const gCls = g == null ? '' : (g >= 0 ? 'wl-up' : 'wl-down');
+            const dStr = (dUsd >= 0 ? '+' : '') + _wlFmtMoney(dUsd);
+            return `<tr>
+              <td><span class="wl-iso">${ctry}</span> <span class="wl-cname">${ctryName}</span></td>
+              <td class="num">${_wlFmtMoney(r.last_usd)}</td>
+              <td class="num">${_wlFmtMoney(r.prior_usd)}</td>
+              <td class="num ${dCls}">${dStr}</td>
+              <td class="num ${gCls}">${_wlFmtPct(g)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  renderTable(winners, 'wl-winners-table');
+  renderTable(losers,  'wl-losers-table');
+}
+
 function initExportSelector() {
   document.getElementById('hs-select').addEventListener('change', e => {
     loadExports(e.target.value);
+    // Phase X2 Step 2.5c: refresh winners/losers if scope is 'selected'
+    const activeScopeBtn = document.querySelector('.wl-scope-btn.active');
+    if (activeScopeBtn && activeScopeBtn.dataset.wlScope === 'selected') {
+      loadWinnersLosers(e.target.value);
+    }
   });
   // Drilldown country selector (Phase X2 Step 2.4d)
   const drilldownSelect = document.getElementById('drilldown-country-select');
@@ -2132,6 +2223,18 @@ function initExportSelector() {
       loadDrilldown(hs, e.target.value);
     });
   }
+  // Winners & Losers scope toggle (Phase X2 Step 2.5c)
+  document.querySelectorAll('.wl-scope-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.wl-scope-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const scope = btn.dataset.wlScope;
+      const hs = scope === 'selected' ? document.getElementById('hs-select').value : null;
+      loadWinnersLosers(hs);
+    });
+  });
+  // Winners & Losers initial load (HS-agnostic on first load)
+  loadWinnersLosers();
 }
 
 /* ── Internal Data ───────────────────────────────────────────────────────────── */

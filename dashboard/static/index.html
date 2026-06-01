@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rayon Intelligence Platform</title>
-  <link rel="stylesheet" href="style.v6.css?v=1780303793">
+  <link rel="stylesheet" href="style.v6.css?v=1780305528">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="app.v6.js?v=1780303793" defer></script>
+  <script src="app.v6.js?v=1780305528" defer></script>
 </head>
 <body>
 
@@ -318,6 +318,29 @@
       <div class="chart-panel" style="margin-top:14px">
         <div class="chart-panel-title" id="drilldown-chart-title">Trend</div>
         <div class="chart-wrap" id="chart-drilldown"></div>
+      </div>
+    </div>
+
+    <!-- Winners & Losers (Phase X2 Step 2.5b, scope toggle 2.5c) -->
+    <div class="export-winners-losers-wrap">
+      <div class="export-overview-title">
+        Winners &amp; Losers
+        <span class="wl-scope-toggle">
+          <button class="wl-scope-btn active" data-wl-scope="all">All Rayon-relevant HS</button>
+          <button class="wl-scope-btn" data-wl-scope="selected">Selected HS only</button>
+        </span>
+        <span class="wl-context" id="wl-context"></span>
+      </div>
+
+      <div class="wl-grid">
+        <div class="wl-panel wl-winners">
+          <div class="wl-panel-title">Winners <span class="wl-panel-subtitle">highest growth</span></div>
+          <div id="wl-winners-table"></div>
+        </div>
+        <div class="wl-panel wl-losers">
+          <div class="wl-panel-title">Losers <span class="wl-panel-subtitle">steepest decline</span></div>
+          <div id="wl-losers-table"></div>
+        </div>
       </div>
     </div>
   </section>

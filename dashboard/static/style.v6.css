@@ -3060,3 +3060,158 @@ html, body {
 .drilldown-controls select:hover {
   border-color: rgba(120, 150, 200, 0.4);
 }
+
+
+/* ============================================================================
+   Winners & Losers panel (Phase X2 Step 2.5b)
+   ============================================================================ */
+
+.export-winners-losers-wrap {
+  margin-top: 28px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+
+.wl-context {
+  color: var(--muted, #8b949e);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
+
+.wl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .wl-grid { grid-template-columns: 1fr; }
+}
+
+.wl-panel {
+  background: var(--bg, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.wl-winners { border-left: 3px solid #34d399; }
+.wl-losers  { border-left: 3px solid #f87171; }
+
+.wl-panel-title {
+  color: var(--text, #c9d1d9);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.wl-panel-subtitle {
+  color: var(--muted, #8b949e);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 6px;
+  text-transform: lowercase;
+}
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.wl-table thead th {
+  background: rgba(255,255,255,0.02);
+  color: var(--muted, #8b949e);
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border, #30363d);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.wl-table thead th.num { text-align: right; }
+
+.wl-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.wl-table tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.wl-table tbody td {
+  padding: 6px 8px;
+  color: var(--text, #c9d1d9);
+}
+
+.wl-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-iso {
+  display: inline-block;
+  min-width: 24px;
+  font-weight: 600;
+  color: var(--text, #c9d1d9);
+}
+
+.wl-cname {
+  color: var(--muted, #8b949e);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.wl-up   { color: #34d399; }
+.wl-down { color: #f87171; }
+
+
+/* ============================================================================
+   Scope toggle for Winners & Losers (Phase X2 Step 2.5c)
+   ============================================================================ */
+
+.wl-scope-toggle {
+  display: inline-flex;
+  background: var(--bg, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+.wl-scope-btn {
+  background: transparent;
+  color: var(--muted, #8b949e);
+  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
+
+.wl-scope-btn:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text, #c9d1d9);
+}
+
+.wl-scope-btn.active {
+  background: rgba(120,150,200,0.18);
+  color: var(--text, #c9d1d9);
+}
+
+.wl-scope-btn + .wl-scope-btn {
+  border-left: 1px solid var(--border, #30363d);
+}
