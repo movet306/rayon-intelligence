@@ -3215,3 +3215,199 @@ html, body {
 .wl-scope-btn + .wl-scope-btn {
   border-left: 1px solid var(--border, #30363d);
 }
+
+
+/* ============================================================================
+   Texhibition 2026 Competitive Landscape (Phase X2 Step 2.7c)
+   ============================================================================ */
+
+.export-texhibition-wrap {
+  margin-top: 28px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+
+.tex-meta {
+  color: var(--muted, #8b949e);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
+
+.tex-kpis {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.tex-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tex-chip {
+  background: transparent;
+  color: var(--muted, #8b949e);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.tex-chip:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text, #c9d1d9);
+  border-color: rgba(120,150,200,0.4);
+}
+
+.tex-chip.active {
+  background: rgba(120,150,200,0.18);
+  color: var(--text, #c9d1d9);
+  border-color: rgba(120,150,200,0.5);
+}
+
+.tex-table-wrap {
+  max-height: 560px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 6px;
+  background: var(--bg, #0d1117);
+}
+
+.tex-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tex-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--card, #161b22);
+  z-index: 1;
+}
+
+.tex-table thead th {
+  color: var(--muted, #8b949e);
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border, #30363d);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 11px;
+}
+
+.tex-col-badge {
+  width: 80px;
+}
+
+.tex-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.tex-table tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.tex-table tbody tr.tex-tracked {
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.tex-table tbody tr.tex-tracked:hover {
+  background: rgba(52, 211, 153, 0.10);
+}
+
+.tex-table tbody td {
+  padding: 8px 10px;
+  color: var(--text, #c9d1d9);
+  vertical-align: top;
+}
+
+.tex-badge {
+  display: inline-block;
+  background: rgba(52, 211, 153, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tex-name {
+  font-weight: 600;
+  color: var(--text, #c9d1d9);
+}
+
+.tex-links {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.tex-link {
+  color: rgba(120, 150, 200, 0.85);
+  text-decoration: none;
+}
+
+.tex-link:hover {
+  text-decoration: underline;
+  color: rgba(140, 170, 220, 1);
+}
+
+.tex-cats {
+  max-width: 240px;
+}
+
+.tex-cat-tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.04);
+  color: var(--muted, #8b949e);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  margin-right: 3px;
+  margin-bottom: 2px;
+}
+
+.tex-cat-more {
+  color: var(--muted, #8b949e);
+  font-size: 10px;
+  font-style: italic;
+}
+
+.tex-booth {
+  font-family: 'SF Mono', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--muted, #8b949e);
+  white-space: nowrap;
+}
+
+.tex-notes {
+  max-width: 360px;
+  font-size: 11px;
+}
+
+.tex-comp-note {
+  color: var(--text, #c9d1d9);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.tex-tags-line {
+  color: var(--muted, #8b949e);
+  font-size: 10px;
+  margin-top: 3px;
+}

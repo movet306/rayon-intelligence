@@ -977,6 +977,96 @@ def exports_winners_losers(
     }
 
 
+# ── /api/exports/texhibition_landscape ───────────────────────────────
+
+# Categories Rayon Tekstil considers competitive (polyester/polyamide knit + woven + yarn)
+RAYON_RELEVANT_CATEGORIES = ['Polyester', 'Polyviscone', 'Woven', 'Yarn', 'Knitting']
+
+
+@app.get("/api/exports/texhibition_landscape")
+def texhibition_landscape(
+    category: Optional[str] = Query(None),
+):
+    """Texhibition 2026 Rayon-relevant competitive landscape.
+
+    Filters fair_exhibitors to those with at least one Rayon-relevant
+    category (Polyester/Polyviscone/Woven/Yarn/Knitting), then LEFT JOIN
+    LATERAL against companies (category='competitor', country='TR') by
+    fuzzy name match to flag tracked competitors.
+
+    Returns:
+      - summary: total Rayon-relevant exhibitors, tracked competitor count,
+                 top categories, distinct booth count
+      - exhibitors: list with is_tracked_competitor flag + competitor_notes/tags
+    """
+    cat_clause = "AND e.categories @> ARRAY[%s]::text[]" if category else ""
+
+    sql = f"""
+    WITH tracked AS (
+        SELECT name AS comp_name, notes AS comp_notes, tags AS comp_tags
+        FROM companies
+        WHERE category = 'competitor' AND country = 'TR'
+    )
+    SELECT
+        e.id::text                              AS id,
+        e.name,
+        e.categories,
+        e.booth,
+        e.website,
+        e.detail_url,
+        t.comp_name                             AS competitor_match_name,
+        t.comp_notes                            AS competitor_notes,
+        t.comp_tags                             AS competitor_tags,
+        (t.comp_name IS NOT NULL)               AS is_tracked_competitor
+    FROM fair_exhibitors e
+    LEFT JOIN LATERAL (
+        SELECT comp_name, comp_notes, comp_tags
+        FROM tracked
+        WHERE upper(e.name) LIKE '%%' || upper(comp_name) || '%%'
+           OR upper(comp_name) LIKE upper(e.name) || '%%'
+        LIMIT 1
+    ) t ON true
+    WHERE e.categories && %s::text[]
+      {cat_clause}
+    ORDER BY (t.comp_name IS NOT NULL) DESC, e.name ASC
+    """
+
+    params = [RAYON_RELEVANT_CATEGORIES]
+    if category:
+        params.append(category)
+
+    exhibitors = _rows(sql, params)
+
+    # Summary stats
+    total = len(exhibitors)
+    tracked_count = sum(1 for e in exhibitors if e['is_tracked_competitor'])
+
+    # Category breakdown across the filtered set
+    cat_counter = {}
+    for e in exhibitors:
+        for c in (e['categories'] or []):
+            cat_counter[c] = cat_counter.get(c, 0) + 1
+    top_categories = sorted(
+        [{'name': c, 'count': n} for c, n in cat_counter.items()],
+        key=lambda x: -x['count'],
+    )[:8]
+
+    booths_set = set(e['booth'] for e in exhibitors if e['booth'])
+
+    return {
+        'summary': {
+            'total_rayon_relevant':         total,
+            'tracked_competitors_at_fair':  tracked_count,
+            'top_category':                 top_categories[0]['name'] if top_categories else None,
+            'distinct_booths':              len(booths_set),
+            'top_categories':               top_categories,
+            'rayon_relevant_categories':    RAYON_RELEVANT_CATEGORIES,
+            'category_filter':              category,
+        },
+        'exhibitors': exhibitors,
+    }
+
+
 # ── /api/lescon ────────────────────────────────────────────────────────────────
 
 @app.get("/api/lescon")

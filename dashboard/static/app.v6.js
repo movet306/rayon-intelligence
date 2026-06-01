@@ -2206,6 +2206,106 @@ function renderWinnersLosers(data) {
   renderTable(losers,  'wl-losers-table');
 }
 
+/* -- Texhibition Competitive Landscape (Phase X2 Step 2.7c) ------------- */
+
+async function loadTexhibition(category) {
+  try {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    const data = await api(`/api/exports/texhibition_landscape${qs}`);
+    renderTexhibition(data);
+  } catch (e) {
+    const t = document.getElementById('tex-table');
+    if (t) t.innerHTML = `<tbody><tr><td><div class="empty-state">Error: ${e.message}</div></td></tr></tbody>`;
+  }
+}
+
+function renderTexhibition(data) {
+  const s = data.summary || {};
+  const exhibitors = data.exhibitors || [];
+
+  // Meta line
+  const metaEl = document.getElementById('tex-meta');
+  if (metaEl) {
+    const filterTxt = s.category_filter ? `${s.category_filter} category` : 'all 5 Rayon-relevant categories';
+    metaEl.textContent = `— Texhibition Istanbul 2026 (9-11 September) • ${filterTxt}`;
+  }
+
+  // KPI cards
+  const kpiEl = document.getElementById('tex-kpis');
+  if (kpiEl) {
+    const topCatCount = (s.top_categories && s.top_categories[0]) ? s.top_categories[0].count : 0;
+    kpiEl.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Rayon-relevant exhibitors</div>
+        <div class="stat-value">${s.total_rayon_relevant || 0}</div>
+        <div class="stat-sub stat-neutral">in current scope</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tracked competitors at fair</div>
+        <div class="stat-value stat-up">${s.tracked_competitors_at_fair || 0}</div>
+        <div class="stat-sub stat-neutral">from your radar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top category</div>
+        <div class="stat-value">${s.top_category || '—'}</div>
+        <div class="stat-sub stat-neutral">${topCatCount} firms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Distinct booths</div>
+        <div class="stat-value">${s.distinct_booths || 0}</div>
+        <div class="stat-sub stat-neutral">unique locations</div>
+      </div>
+    `;
+  }
+
+  // Table
+  const tEl = document.getElementById('tex-table');
+  if (!tEl) return;
+
+  if (!exhibitors.length) {
+    tEl.innerHTML = `<tbody><tr><td><div class="empty-state">No exhibitors match filter</div></td></tr></tbody>`;
+    return;
+  }
+
+  tEl.innerHTML = `
+    <thead><tr>
+      <th class="tex-col-badge"></th>
+      <th>Exhibitor</th>
+      <th>Categories</th>
+      <th>Booth</th>
+      <th>Notes / Tags</th>
+    </tr></thead>
+    <tbody>
+      ${exhibitors.map(e => {
+        const trackedCls = e.is_tracked_competitor ? 'tex-tracked' : '';
+        const badge = e.is_tracked_competitor
+          ? `<span class="tex-badge" title="${e.competitor_match_name || ''}">TRACKED</span>` : '';
+        const cats = (e.categories || []).slice(0, 4).map(c =>
+          `<span class="tex-cat-tag">${c}</span>`
+        ).join('');
+        const moreCats = (e.categories || []).length > 4
+          ? `<span class="tex-cat-more">+${e.categories.length - 4}</span>` : '';
+        const tags = (e.competitor_tags || []).join(' • ');
+        const notes = e.competitor_notes || '';
+        const wsLink = e.website
+          ? `<a href="${e.website}" target="_blank" rel="noopener" class="tex-link">website</a>` : '';
+        const dLink = e.detail_url
+          ? `<a href="${e.detail_url}" target="_blank" rel="noopener" class="tex-link">profile</a>` : '';
+        const notesHtml = (notes || tags)
+          ? `${notes ? `<div class="tex-comp-note">${notes}</div>` : ''}${tags ? `<div class="tex-tags-line">${tags}</div>` : ''}`
+          : '<span class="muted-inline">—</span>';
+        return `<tr class="${trackedCls}">
+          <td class="tex-col-badge">${badge}</td>
+          <td><div class="tex-name">${e.name}</div><div class="tex-links">${wsLink}${wsLink && dLink ? ' • ' : ''}${dLink}</div></td>
+          <td class="tex-cats">${cats}${moreCats}</td>
+          <td class="tex-booth">${e.booth || '—'}</td>
+          <td class="tex-notes">${notesHtml}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  `;
+}
+
 function initExportSelector() {
   document.getElementById('hs-select').addEventListener('change', e => {
     loadExports(e.target.value);
@@ -2235,6 +2335,16 @@ function initExportSelector() {
   });
   // Winners & Losers initial load (HS-agnostic on first load)
   loadWinnersLosers();
+
+  // Texhibition Competitive Landscape (Phase X2 Step 2.7c)
+  document.querySelectorAll('.tex-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.tex-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      loadTexhibition(chip.dataset.cat);
+    });
+  });
+  loadTexhibition('');
 }
 
 /* ── Internal Data ───────────────────────────────────────────────────────────── */
