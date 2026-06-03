@@ -16,10 +16,9 @@ import psycopg2.extras
 from dotenv import load_dotenv
 
 load_dotenv()
-DB_URL = os.environ.get(
-    "RAYON_DATABASE_URL",
-    "postgresql://postgres:REDACTED_DB_PASSWORD@mainline.proxy.rlwy.net:56047/railway",
-)
+DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not DB_URL:
+    raise RuntimeError("Set RAYON_DATABASE_URL in environment or .env")
 
 
 def main():

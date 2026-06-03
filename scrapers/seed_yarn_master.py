@@ -14,10 +14,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_URL = os.environ.get(
-    "RAYON_DATABASE_URL",
-    "postgresql://postgres:REDACTED_DB_PASSWORD@mainline.proxy.rlwy.net:56047/railway",
-)
+DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not DB_URL:
+    raise RuntimeError("Set RAYON_DATABASE_URL in environment or .env")
 
 DENIER_PREMIUM_JSON = json.dumps({"micro": 1.12, "fine": 1.05, "medium": 1.0, "heavy": 0.96})
 PES_LUSTER_JSON     = json.dumps({"FD": 1.03, "SD": 1.0, "BR": 0.98, "HT": 1.15, "FR": 1.20, "CD": 1.08})

@@ -69,3 +69,14 @@ data/ekap_state.json
 # Phase F1 reconnaissance screenshots
 ekap_step*.png
 
+
+# Claude Code local settings
+.claude/
+
+# Audit & cleanup tooling (local-only)
+AUDIT_REPORT.txt
+GIT_HISTORY_AUDIT.txt
+audit-repo.ps1
+audit-git-history.ps1
+fix-hardcoded-db-urls.ps1
+*.before-creds-cleanup

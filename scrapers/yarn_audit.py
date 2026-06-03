@@ -23,10 +23,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from _yarn_parse_lib import build_code_map
 
 load_dotenv()
-DB_URL = os.environ.get(
-    "RAYON_DATABASE_URL",
-    "postgresql://postgres:REDACTED_DB_PASSWORD@mainline.proxy.rlwy.net:56047/railway",
-)
+DB_URL = os.environ.get("RAYON_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not DB_URL:
+    raise RuntimeError("Set RAYON_DATABASE_URL in environment or .env")
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 os.makedirs(OUT_DIR, exist_ok=True)
