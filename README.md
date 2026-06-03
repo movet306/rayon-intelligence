@@ -5448,4 +5448,4 @@ The platform's unifying thesis is that operational decisions for a mid-sized man
 
 *This module is part of the Rayon Intelligence Platform, a production-grade analytics platform for a Turkish textile manufacturer, built as a demonstration of what ERP-integrated operational intelligence looks like when designed for real-time API integration from the ground up. The current deployment runs against authoritative Nebim V3 ERP exports; the production target is direct REST API integration enabling real-time event-driven automation.*
 
-
+**Designed, built, and maintained by [Mert Övet](https://www.linkedin.com/in/mertovet/).** 
