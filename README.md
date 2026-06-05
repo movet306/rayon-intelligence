@@ -83,6 +83,14 @@ I want to be very specific about what this platform replaces and what it does wi
 | Counterparty deduplication | Manual cleanup in Excel | Automatic via tax-id canonical-key resolution |
 | Top-N supplier/customer reports | Manual SUMIF + sort | One SQL view, refreshed on every load |
 
+### The reporting layer is built to be real-time
+
+What the table above describes is the **current deployment** with monthly Nebim V3 exports. But the ingestion layer is deliberately decoupled: Bronze tables (`bronze_nebim_alis_raw`, `bronze_nebim_satis_raw`) take their schema directly from the Nebim V3 export structure, so replacing the current export-loader with a REST API client is a single-module change. Everything downstream, classification, deduplication, the 19 Gold-layer views, all 18 endpoints, every dashboard surface, keeps running unchanged.
+
+When direct database access is in place, every new transaction flows into the dashboard the moment it's entered in Nebim. The entire weekly and monthly reporting layer becomes fully real-time, with no manual refresh step, no T+1 month reporting cycle, and no batch wait between an anomaly emerging and the operator seeing it. The current deployment runs on periodic exports while the ERP integration security review gets finalized.
+
+The detailed before/after breakdown by dashboard surface is in [Operations Intelligence: From batch to real-time](#from-batch-to-real-time-what-the-api-integration-unlocks).
+
 The point isn't that automation is novel. The point is that **most Turkish textile manufacturers don't have it.** The sector still runs on Excel and human attention, and that gap is what this platform addresses for Rayon and what I'm now building toward addressing for other manufacturers as well.
 
 ---
@@ -126,6 +134,13 @@ I built this for Rayon. I'm now building toward doing the same for other manufac
 
 The repository is structured for transparency. Every analytical metric is traceable to a Gold-layer view; every view is traceable to a numbered SQL migration; every endpoint reads from exactly one view (with two exceptions where multi-query assembly is cleaner in Python). There is no analytical "magic"; the full data flow from web scraper or ERP export to dashboard card is auditable in the codebase.
 
+Below: the live database state on Railway. Left panel shows the Bronze and Silver layer tables (raw Nebim ingest, classified facts, dimension lookups, scraper outputs); right panel shows the Gold layer views that every API endpoint reads from.
+
+<p align="center">
+  <img src="./screenshots/postgres-tables.png" width="49%" alt="Bronze and Silver layer tables in Railway PostgreSQL" />
+  <img src="./screenshots/postgres-views.png" width="49%" alt="Gold layer views in Railway PostgreSQL" />
+</p>
+
 ---
 
 ## Module documentation
@@ -161,7 +176,11 @@ Beyond that, the active workstreams are:
 
 > A sector news intelligence pipeline that ingests Turkish and English-language textile news, classifies each article through an LLM into seventeen structured fields, surfaces high-impact signals in the UI, and pushes critical events to a Telegram bot.
 
-![Market Signals intelligence feed view](./screenshots/market-signals-hero.png)
+<p align="center">
+  <img src="./screenshots/market-signals-hero.png" width="73%" alt="Market Signals dashboard — Critical Signals, Top Themes, Intelligence Feed" />
+  <img src="./screenshots/market-signals-telegram.jpeg" width="22%" alt="Same signals delivered as a daily Telegram digest" />
+</p>
+
 
 This module is one of five analytical tabs in the [Rayon Intelligence Platform](../README.md). Companion docs:
 - [Export Intelligence](./EXPORT_INTELLIGENCE.md)
@@ -462,6 +481,10 @@ Below the summary, the entity badge (if any) shows the company name with a role 
 
 The full card body and `source_url` open in a side panel on click.
 
+<p align="center">
+  <img src="./screenshots/market-signals-cards.png" width="100%" alt="Intelligence Feed scrolled to show signal cards with category badges, entity tags, and Haberi aç (Open news) action button" />
+</p>
+
 ---
 
 ## API reference
@@ -617,7 +640,10 @@ automation:
 
 > Seventeen textile raw materials tracked daily across spot, futures, and proxy sources, feeding chain-spread analytics, divergence detection, volatility signals, and Turkey-lag estimates that translate global commodity moves into early signal for procurement planning and customer-facing pricing decisions.
 
-![Raw Material Price Intelligence, main view](./screenshots/price-intel-hero.png)
+<p align="center">
+  <img src="./screenshots/price-intel-hero.png" width="100%" alt="Raw Material Price Intelligence dashboard — ACTION NOW and WATCH signal tiers with KPI strip" />
+</p>
+
 
 This module is one of five analytical tabs in the [Rayon Intelligence Platform](../README.md). Companion docs:
 - [Market Signals](./MARKET_SIGNALS.md)
@@ -1252,6 +1278,10 @@ The visualization is unusual in commodity dashboards because most show only line
 
 The panel also has three view-mode buttons in its title row: `Price` (USD prices, default), `Normalize (baz=100)` (rebases all nodes to a common 100 starting point for cross-material direction comparison), and `Spread` (replaces absolute prices with chain spread values).
 
+<p align="center">
+  <img src="./screenshots/price-intel-polyester-chain.png" width="100%" alt="Polyester Chain visualization — PTA root branching into PSF staple and POY/DTY filament with FDY reference, plus a 30-day time-series chart of all five materials" />
+</p>
+
 ### Cotton: Spot vs Futures dual chart
 
 Two sub-panels side by side:
@@ -1271,6 +1301,10 @@ A single multi-line chart showing four superimposed time series over ~7 weeks:
 - **Adipic Acid** (green line), the leading-indicator upstream for PA66
 
 All four on a shared y-axis (USD/ton). The visual point of the panel is *lead-lag*: Adipic Acid (green) tends to move first; PA66 Chip (orange) follows; Nylon FDY (purple) follows further. Watching the four lines together gives a 4-week forward read on nylon pricing. The legend in the top right is interactive; clicking a legend entry hides/shows the corresponding line.
+
+<p align="center">
+  <img src="./screenshots/price-intel-cotton-nylon.png" width="100%" alt="Cotton Spot vs ICE Futures dual chart on the left and Nylon Family + Adipic Acid lead-lag chart on the right, rendered side-by-side in the dashboard" />
+</p>
 
 ### All Materials Summary table
 
@@ -1298,6 +1332,10 @@ Column inventory:
 | `TR LAG` | Turkey-lag estimate range (e.g. `4–8 wk`, `6–12 wk`) |
 
 Rows are sortable by any column (default sort is 30D% descending). A glance at any row gives current price, three time-window deltas, direction, intensity, data quality, and expected Turkey impact lag, without leaving the row.
+
+<p align="center">
+  <img src="./screenshots/price-intel-summary-table.png" width="100%" alt="All Materials Summary table — 14 tracked materials grouped by family (Polyester, Cotton, Nylon, Viscose) with price, 1D/7D/30D deltas, trend, momentum, quality tier, and Turkey lag estimate" />
+</p>
 
 ---
 
@@ -1920,7 +1958,10 @@ data_ingestion:
 
 > Seventy synthetic yarn specifications mapped to commodity drivers, with two-layer pricing (driver-level pressure signals and yarn-level estimated $/kg) surfacing how raw-material moves propagate through to finished-yarn pricing across six fiber families.
 
-![Yarn Intelligence, main view](./screenshots/yarn-intel-hero.png)
+<p align="center">
+  <img src="./screenshots/yarn-intel-hero.png" width="100%" alt="Yarn Intelligence dashboard — Phase D scope strip (Blend / Cotton / Modal / Polyamide / Polyester / Viscose), coverage tiers, and Today's Read insights panel" />
+</p>
+
 
 This module is one of five analytical tabs in the [Rayon Intelligence Platform](../README.md). Companion docs:
 - [Raw Material Price Intelligence](./PRICE_INTELLIGENCE.md)
@@ -2786,6 +2827,10 @@ Expanded child rows under this group:
 
 The fact that all four yarns under `pa66_chip` show the same $3.21 yarn $/kg is the visible signature of the **unactivated premium rules**, they should differ by denier class and luster, but currently don't because the JSONB rules aren't being applied. This is the exact gap that Phase E is designed to close.
 
+<p align="center">
+  <img src="./screenshots/yarn-intel-watchlist.png" width="100%" alt="Yarn Watchlist grouped by price driver — recycled_blend_staple, pm_blend_staple, pv_blend_staple groups expanded showing individual yarn specs with denier, spinning method, and confidence tier" />
+</p>
+
 ### Quality tier badges
 
 The QUALITY column carries one of 5 letter badges:
@@ -3292,7 +3337,10 @@ phase_evolution:
 
 > A Turkey-wide textile export radar built on UN Comtrade trade flows. Surfaces ten HS codes, partner-country drilldowns, momentum rankings, and a Texhibition competitive landscape, all from one shared analytical foundation.
 
-![Export Intelligence, hero view](./screenshots/export-intel-hero.png)
+<p align="center">
+  <img src="./screenshots/export-intel-hero.png" width="100%" alt="Export Intelligence dashboard — HS 5407 woven primary KPI strip, Top 10 destinations bar chart, and 3-month-smoothed monthly trend" />
+</p>
+
 
 This module is one of five analytical tabs in the [Rayon Intelligence Platform](../README.md). Companion docs:
 - [Market Signals](./MARKET_SIGNALS.md)
@@ -3529,9 +3577,12 @@ Color encoding:
 - YoY (green positive, red negative, 0-threshold)
 - HHI (green dispersed, yellow moderate, red concentrated)
 
+<p align="center">
+  <img src="./screenshots/export-intel-hs-overview.png" width="100%" alt="All HS Codes Overview table — ten Rayon-relevant HS codes side-by-side with Business/Tier/Latest USD/YoY/$ per kg/Partners/HHI/Top Partner columns, plus inline tooltip showing HS rationale" />
+</p>
+
 ### 4. Country drilldown panel
 
-![Country drilldown, HS × country detail view](./screenshots/export-intel-drilldown.png)
 
 For a selected HS × partner country pair, this panel shows a 13-month deep dive. Four KPI cards: latest value in million USD, share % within HS (with rank), implied $/kg, year-on-year % (color-coded).
 
@@ -3547,7 +3598,6 @@ The 66+ countries shown in the dropdown represent every partner that has appeare
 
 ### 5. Winners and Losers panel
 
-![Winners & Losers panel](./screenshots/export-intel-winners-losers.png)
 
 Two side-by-side tables: countries with the strongest growth on the left (green border), steepest decline on the right (red border). Each table shows the top 7 entries with columns: country (ISO + full name), last 6 months USD, prior 6 months USD, Δ USD, Δ %.
 
@@ -3561,9 +3611,12 @@ This toggle was added after the first version of the panel revealed an analytica
 
 The scope-aware baseline matters too: at the all-HS level, $300K is a sensible threshold; at the single-HS level, individual partner volumes are smaller, so the toggle drops the baseline to $25K automatically.
 
+<p align="center">
+  <img src="./screenshots/export-intel-drilldown.png" width="100%" alt="Country Drilldown for HS 5407 to USA with dual-axis trend chart (value vs share) on top, and the Winners and Losers momentum panel underneath comparing last 6M vs prior 6M" />
+</p>
+
 ### 6. Texhibition 2026 competitive landscape
 
-![Texhibition Competitive Landscape](./screenshots/export-intel-texhibition.png)
 
 This panel started with a different framing entirely. The initial design was *"Which buyer countries fielding Rayon-relevant demand will be at Texhibition?"*, but the underlying `fair_exhibitors` table had `export_markets` populated as NULL across all 501 records. The fair organizer hadn't collected destination-market data from exhibitors.
 
@@ -3588,6 +3641,12 @@ In the current snapshot, the tracked-competitor radar matched against several Te
 The operational value is concrete: before the September fair, the team has a pre-walkable shortlist instead of walking the fair cold. *Which booths to visit, what brief to prepare per match, what intelligence question to ask at each conversation*, all decided upstream of the fair entrance.
 
 The match logic itself is the more durable contribution. Adding or removing a name from the `companies` table updates the next refresh automatically; a planned extension would add explicit name aliases and normalized hash matching to tighten the recall rate (some current matches miss because of stylistic variants the LIKE pattern can't catch).
+
+<p align="center">
+  <img src="./screenshots/export-intel-texhibition.png" width="100%" alt="Texhibition 2026 Competitive Landscape — 371 Rayon-relevant exhibitors across category filter chips with booth assignments and tracked competitor flags (exhibitor names masked under demo mode for portfolio display)" />
+</p>
+
+*Note: real exhibitor names are masked here behind a server-side demo middleware (`DEMO_MODE=true`) for portfolio publication. In production, the actual Turkish manufacturer names appear with tracked-competitor highlighting.*
 
 ---
 
@@ -3766,7 +3825,10 @@ data_ingestion:
 
 > A daily ingestion pipeline that reads Turkey's EKAP public-procurement bulletin, scores every tender against a domain-specific keyword + institution taxonomy, and surfaces the small fraction (~7% of daily volume) that overlaps with Rayon's competitive niche in defense and protective textile.
 
-![Tender Intelligence, actionable feed](./screenshots/tender-intel-hero.png)
+<p align="center">
+  <img src="./screenshots/tender-intel-hero.png" width="100%" alt="Tender Intelligence dashboard — Actionable / High Priority / Medium / Urgent KPI strip and tender table with deadline tracking, EKAP IDs, and matched-keyword chips" />
+</p>
+
 
 This module is one of five analytical tabs in the [Rayon Intelligence Platform](../README.md). Companion docs:
 - [Market Signals](./MARKET_SIGNALS.md)
@@ -4295,6 +4357,8 @@ The section [From batch to real-time, what the API integration unlocks](#from-ba
 
 Operations Intelligence is the platform's view into Rayon's own operational reality, what the company buys, what it spends operating cost on, what it sells, and to whom. It answers questions like: *Is supplier concentration drifting into a risk zone? Which cost line items are moving abnormally? Is contra revenue (returns + discounts) elevated compared to the 24-month baseline? Who are the top 50 counterparties on each side, and what does the relationship history look like for each?* The module ingests five years of invoice-line data from Nebim V3 ERP, classifies every row into one of 29 business buckets (yarn vs greige fabric vs utilities vs maintenance vs core sales vs returns, and so on), produces a Gold-layer view stack with concentration trends, currency mix, mover analysis, and median-based anomaly detection, and serves it all through five dashboard tabs: Overview (executive 4-slot signals strip), Procurement (raw-material spend), Cost Structure (non-material operating cost), Revenue Reality (sales-side with contra anomaly), and Counterparty Explorer (tax-id-deduplicated unified supplier/customer registry).
 
+Every tab is a live analytical surface, no Excel files, no monthly compilation step. The reporting work that used to take the finance team three to five days each month (supplier concentration, cost-to-revenue ratios, top-customer lists, FX exposure breakdowns) is now produced and refreshed automatically every time someone opens the dashboard. The ingestion layer behind the dashboard is currently monthly batch, but everything downstream, classification, deduplication, aggregation, anomaly detection, all 19 Gold-layer views, all 18 endpoints, is already streaming-ready. When the live Nebim V3 REST API integration lands, the same reporting surfaces operate on transaction-level latency.
+
 ---
 
 ## The problem we set out to solve
@@ -4633,6 +4697,12 @@ The full view inventory and what each surface uses is documented in the per-tab 
 
 The classification engine is the analytical heart of Operations Intelligence. Without it, "Top 10 suppliers by spend" is dominated by electricity bills and "monthly revenue" is inflated by yarn-resale-to-customer transactions that are not core sales. The engine consumes raw Nebim invoice lines and outputs a deterministic, rule-traceable classification into 29 buckets organized across 7 categories:
 
+A sample of the engine's audit output: every classified row carries both the rule-based `product_group_expert` assignment and a human-readable `product_group_reason` showing exactly which rule fired. Rows where the engine disagreed with the original Nebim `product_group` field are flagged for review.
+
+<p align="center">
+  <img src="./screenshots/etl-classification-excel.png" width="100%" alt="Cleaned and expert-corrected Nebim order data showing the classification pipeline output — original product_group, rule-based product_group_expert, change flag, and the human-readable reason (numeric yarn pattern, fabric keyword, explicit iplik keyword, yarn technical keyword)" />
+</p>
+
 ### Procurement category (4 buckets): raw materials only
 
 These are the inputs Rayon buys to manufacture fabric. They are the entire scope of the Procurement dashboard tab after Migration 024 (see [The Migration 024 rescope decision](#the-migration-024-rescope-decision) below).
@@ -4795,6 +4865,11 @@ This is what production-grade analytical engineering looks like: the change is c
 ## Tab 1: Overview, the executive view
 
 The Overview tab is the executive landing page. It is designed to answer "what should I be paying attention to right now?" in one screen, with no clicks. The tab has four components stacked top to bottom:
+
+<p align="center">
+  <img src="./screenshots/ops-intel-overview.png" width="49%" alt="Operations Intelligence Overview — 4-slot signals strip (Customer Concentration, Procurement Concentration, Contra Revenue, Margin Trend) with severity badges, reference strip, and Procurement summary cards with sparklines" />
+  <img src="./screenshots/ops-intel-overview-scrolled.png" width="49%" alt="Operations Intelligence Overview scrolled — Cost Structure card grid, Revenue Reality cards, and the Contra Revenue anomaly callout flagging single-customer return concentration" />
+</p>
 
 ### Component 1.1: The 4-slot Top Signals strip
 
@@ -4990,6 +5065,10 @@ The view's logic computes a `top_bucket_per_supplier` by ranking buckets within 
 ## Tab 3: Cost Structure, non-material operating cost
 
 The Cost Structure tab covers the six production-category buckets (`utilities`, `maintenance_factory`, `packaging`, `factory_overhead`, `logistics_distribution`, `outsourced_processing`). These are the operating costs of running the factory exclusive of raw materials. Together with the Procurement tab, they form a non-overlapping cover of the operating-cost universe.
+
+<p align="center">
+  <img src="./screenshots/ops-intel-cost-structure.png" width="100%" alt="Operations Intelligence Cost Structure tab — 6-card KPI strip (Operating Cost Share, Outsourced Processing Share, Active Suppliers, Maintenance Share, Avg Monthly Cost, Cost/Revenue Δ), 3 cost-movers cards (Biggest Increase / Decrease / Highest Volatility), and the Monthly Cost Structure stacked-area chart" />
+</p>
 
 ### Component 3.1: 6-card KPI strip
 
