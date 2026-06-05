@@ -4969,6 +4969,10 @@ This is the only place in the Overview tab where a card expands beyond the stand
 
 The Procurement tab is the deep view into raw material purchasing, scoped to the four raw-material buckets defined by Migration 024.
 
+<p align="center">
+  <img src="./screenshots/ops-intel-procurement.png" width="100%" alt="Operations Intelligence Procurement tab showing the 6-card KPI strip (Top 3 Supplier Share, FX-Invoiced Share, Active Suppliers, Yarn Share, Greige Share, Largest MoM Mover), the Monthly Procurement by Bucket stacked chart across greige fabric, dye, chemical and yarn, and the Procurement Mix percentage over time" />
+</p>
+
 ### Component 2.1: The 6-card KPI strip
 
 | Card | Source | Definition |
@@ -5060,6 +5064,11 @@ Underlying view: `v_top_suppliers_overall` (Migration 015, rescoped by Migration
 
 The view's logic computes a `top_bucket_per_supplier` by ranking buckets within each supplier by TL spend and taking the rank-1 bucket, not `MAX(business_bucket)` (which would return alphabetic max, e.g., `raw_material_yarn` over `raw_material_greige_fabric` regardless of actual dominance). This is a small but important precision detail.
 
+<p align="center">
+  <img src="./screenshots/ops-intel-procurement-concentration.png" width="49%" alt="Procurement supplier concentration trend charting Top 1, Top 3 and Top 10 supplier share against the 33 percent Top-3 watch zone, with the monthly currency composition mix across TL, USD and EUR below it" />
+  <img src="./screenshots/ops-intel-procurement-suppliers.png" width="49%" alt="Procurement Top 10 Suppliers table listing TL spend, share, USD and EUR invoiced, dominant bucket and trend per supplier, shown beneath the currency composition mix chart" />
+</p>
+
 ---
 
 ## Tab 3: Cost Structure, non-material operating cost
@@ -5119,11 +5128,19 @@ Same format as Component 2.6 (Top 10 Suppliers table) but scoped to the six prod
 
 Underlying view: `v_top_cost_suppliers_overall` (Migration 022), 316 rows total, displayed top 10.
 
+<p align="center">
+  <img src="./screenshots/ops-intel-cost-suppliers.png" width="100%" alt="Cost Structure Cost Mix Over Time as a 100 percent stacked-area chart of the six production buckets, with the Top 10 Cost Suppliers table below showing TL spend, share, bucket spread and trend per supplier" />
+</p>
+
 ---
 
 ## Tab 4: Revenue Reality, sales side
 
 The Revenue Reality tab answers the symmetric questions for the sales side: who is buying from us, how concentrated is the customer base, what share of our revenue is FX-invoiced, and is contra revenue (returns + discounts) elevated.
+
+<p align="center">
+  <img src="./screenshots/ops-intel-revenue.png" width="100%" alt="Operations Intelligence Revenue Reality tab showing the 7-card KPI strip (Top 3 Customer Share, FX-Invoiced Share, Active Customers, Core Revenue Share, Avg Monthly Revenue, Contra Share of Gross, Top 3 Share delta) and the Monthly Revenue Gross vs Net area chart with secondary service revenue" />
+</p>
 
 ### Component 4.1: 7-card KPI strip
 
@@ -5168,6 +5185,10 @@ In the current snapshot, the top-3 line crosses the 33% watch zone in the most r
 Same horizontal table format as the supplier tables. Columns include `TL Revenue`, `Share`, `USD Invoiced`, `EUR Invoiced`, `Buckets` (count of distinct revenue buckets the customer appears in), `Last Invoice`, and a `Trend` directional arrow.
 
 Underlying view: `v_top_customers_overall`, 331 rows total, displayed top 10.
+
+<p align="center">
+  <img src="./screenshots/ops-intel-revenue-customers.png" width="100%" alt="Revenue Reality customer concentration trend charting Top 1, Top 3 and Top 10 customer share against the 33 percent watch zone, with the Top 10 Customers table below scoped to core revenue with yarn resale excluded" />
+</p>
 
 ### Component 4.5: Contra Revenue HIGH ANOMALY card
 
@@ -5245,6 +5266,11 @@ In the current snapshot, the card reads: total contra ₺28.7M, contra share 29.
 ## Tab 5: Counterparty Explorer, the unified entity registry
 
 The Counterparty Explorer is the tab that solves the entity-deduplication problem at the heart of operational analytics: *the same supplier or customer appears in the books under multiple name variants, and a meaningful view of "our relationship with X" requires unifying those variants*. The dim_counterparty entity does this, and the Explorer surfaces it.
+
+<p align="center">
+  <img src="./screenshots/ops-intel-counterparty-supplier.png" width="49%" alt="Counterparty Explorer in ALIŞ (Suppliers) mode showing a supplier drill-down with monthly TL trend, purchase-side bucket split, currency split, top accounts and a classification quality panel" />
+  <img src="./screenshots/ops-intel-counterparty-customer.png" width="49%" alt="Counterparty Explorer in SATIŞ (Customers) mode showing a customer drill-down with monthly TL trend, sales-side bucket split, currency split and top accounts" />
+</p>
 
 ### Component 5.1: Mode toggle
 
