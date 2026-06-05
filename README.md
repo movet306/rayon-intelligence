@@ -168,9 +168,6 @@ Beyond that, the active workstreams are:
 
 ---
 
-**Built and maintained by [Mert Övet](https://www.linkedin.com/in/mertovet/) ·  Based in Istanbul, Turkey.**
-
----
 
 # Market Signals
 
