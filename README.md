@@ -3,6 +3,14 @@
 
 # Rayon Intelligence Platform
 
+<p align="center">
+  <a href="https://www.linkedin.com/feed/update/urn:li:activity:7468618151849664512/" target="_blank">
+    <img src="https://img.shields.io/badge/▶_Watch_Live_Demo-on_LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Watch the live demo on LinkedIn" />
+  </a>
+</p>
+
+<p align="center"><sub><i>A recorded walkthrough of the platform in production at Rayon, covering all six modules and the daily intelligence loop in action.</i></sub></p>
+
 **A production-grade operational analytics platform for a mid-sized Turkish textile manufacturer. Six integrated modules running against a unified PostgreSQL warehouse: ERP-sourced operations, commodity price intelligence, yarn-grade price pressure, competitor news monitoring, public-sector tender pipeline, and export flow analytics. All fed by daily automated scrapers and a custom 29-bucket classification engine.**
 
 What used to take our finance team 3–5 days every month now updates in real time on a dashboard. What used to require manual reading of trade publications and manual market-checking now arrives as filtered Telegram digests every morning. What used to be a post-hoc month-end discovery of contra revenue anomalies is now a real-time card with median-based severity detection. This README walks through why I built it, what it does, what it automates, and why I think this kind of work is the actual opportunity in Turkish manufacturing right now.
